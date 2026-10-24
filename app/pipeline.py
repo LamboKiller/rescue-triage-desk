@@ -10,12 +10,13 @@ import threading
 import time
 import uuid
 import re
-from app.agents import baseline, intake, critic
+from app.agents import baseline, intake, critic, location as location_agent
 from app.agents.spans import validate
 from app.config import ROOT, safe_error
 from app.data.source import LocalSource, ZetarisSource
 from app.decide import decide, timestamp
 from app.geo.streets import lookup
+from app.geo.landmarks import match as match_landmark
 from app.llm.nightshift import Nightshift, TRACE_LOCK
 from app.redact import redact
 
@@ -77,19 +78,29 @@ class Pipeline:
         trace = ROOT/'logs'/('run_'+run_id+'.jsonl')
         client = self.client or Nightshift(trace)
         source_error = None
+        landmark_rows, landmark_error = [], None
         source_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         try:
             source_future = source_pool.submit(self.source.streets, timeout=max(.01, deadline-time.monotonic()))
             rows = source_future.result(timeout=max(0, deadline-time.monotonic()))
+            if hasattr(self.source, 'landmarks'):
+                landmark_future = source_pool.submit(self.source.landmarks, timeout=max(.01, deadline-time.monotonic()))
+                try:
+                    landmark_rows = landmark_future.result(timeout=max(0, deadline-time.monotonic()))
+                except Exception as exc:
+                    landmark_error = safe_error(exc)
         except Exception as exc:
             rows, source_error = [], safe_error(exc)
         finally:
             source_pool.shutdown(wait=False, cancel_futures=True)
         def process(message):
+            message_started = time.monotonic()
             fields, unsupported, calls, errors = {}, [], [], []
+            review_degraded = False
+            initial_fields = {}
             if isinstance(client, Nightshift):
                 client.start_message(message['message_id'])
-            stages = {'intake': None, 'critic': None, 'revision': None}
+            stages = {'intake': None, 'critic': None, 'revision': None, 'location': None}
             complete = source_error is None
             if source_error:
                 errors.append('data_source_failed:'+source_error)
@@ -103,14 +114,22 @@ class Pipeline:
                     stages['intake'] = output
                     fields, rejected = validate(output, message['text'])
                     unsupported.extend(rejected)
+                    initial_fields = dict(fields)
                     if not isinstance(output, dict) or not isinstance(output.get('fields'), dict):
                         raise ValueError('Intake schema invalid')
                     if ablation != 'intake':
-                        review, meta = critic.run(client, message['text'], fields, deadline)
-                        calls.append(meta)
-                        stages['critic'] = review
+                        try:
+                            review, meta = critic.run(client, message['text'], fields, deadline)
+                        except Exception as exc:
+                            stages['critic'] = 'failed'
+                            review_degraded = True
+                            errors.append('critic_failed:'+safe_error(exc))
+                            review, meta = {'objections': []}, None
+                        if meta is not None:
+                            calls.append(meta)
+                            stages['critic'] = review
                         objections = review['objections'] + [{'field': r['field'], 'reason': r['reason']} for r in rejected]
-                        if objections:
+                        if objections and not review_degraded:
                             revised, meta = intake.run(client, message['text'], deadline, objections)
                             calls.append(meta)
                             stages['revision'] = revised
@@ -127,11 +146,35 @@ class Pipeline:
             get = lambda key: fields.get(key, {}).get('value', '')
             # This textual contradiction check does not depend on model compliance.
             counts = re.findall(r'\b(\d+)\s+(?:pessoas|pesssoas)\b', message['text'], re.I)
-            if len(set(counts)) > 1:
+            if len(set(counts)) > 1 and not re.search(r'na verdade|corrigindo|corrijo', message['text'], re.I):
                 fields['conflicting_counts'] = {'value': True, 'quote': message['text']}
             location = lookup(rows, get('street'), get('municipality'), replay)
             cross = lookup(rows, get('cross_street'), get('municipality'), replay) if get('cross_street') else None
-            result = decide(fields, location, replay, message['received_at'], complete=complete, cross_location=cross)
+            landmark = None
+            needs_location = bool(get('landmark') or not (get('street') and get('number')))
+            if needs_location:
+                guess = {'place_name': get('landmark'), 'landmark_quote': get('landmark'),
+                         'municipality': get('municipality'), 'neighbourhood': ''}
+                if not self.sample and ablation != 'baseline':
+                    try:
+                        guess, meta = location_agent.run(client, message['text'], get('municipality'), deadline)
+                        if get('municipality'):
+                            guess['municipality'] = get('municipality')
+                        stages['location'] = guess
+                        calls.append(meta)
+                    except Exception as exc:
+                        stages['location'] = 'failed'
+                        errors.append('location_failed:'+safe_error(exc))
+                landmark = match_landmark(landmark_rows, **guess, replay=replay)
+                landmark['requested'] = bool(get('landmark') or guess.get('landmark_quote'))
+                if landmark_error:
+                    landmark['source_error'] = landmark_error
+                if time.monotonic() >= deadline:
+                    complete = False
+            result = decide(fields, location, replay, message['received_at'], complete=complete,
+                            cross_location=cross, landmark_location=landmark)
+            if review_degraded:
+                result.update(decision='REVIEW_REQUIRED', questions=[])
             if isinstance(client, Nightshift):
                 calls = client.message_calls()
             proposed = sum(len(stage.get('fields', {})) for key, stage in stages.items()
@@ -140,7 +183,9 @@ class Pipeline:
                 proposed = len(fields)+len(unsupported)
             case = {**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else ablation,
                     'fields': fields, 'unsupported': unsupported, 'agents': stages, 'calls': calls,
-                    'checks': location, 'cross_street_check': cross, 'result': result, 'errors': errors,
+                    'checks': location, 'cross_street_check': cross, 'landmark_check': landmark,
+                    'result': result, 'errors': errors, 'review_degraded': review_degraded,
+                    'initial_fields': initial_fields, 'seconds': round(time.monotonic()-message_started, 4),
                     'complete': complete, 'proposed_field_count': proposed,
                     'call_count_complete': 'global_deadline' not in errors,
                     'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}

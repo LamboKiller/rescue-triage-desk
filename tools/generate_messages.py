@@ -42,14 +42,17 @@ def generate(seed=7, n=15, rows=None, family_ids=None):
         row = rng.choice(wet if rng.random() < .8 else rows)
         p, number = rng.randint(2, 7), rng.randint(10, 999)
         children, elderly, disabled, pets = rng.randrange(2), rng.randrange(2), rng.randrange(2), rng.randrange(2)
-        details = ' '.join(f'{count} {label}.' for count, label in [(children, 'crianças'), (elderly, 'idosos'),
-                            (disabled, 'acamados'), (pets, 'cachorros')] if count)
+        details = ' '.join(f'{count} {singular if count == 1 else plural}.' for count, singular, plural in
+                          [(children, 'criança', 'crianças'), (elderly, 'idoso', 'idosos'),
+                           (disabled, 'acamado', 'acamados'), (pets, 'cachorro', 'cachorros')] if count)
         family = families[i % len(families)]
         text = TEMPLATES[family].format(p=p, s=row['display_name'], c=row['municipality'], n=number,
                                           other=p+1, detail=details)
         # Additional deterministic typo variants, without changing the truth fields.
         if i % 4 == 0:
-            text = text.replace('pessoas', 'pesssoas')
+            text = text.replace('por favor', 'pfv').replace('número', 'nº')
+        elif i % 7 == 0:
+            text = text.replace('estamos', 'tamos').replace('ajuda', 'ajda')
         assert not re.search(r'(?<!\d)\d{3}\.?\d{3}\.?\d{3}[- ]?\d{2}(?!\d)', text)
         mid = f'synthetic-seed{seed}-{i:03d}'
         messages.append({'message_id': mid, 'text': text, 'synthetic': True,
@@ -87,8 +90,6 @@ def write(seed, n, family_ids=None):
     (path/f'messages_seed{seed}.jsonl').write_text(''.join(json.dumps(m, ensure_ascii=False)+'\n' for m in messages), encoding='utf-8')
     (path/f'truth_seed{seed}.json').write_text(json.dumps(truth, indent=2, ensure_ascii=False), encoding='utf-8')
     print(f'seed={seed}: {n} messages; separate truth file')
-    for m in messages[:5]:
-        print(m['text'])
 
 
 if __name__ == '__main__':

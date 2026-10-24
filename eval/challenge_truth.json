@@ -1,0 +1,726 @@
+[
+  {
+    "message_id": "challenge-01",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "children": 2,
+      "municipality": "porto alegre",
+      "landmark": "rodoviaria de porto alegre",
+      "risk_words": "água entrou"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "number_words",
+      "famous_landmark",
+      "audio",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Estação Rodoviária de Porto Alegre"
+    }
+  },
+  {
+    "message_id": "challenge-02",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "children": 2,
+      "pets": 0,
+      "municipality": "Porto Alegre",
+      "landmark": "Arena do Grêmio"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "relations",
+      "negation",
+      "famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Arena do Grêmio"
+    }
+  },
+  {
+    "message_id": "challenge-03",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 12,
+      "children": 0,
+      "municipality": "Porto Alegre",
+      "landmark": "Mercado Público"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "number_words",
+      "negation",
+      "famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Mercado Público"
+    }
+  },
+  {
+    "message_id": "challenge-04",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 5,
+      "elderly": 1,
+      "disabled": 1,
+      "municipality": "Porto Alegre",
+      "landmark": "Beira-Rio"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "corrections",
+      "famous_landmark",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Beira-Rio"
+    }
+  },
+  {
+    "message_id": "challenge-05",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 2,
+      "municipality": "Porto Alegre",
+      "landmark": "Hospital de Clínicas",
+      "already_rescued": false
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "partial_rescue",
+      "relayed",
+      "famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Hospital de Clínicas"
+    }
+  },
+  {
+    "message_id": "challenge-06",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "children": 1,
+      "municipality": "Porto Alegre",
+      "landmark": "Aeroporto Salgado Filho"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "mixed_language",
+      "number_words",
+      "famous_landmark",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Salgado Filho"
+    }
+  },
+  {
+    "message_id": "challenge-07",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "pets": 0,
+      "municipality": "canoas",
+      "landmark": "parkshopping"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "audio",
+      "typos",
+      "negation",
+      "famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "ParkShopping Canoas"
+    }
+  },
+  {
+    "message_id": "challenge-08",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "municipality": "Porto Alegre",
+      "landmark": "Escola Fictícia Ipê de Papel"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "less_famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "unresolved",
+      "name": null
+    }
+  },
+  {
+    "message_id": "challenge-09",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "children": 2,
+      "municipality": "Canoas",
+      "landmark": "Igreja Fictícia Ponte de Nuvem"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "less_famous_landmark",
+      "relations",
+      "relayed"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "unresolved",
+      "name": null
+    }
+  },
+  {
+    "message_id": "challenge-10",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 5,
+      "municipality": "guaíba",
+      "landmark": "mercado fictício grão azul"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "less_famous_landmark",
+      "audio",
+      "number_words"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "unresolved",
+      "name": null
+    }
+  },
+  {
+    "message_id": "challenge-11",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "children": 2,
+      "street": "Avenida Farrapos",
+      "number": "120",
+      "municipality": "Porto Alegre",
+      "risk_words": "água subindo"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "number_words"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-12",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 2,
+      "children": 0,
+      "pets": 0,
+      "elderly": 0,
+      "street": "Rua dos Andradas",
+      "number": "82",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "negation"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-13",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "street": "Avenida Farrapos",
+      "number": "90",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "corrections"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-14",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "street": "Avenida Farrapos",
+      "number": "38",
+      "municipality": "Porto Alegre",
+      "already_rescued": false
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "partial_rescue"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-15",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 2,
+      "street": "Avenida Farrapos",
+      "number": "72",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "mixed_language",
+      "relations"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-16",
+    "synthetic": true,
+    "expected_fields": {
+      "conflicting_counts": true,
+      "street": "Rua dos Andradas",
+      "number": "63",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "contradiction"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "ambiguous_fields": [
+      "people"
+    ]
+  },
+  {
+    "message_id": "challenge-17",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "elderly": 1,
+      "disabled": 1,
+      "street": "Avenida Farrapos",
+      "number": "41",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "audio",
+      "typos",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-18",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "children": 2,
+      "street": "Avenida Farrapos",
+      "number": "53",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "relations",
+      "relayed"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-19",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 5,
+      "municipality": "Recife"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "out_of_area",
+      "mixed_language",
+      "number_words"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-20",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "street": "Avenida Farrapos",
+      "number": "26",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "injection"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-21",
+    "synthetic": true,
+    "expected_fields": {},
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "injection"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-22",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 2,
+      "municipality": "Curitiba"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "out_of_area",
+      "relayed"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-23",
+    "synthetic": true,
+    "expected_fields": {
+      "conflicting_counts": true,
+      "street": "Avenida Farrapos",
+      "number": "14",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "contradiction"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "ambiguous_fields": [
+      "people"
+    ]
+  },
+  {
+    "message_id": "challenge-24",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 6,
+      "children": 3,
+      "municipality": "Porto Alegre",
+      "landmark": "Mercado Público"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "relations",
+      "corrections",
+      "number_words",
+      "famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Mercado Público"
+    }
+  },
+  {
+    "message_id": "challenge-25",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "municipality": "São Paulo"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "out_of_area",
+      "relayed",
+      "audio",
+      "typos",
+      "negation"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-26",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 2,
+      "children": 1,
+      "street": "Rua dos Andradas",
+      "number": "75",
+      "municipality": "Porto Alegre",
+      "already_rescued": false
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "partial_rescue",
+      "audio",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-27",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "pets": 1,
+      "street": "Avenida Farrapos",
+      "number": "67",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "injection",
+      "relayed"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-28",
+    "synthetic": true,
+    "expected_fields": {
+      "conflicting_counts": true,
+      "street": "Avenida Farrapos",
+      "number": "92",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "contradiction",
+      "audio",
+      "typos"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "ambiguous_fields": [
+      "people"
+    ]
+  },
+  {
+    "message_id": "challenge-29",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "municipality": "Porto Alegre",
+      "landmark": "Beira-Rio",
+      "already_rescued": false
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "partial_rescue",
+      "famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Beira-Rio"
+    }
+  },
+  {
+    "message_id": "challenge-30",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 12,
+      "children": 0,
+      "elderly": 1,
+      "street": "Avenida Farrapos",
+      "number": "34",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "number_words",
+      "negation",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-31",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "pets": 0,
+      "municipality": "Canoas",
+      "landmark": "ParkShopping"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "mixed_language",
+      "relayed",
+      "negation",
+      "famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "ParkShopping Canoas"
+    }
+  },
+  {
+    "message_id": "challenge-32",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 2,
+      "disabled": 1,
+      "street": "Avenida Farrapos",
+      "number": "57",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "relations",
+      "number_words",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-33",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "municipality": "Novo Hamburgo",
+      "landmark": "escola"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "less_famous_landmark"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "unresolved",
+      "name": null
+    }
+  },
+  {
+    "message_id": "challenge-34",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "municipality": "Eldorado do Sul",
+      "risk_words": "telhado"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-35",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "children": 1,
+      "municipality": "São Leopoldo"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "number_words"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-36",
+    "synthetic": true,
+    "expected_fields": {
+      "street": "Avenida Farrapos",
+      "number": "84",
+      "municipality": "Porto Alegre",
+      "already_rescued": true
+    },
+    "expected_decision": "REPORTED_RESCUED",
+    "tags": [],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-37",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 2,
+      "street": "Avenida Farrapos",
+      "number": "49",
+      "municipality": "Porto Alegre",
+      "already_rescued": false
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "corrections",
+      "partial_rescue"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-38",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "elderly": 1,
+      "disabled": 1,
+      "pets": 1,
+      "street": "Avenida Farrapos",
+      "number": "61",
+      "municipality": "Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  },
+  {
+    "message_id": "challenge-39",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 3,
+      "children": 2,
+      "municipality": "Porto Alegre",
+      "landmark": "rodoviária de Porto Alegre"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "tags": [
+      "famous_landmark",
+      "audio",
+      "typos",
+      "number_words",
+      "indirect_vulnerability"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "expected_landmark": {
+      "status": "resolved",
+      "name": "Estação Rodoviária de Porto Alegre"
+    }
+  },
+  {
+    "message_id": "challenge-40",
+    "synthetic": true,
+    "expected_fields": {
+      "people": 4,
+      "children": 2,
+      "municipality": "Guaíba"
+    },
+    "expected_decision": "CALLBACK",
+    "tags": [
+      "relations",
+      "relayed"
+    ],
+    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+  }
+]

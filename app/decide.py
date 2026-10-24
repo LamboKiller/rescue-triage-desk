@@ -14,18 +14,27 @@ def timestamp(value):
     return dt
 
 
-def decide(fields, location, replay_time, received_at, complete=True, cross_location=None):
+def decide(fields, location, replay_time, received_at, complete=True, cross_location=None, landmark_location=None):
     def v(key, default=None):
         return fields.get(key, {}).get('value', default)
     questions = []
     people = v('people', 0)
     conflict = v('conflicting_counts', False) or any(v(k, 0) > people for k in ('children', 'elderly', 'disabled'))
-    if not v('municipality'):
+    lm = landmark_location or {}
+    resolved = lm.get('status') == 'resolved'
+    landmark_request = bool(v('landmark') or lm.get('requested'))
+    if not v('municipality') and not resolved:
         questions.append('Em qual município está o pedido?')
-    if not location['found']:
-        questions.append('Qual é a rua e o município exatos? Só o ponto de referência não basta.')
+    if landmark_request and not resolved:
+        if lm.get('status') == 'ambiguous':
+            names = [r['name'] + (' ('+r['neighbourhood']+')' if r.get('neighbourhood') else '') for r in lm['candidates']]
+            questions.append('É '+ ' ou '.join(names) +'?')
+        else:
+            questions.append('Qual o nome do lugar/bairro?')
+    elif not location['found'] and not resolved:
+        questions.append('Qual é a rua e o município exatos?')
     exact_cross = bool(v('cross_street') and cross_location and cross_location['found'])
-    if not v('number') and not exact_cross:
+    if not v('number') and not exact_cross and not landmark_request and not resolved:
         questions.append('Qual é o número da casa ou o cruzamento exato entre duas ruas?')
     if people < 1:
         questions.append('Quantas pessoas precisam de resgate?')
@@ -48,4 +57,5 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
         questions.append('O resgate foi confirmado por uma equipe em campo?')
     return {'decision': decision, 'priority': priority, 'questions': questions,
             'age_hours': round(age, 2), 'conflicting_counts': conflict,
-            'location_confidence': 'rua no cadastro; confirmar com pessoa' if location['found'] else 'insuficiente'}
+            'location_confidence': 'local por ponto de referência — confirmar com a pessoa' if resolved else
+                ('rua no cadastro; confirmar com pessoa' if location['found'] else 'insuficiente')}

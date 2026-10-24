@@ -34,3 +34,34 @@ differ from the R3 intersecting-way calculation. No household location is inferr
 Unknown publication times exclude flood overlap from contemporaneous decisions.
 No permanent-water mask: overlap is not flood depth, passability or a route check.
 May 8 coverage differs substantially; zero overlap never establishes recession.
+
+## Named landmarks snapshot 2026-10-24T12:48:37.916512+00:00
+
+© OpenStreetMap contributors; ODbL 1.0 (https://www.openstreetmap.org/copyright). Current Overpass snapshot is retrospective relative to May 2024; names and geometry may have changed. Way/relation centers are representative points, not entrances. Membership uses the same census and observed-water layers and indexed point-in-polygon code as prepare_data (holes respected). Unknown publication times exclude water flags from contemporaneous priority. Features whose center is outside census coverage are excluded. Queries:
+
+```overpass
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(bus_station)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(hospital)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(clinic)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(school)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(university)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(place_of_worship)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(marketplace)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(fire_station)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(police)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(townhall)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(community_centre)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(pharmacy)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["amenity"~"^(fuel)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["shop"~"^(supermarket)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["shop"~"^(mall)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["public_transport"~"^(station)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["railway"~"^(station)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["leisure"~"^(stadium)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["leisure"~"^(park)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["place"~"^(square)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["place"~"^(neighbourhood)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["place"~"^(suburb)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["tourism"~"^(attraction)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["tourism"~"^(museum)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+```

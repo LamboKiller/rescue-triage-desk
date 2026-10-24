@@ -5,7 +5,7 @@ per-call limit (measured 24/10, tools/diagnose_intake*.py). A short "copy the ex
 limit, and parsing numbers in code keeps maths out of the model (design rule: tools count, models read).
 """
 import re
-from app.agents.spans import NUMBER_WORDS, folded
+from app.agents.counts import NUMBER_WORDS, count, folded
 
 # model key -> app field name
 KEYS = {'people': 'people', 'children': 'children', 'elderly': 'elderly', 'disabled': 'disabled', 'pets': 'pets',
@@ -19,18 +19,13 @@ SYSTEM = ('Você extrai trechos de UMA mensagem de resgate (sintética). Copie t
           'Responda só JSON com os campos que aparecem: {"people": "...", "children": "...", "elderly": "...", '
           '"disabled": "...", "pets": "...", "street": "...", "number": "...", "municipality": "...", '
           '"landmark": "...", "cross_street": "...", "risk": "...", "rescued": "..."}. '
-          'disabled inclui acamado/cadeirante. rescued só se a mensagem disser que já foram resgatados. '
+          'Para listas de familiares, copie a lista inteira em people. Copie a correção mais recente. '
+          'disabled inclui quem não anda. rescued só se TODOS do pedido já foram resgatados. '
           'Fato negado ou incerto não conta.')
 
 
 def _count(quote):
-    m = re.search(r'\b(\d{1,5})\b', quote)
-    if m:
-        return int(m.group(1))
-    for word in re.findall(r'[a-z]+', folded(quote)):
-        if word in WORD_TO_INT:
-            return WORD_TO_INT[word]
-    return None
+    return count(quote)
 
 
 def to_fields(raw):
@@ -44,7 +39,7 @@ def to_fields(raw):
             continue
         quote = quote.strip()
         if key in COUNT_KEYS:
-            value = _count(quote)
+            value = count(quote, name)
             if value is None:
                 continue
         elif key == 'number':

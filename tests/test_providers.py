@@ -48,7 +48,7 @@ class ContractTests(unittest.TestCase):
         self.assertNotIn('/no_think', req.data.decode())
         self.assertEqual(req.get_header('Meterless-app'), 'rescue-triage-desk')
         self.assertEqual(req.get_header('Meterless-scope'), 'user')
-        self.assertEqual(timeout, 180)
+        self.assertEqual(timeout, 75)
         self.assertEqual(meta['model'], 'actual-test-model')
         self.assertEqual(meta['receipt'], 'test-receipt')
         self.assertEqual(meta['message_id'], 'synthetic-provider-test')

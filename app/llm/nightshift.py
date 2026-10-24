@@ -80,6 +80,7 @@ class Nightshift:
         body = {'model': setting('NIGHTSHIFT_MODEL', 'nvidia/nemotron-3.5-lightning-30b-a3b'),
                 'max_tokens': int(setting('NIGHTSHIFT_MAX_TOKENS', '6000')), 'stream': True,
                 'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': redact(content)}]}
+        invalid_retried = False
         for attempt in range(3):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -93,7 +94,8 @@ class Nightshift:
                 req = urllib.request.Request(setting('NIGHTSHIFT_BASE_URL', 'http://127.0.0.1:8088/v1').rstrip('/')+'/chat/completions',
                     data=json.dumps(body).encode(), headers={'Content-Type': 'application/json',
                     'Authorization': 'Bearer '+key, 'meterless-app': 'rescue-triage-desk', 'meterless-scope': 'user'})
-                with urllib.request.urlopen(req, timeout=min(180, remaining)) as response:
+                with urllib.request.urlopen(req, timeout=min(float(setting('NIGHTSHIFT_CALL_TIMEOUT', '75')), remaining)) as response:
+                    event['http_status'] = getattr(response, 'status', None) or 200
                     text, meterless = read_stream(response)
                 event.update(model=meterless.get('routed_model'), receipt=meterless.get('receipt_id'),
                              route_kind=(meterless.get('winning_route') or {}).get('kind'))
@@ -116,6 +118,11 @@ class Nightshift:
                     event.update(http_status=exc.code, detail=str(err.get('meterless_detail') or err.get('message') or '')[:160])
                 if not retry or attempt == 2 or time.monotonic() >= deadline:
                     raise RuntimeError('Nightshift step failed') from None
+            except ValueError as exc:
+                event.update(status='failed', error=type(exc).__name__, detail='empty_or_invalid_json')
+                if invalid_retried or attempt == 2 or time.monotonic() >= deadline:
+                    raise RuntimeError('Nightshift response invalid') from None
+                invalid_retried, retry = True, True
             except Exception as exc:
                 event.update(status='failed', error=type(exc).__name__)
                 raise RuntimeError('Nightshift response invalid') from None

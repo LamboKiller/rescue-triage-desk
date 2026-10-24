@@ -67,8 +67,14 @@ class PipelineTests(unittest.TestCase):
 
     def test_failed_critic_cannot_send(self):
         result = Pipeline(self.registry, source=FakeSource(), client=FakeLLM('critic')).run(self.request())
-        self.assertTrue(result['partial'])
-        self.assertEqual(result['cases'][0]['result']['decision'], 'CALLBACK')
+        self.assertFalse(result['partial'])
+        c = result['cases'][0]
+        self.assertTrue(c['complete'])
+        self.assertTrue(c['review_degraded'])
+        self.assertEqual(c['agents']['critic'], 'failed')
+        self.assertEqual(c['fields']['people']['value'], 3)
+        self.assertEqual(c['result']['decision'], 'REVIEW_REQUIRED')
+        self.assertEqual(c['result']['questions'], [])
 
     def test_offline_no_network_and_not_precomputed(self):
         with patch('urllib.request.urlopen', side_effect=AssertionError('network')):

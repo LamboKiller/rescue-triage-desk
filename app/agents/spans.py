@@ -2,6 +2,7 @@
 import unicodedata
 import re
 from app.geo.streets import normalize
+from app.agents.counts import count
 
 COUNTS = {'people', 'children', 'elderly', 'disabled', 'pets'}
 TEXT = {'street', 'number', 'municipality', 'landmark', 'cross_street', 'risk_words'}
@@ -37,8 +38,7 @@ def validate(output, text):
                 reason = 'invalid_text'
             elif key in ('already_rescued', 'conflicting_counts') and type(value) is not bool:
                 reason = 'invalid_boolean'
-            elif key in COUNTS and not (str(value) in re.findall(r'\b\d+\b', quote)
-                    or any(re.search(r'\b'+word+r'\b', folded(quote)) for word in NUMBER_WORDS.get(value, []))):
+            elif key in COUNTS and count(quote, key) != value:
                 reason = 'unsupported_count_value'
             elif key in ('street', 'cross_street', 'municipality') and normalize(value) not in normalize(quote):
                 reason = 'unsupported_location_value'
