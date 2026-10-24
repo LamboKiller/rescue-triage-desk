@@ -98,7 +98,10 @@ class EvaluationTests(unittest.TestCase):
             storage.return_value.get.side_effect = lambda key: uploads[key]
             client.return_value.query.side_effect = lambda sql, **kw: {'data':[[table_count[0]]]}
             counts = load()
-            self.assertEqual(counts['landmarks_v3'], 4191)
+            import csv as _csv
+            with open(Path(__file__).resolve().parents[1]/'data/landmarks.csv', encoding='utf-8', newline='') as f:
+                expected = sum(1 for _ in _csv.DictReader(f))
+            self.assertEqual(counts['landmarks_v3'], expected)
             self.assertTrue(all(key.endswith('_v3') for key in counts))
             statements = [c.args[0] for c in client.return_value.query.call_args_list
                           if c.args[0].startswith('CREATE LIGHTNING FILESTORE')]
@@ -124,8 +127,10 @@ class RealLandmarkTests(unittest.TestCase):
                 result = match(self.rows, landmark_quote=query, municipality=city,
                                streets=self.streets, message=query)
                 if query == 'salgado filho':
-                    # This snapshot has no airport: never silently choose the school.
-                    self.assertEqual(result['status'], 'unresolved')
+                    # Airport now in data, but OSM lacks the 'Salgado Filho' alias (curated alias list pending):
+                    # must never silently resolve to the school of the same name.
+                    self.assertIn(result['status'], ('unresolved', 'ambiguous'))
+                    self.assertNotIn('Escola', str((result.get('matched') or {}).get('name', '')))
                     continue
                 self.assertEqual(result['status'], 'resolved')
                 if oid:
