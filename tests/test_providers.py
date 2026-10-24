@@ -42,7 +42,8 @@ class ContractTests(unittest.TestCase):
         req, timeout = captures[0]
         body = json.loads(req.data)
         self.assertEqual(body['model'], 'nvidia/nemotron-3.5-lightning-30b-a3b')
-        self.assertEqual(body['max_tokens'], 2000)
+        self.assertEqual(body['max_tokens'], 6000)
+        self.assertTrue(body['stream'])
         self.assertNotIn('chat_template_kwargs', body)
         self.assertNotIn('/no_think', req.data.decode())
         self.assertEqual(req.get_header('Meterless-app'), 'rescue-triage-desk')

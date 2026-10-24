@@ -30,15 +30,15 @@ class FakeLLM:
     def call(self, role, system, payload, deadline):
         self.roles.append(role)
         assert 'UNTRUSTED DATA' in system
-        assert '[EMAIL REDIGIDO]' in payload['message_data']
+        assert '[EMAIL REDIGIDO]' in payload
         if role == self.fail_role:
             raise TimeoutError('test only')
-        fields = {k: {'value': v, 'quote': q} for k, v, q in [
-            ('people', 3, '3 pessoas'), ('street', 'Rua das Flores', 'Rua das Flores'),
-            ('number', '20', 'número 20'), ('municipality', 'Porto Alegre', 'Porto Alegre')]}
+        # New intake contract: the model returns {field: exact quote}; code derives values.
+        quotes = {'people': '3 pessoas', 'street': 'Rua das Flores', 'number': 'número 20',
+                  'municipality': 'Porto Alegre'}
         if role == 'intake':
-            fields['elderly'] = {'value': 1, 'quote': 'uma idosa inventada'}
-        out = {'objections': [{'field': 'elderly', 'reason': 'unsupported', 'quote': ''}]} if role == 'critic' else {'fields': fields}
+            quotes['elderly'] = 'uma idosa inventada'
+        out = {'objections': [{'field': 'elderly', 'reason': 'unsupported', 'quote': ''}]} if role == 'critic' else quotes
         return out, {'role': role, 'model': 'TEST-ONLY-FakeLLM', 'receipt': 'TEST-ONLY', 'seconds': 0,
                      'route_kind': 'test'}
 

@@ -23,6 +23,33 @@ def first_json(content):
     raise ValueError('No JSON object or array')
 
 
+def read_stream(response):
+    """Read an OpenAI-style SSE stream. Returns (answer text, last meterless metadata block).
+    Also accepts a plain JSON body (some servers ignore stream=True)."""
+    content, meterless, raw_lines = [], {}, []
+    for raw in response:
+        line = raw.decode('utf-8', 'replace').strip()
+        raw_lines.append(line)
+        if not line.startswith('data:'):
+            continue
+        data = line[5:].strip()
+        if data == '[DONE]':
+            break
+        try:
+            event = json.loads(data)
+        except ValueError:
+            continue
+        if isinstance(event.get('meterless'), dict):
+            meterless.update(event['meterless'])
+        for choice in event.get('choices', []):
+            content.append((choice.get('delta') or {}).get('content') or '')
+            content.append((choice.get('message') or {}).get('content') or '')
+    if not any(l.startswith('data:') for l in raw_lines):
+        data = json.loads('\n'.join(raw_lines))
+        return data['choices'][0]['message']['content'] or '', data.get('meterless', {}) or {}
+    return ''.join(content), meterless
+
+
 class Nightshift:
     def __init__(self, trace_path):
         self.trace_path = trace_path
@@ -48,9 +75,11 @@ class Nightshift:
         if not key:
             raise RuntimeError('Nightshift key missing')
         # A single message per call; thinking remains ON (no template overrides).
+        # stream=True: measured 24/10 that streaming avoids Nightshift's ~45 s provider_deadline on long thinking.
+        content = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
         body = {'model': setting('NIGHTSHIFT_MODEL', 'nvidia/nemotron-3.5-lightning-30b-a3b'),
-                'max_tokens': 2000, 'messages': [{'role': 'system', 'content': system},
-                {'role': 'user', 'content': redact(json.dumps(payload, ensure_ascii=False))}]}
+                'max_tokens': int(setting('NIGHTSHIFT_MAX_TOKENS', '6000')), 'stream': True,
+                'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': redact(content)}]}
         for attempt in range(3):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -65,11 +94,10 @@ class Nightshift:
                     data=json.dumps(body).encode(), headers={'Content-Type': 'application/json',
                     'Authorization': 'Bearer '+key, 'meterless-app': 'rescue-triage-desk', 'meterless-scope': 'user'})
                 with urllib.request.urlopen(req, timeout=min(180, remaining)) as response:
-                    data = json.load(response)
-                meterless = data.get('meterless', {})
+                    text, meterless = read_stream(response)
                 event.update(model=meterless.get('routed_model'), receipt=meterless.get('receipt_id'),
-                             route_kind=meterless.get('winning_route', {}).get('kind'))
-                result = first_json(data['choices'][0]['message']['content'])
+                             route_kind=(meterless.get('winning_route') or {}).get('kind'))
+                result = first_json(text)
                 event['status'] = 'ok'
                 if time.monotonic() >= deadline:
                     raise TimeoutError('Global deadline')
@@ -79,6 +107,13 @@ class Nightshift:
                 if isinstance(exc, urllib.error.URLError) and isinstance(exc.reason, (TimeoutError, socket.timeout)):
                     retry = True
                 event.update(status='failed', error=type(exc).__name__)
+                if isinstance(exc, urllib.error.HTTPError):
+                    # Provider error bodies are safe metadata (code/detail), never secrets or prompts.
+                    try:
+                        err = json.loads(exc.read().decode('utf-8', 'replace')).get('error', {})
+                    except Exception:
+                        err = {}
+                    event.update(http_status=exc.code, detail=str(err.get('meterless_detail') or err.get('message') or '')[:160])
                 if not retry or attempt == 2 or time.monotonic() >= deadline:
                     raise RuntimeError('Nightshift step failed') from None
             except Exception as exc:
