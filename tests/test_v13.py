@@ -71,9 +71,15 @@ class Aliases(unittest.TestCase):
                 self.assertEqual(result['status'], 'resolved')
                 self.assertEqual((result['matched']['osm_type'], result['matched']['osm_id']),
                                  (alias['osm_type'], alias['osm_id']))
+        # Zetaris REST returns empty cells as null: the source must hand the app '' like the local CSV.
+        raw = [{k: (None if v == '' else v) for k, v in r.items() if k != 'curated_aliases'} for r in self.rows]
         with patch('app.data.source.Zetaris') as api:
-            api.return_value.rows.return_value = self.rows
-            self.assertEqual(ZetarisSource().landmarks(), self.rows)
+            api.return_value.rows.return_value = raw
+            zrows = ZetarisSource().landmarks()
+        self.assertEqual(zrows, self.rows)
+        result = match(zrows, 'Rodoviária de Porto Alegre', 'rodoviaria de porto alegre', 'Porto Alegre',
+                       message='socorro estamos dentro da rodoviaria de porto alegre')
+        self.assertEqual(result['status'], 'resolved')
 
     def test_terminal_distance_and_bus_exclusion(self):
         base = dict(alt_names='', municipality='Porto Alegre', lat='-30', lon='-51', osm_type='way')

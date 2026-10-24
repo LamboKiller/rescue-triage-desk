@@ -54,16 +54,24 @@ def main():
         if s3.get(key) != payload:
             raise ValueError('S3 read-back mismatch')
         print('S3 bytes verified (small probe retained)')
-        print('[4] End-to-end: three synthetic messages, normal Zetaris source + Nightshift')
-        messages = ZetarisSource().messages()[:3]
+        print('[4] End-to-end: three synthetic messages + one landmark message, normal Zetaris source + Nightshift')
+        messages: list[dict] = list(ZetarisSource().messages()[:3])
         if len(messages) != 3:
             raise ValueError('Synthetic message table must have at least three rows')
+        # The table messages all have street + number, so they never reach the landmark matcher: add one that does.
+        messages.append({'message_id': 'smoke-landmark', 'received_at': '2024-05-06T10:00:00-03:00', 'synthetic': True,
+                         'text': 'socorro estamos dentro da rodoviaria de porto alegre, somos 3 com um bebe, a agua ta entrando'})
         request = {'replay_time': '2024-05-06T14:00:00-03:00', 'messages': messages}
         registry = Registry(ROOT/'runtime'/('smoke_'+uuid.uuid4().hex+'.jsonl'))
         result = Pipeline(registry, source=ZetarisSource()).run(request)
-        if result['partial'] or len(result['cases']) != 3 or any(not c['calls'] for c in result['cases']):
-            raise RuntimeError('End-to-end returned partial results')
-        print('3 cases persisted; all agent stages completed; receipts stored in logs.')
+        if result['partial'] or len(result['cases']) != 4 or any(not c['calls'] for c in result['cases']):
+            errors = sorted({e for c in result['cases'] for e in c.get('errors', [])})
+            raise RuntimeError('End-to-end returned partial results; case errors: '+', '.join(errors or ['none recorded']))
+        landmark_case = next(c for c in result['cases'] if c['message_id'] == 'smoke-landmark')
+        status = (landmark_case.get('landmark_check') or {}).get('status')
+        if status != 'resolved':
+            raise RuntimeError('Landmark message not resolved (status: '+str(status)+')')
+        print('4 cases persisted; all agent stages completed; Rodoviária resolved via Zetaris landmarks; receipts stored in logs.')
         print('LIVE SMOKE PASSED. Next: python tools/make_examples.py and python eval/run_eval.py')
         return 0
     except Exception as exc:

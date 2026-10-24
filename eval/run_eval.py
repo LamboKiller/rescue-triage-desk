@@ -164,6 +164,7 @@ def main():
                                            'messages':messages[offset:offset+15]}, ablation=method)
                 elapsed += time.monotonic()-start
                 cases.extend(output['cases'])
+                print(name+' / '+method+': '+str(len(cases))+'/'+str(len(messages))+' done ('+str(round(elapsed))+' s so far)', flush=True)
             methods[method] = dict(score(cases, truth, elapsed), status='measured',
                                    partial_messages=sum(not c['complete'] for c in cases))
             print(name+' / '+method+': '+str(len(cases))+' messages measured')

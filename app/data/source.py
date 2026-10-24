@@ -32,12 +32,17 @@ class LocalSource:
             return list(csv.DictReader(file))
 
 
+def as_csv_strings(rows):
+    """Zetaris REST returns empty CSV cells as null; the app expects the same '' strings as the local CSV."""
+    return [{k: ('' if v is None else str(v)) for k, v in row.items()} for row in rows]
+
+
 class ZetarisSource:
     def landmarks(self, timeout=120):
-        return with_aliases(Zetaris().rows(setting('ZETARIS_LANDMARKS_TABLE', 'landmarks_v3'), timeout=timeout))
+        return with_aliases(as_csv_strings(Zetaris().rows(setting('ZETARIS_LANDMARKS_TABLE', 'landmarks_v3'), timeout=timeout)))
 
     def streets(self, timeout=120):
-        return Zetaris().rows(setting('ZETARIS_STREETS_TABLE', 'streets_flood_v3'), timeout=timeout)
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_STREETS_TABLE', 'streets_flood_v3'), timeout=timeout))
 
     def messages(self, timeout=120):
-        return Zetaris().rows(setting('ZETARIS_MESSAGES_TABLE', 'messages_seed7_v3'), timeout=timeout)
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_MESSAGES_TABLE', 'messages_seed7_v3'), timeout=timeout))
