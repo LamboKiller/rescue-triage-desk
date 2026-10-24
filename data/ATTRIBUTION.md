@@ -106,3 +106,10 @@ Observation-date filtering prevents later observations appearing in earlier
 replays. Flood/pump/shelter publication times are unavailable: this is
 retrospective context, not proof of what dispatchers knew that day. Levees and
 OSM street positions are static reference geometry, not dated asset condition.
+
+## Retrospective HAND depth (V2-B)
+Copernicus Emergency Management Service (© 2024 European Union), EMSN194.
+EMSN194 P04FLDEL01/02 WaterDepth v01, observed May 6/8 2024; created June 12 2024.
+20 m HAND estimates, uncertainty ±1 m, possible underestimation. No data is unknown.
+Source report records conflicting XML licence/confidentiality terms; clarification remains unresolved.
+Fleet research rules version 1.0.0-research; source citations preserved in data/fleet/dispatch_rules.json.

@@ -1,0 +1,4827 @@
+{
+  "version": "1.0.0-research",
+  "created": "2026-10-24",
+  "context": "May 2024 RS floods; conservative research baseline, not validated operational SOP",
+  "human_approval_required": true,
+  "status_semantics": {
+    "suitable": "Eligible for human approval for the stated ROLE only; every gate must be verified. Not an autonomous dispatch decision.",
+    "caution": "Hold for unresolved evidence, mission specialist/site assessment or conservative class restriction; cannot auto-deploy.",
+    "unsafe": "Exclude this proposed asset/configuration/route for this case; re-evaluate only after facts or resource change."
+  },
+  "evaluation": {
+    "initial_status": "suitable",
+    "combiner": "max_severity_all_matches",
+    "severity": [
+      "suitable",
+      "caution",
+      "unsafe"
+    ],
+    "order": "Listed order controls first reason at each severity; later rules can only increase severity. Retain all constraints and sources.",
+    "missing": "Missing booleans are unverified, never affirmative. Missing/stale/non-high-confidence depth maps to unknown. Missing depth/extent is potentially wet.",
+    "boundary": "Lower inclusive / upper exclusive except exactly 2.5 m belongs to 1.2-2.5; >2.5 band is strictly greater. Zero depth still requires outside extent and dry surveyed route.",
+    "depth_overlay": "suitable in depth_table means no additional depth-only restriction; all general rules still apply. No numeric maximum is a certified safe limit.",
+    "source_scope": "Rules labelled conservative_policy are derived constraints, not literal source requirements. POLICY is the brief/local design, with no external URL."
+  },
+  "input_schema_notes": {
+    "case": "mission: rescue|search|supply (missing conservatively fails drone roles); people_count positive integer; children/infants/elderly/wheelchair/bedridden/pets nonnegative integers; demographics may overlap; location_type house|rooftop|building_upper_floor|public_building|unknown; thermal_required boolean.",
+    "hazards": "depth_m >=0 or null; depth_confidence high|medium|low|unknown; hazards_current boolean attested against event/observation timestamps by caller; inside_flood_extent boolean; extent_date_matches boolean; nearby_road_closure and route_closed boolean; pump_station_outage and post_outage_reassessment boolean; current still|slow|strong|unknown from competent site assessment; debris clear|moderate|heavy|unknown; electricity isolated|suspected_live|live|unknown; overhead_clearance boolean; night boolean; duplicate_check_complete boolean; shelter_distance_m advisory only; route_min_depth_m and route_max_depth_m advisory measurements, not substitutes for clearance attestation.",
+    "current": "No invented universal velocity cutoff. Strong means site assessor identifies swiftwater needing a technical package; unknown stays unknown. FEMA's one-knot descriptor is not the dispatch cutoff.",
+    "assigned_assets": "Per actual asset type: verification flags from documented field/operator assessments, not LLM guesses. True means all relevant limits passed; false means a known failure; absent means unverified. Do not set all flags globally in production.",
+    "attestation_inputs": "route_verified incorporates route_min/max depth, drive clearance, surface strength, obstacles, return and handoff. trip_plan_verified incorporates people including infants, crew, pets, medical equipment, mass, restraint limits and staged multiple trips. weather_released incorporates actual current observations and model/operator limits. receiving_destination_verified uses route distance, shelter accessibility/capacity or clinical destination, not merely shelter_distance_m.",
+    "external_checks": "Caller must verify timestamps, confidence, asset documents and observations. No age tolerance is invented here. These artifacts do not ingest live closure/pump/extent feeds."
+  },
+  "verification_fields": [
+    "airspace_authorized",
+    "animal_plan_verified",
+    "approved_passenger_configuration",
+    "available",
+    "clinical_transfer_verified",
+    "communications_verified",
+    "correct_pfds_available",
+    "crew_qualified",
+    "eaves_transfer_verified",
+    "elevated_lz_verified",
+    "equipment_verified",
+    "fan_exclusion_verified",
+    "fording_margin_verified",
+    "hoist_site_verified",
+    "landing_zone_verified",
+    "launch_recovery_verified",
+    "load_within_limits",
+    "logistics_verified",
+    "mission_authorized",
+    "night_capable",
+    "payload_drop_zone_verified",
+    "payload_integrity_verified",
+    "propeller_contact_plan_verified",
+    "receiving_destination_verified",
+    "route_verified",
+    "sled_approved",
+    "stretcher_capable",
+    "structural_access_verified",
+    "swiftwater_capable",
+    "thermal_sensor_verified",
+    "transport_package_verified",
+    "trip_plan_verified",
+    "under_keel_margin_verified",
+    "vertical_access_verified",
+    "vulnerable_patient_plan_verified",
+    "weather_released",
+    "weather_within_limits"
+  ],
+  "depth_bands": [
+    {
+      "id": "d_lt_0_15",
+      "label": "<0.15 m",
+      "min_inclusive_m": 0,
+      "max_exclusive_m": 0.15
+    },
+    {
+      "id": "d_0_15_to_0_3",
+      "label": "0.15 to <0.3 m",
+      "min_inclusive_m": 0.15,
+      "max_exclusive_m": 0.3
+    },
+    {
+      "id": "d_0_3_to_0_6",
+      "label": "0.3 to <0.6 m",
+      "min_inclusive_m": 0.3,
+      "max_exclusive_m": 0.6
+    },
+    {
+      "id": "d_0_6_to_1_2",
+      "label": "0.6 to <1.2 m",
+      "min_inclusive_m": 0.6,
+      "max_exclusive_m": 1.2
+    },
+    {
+      "id": "d_1_2_to_2_5",
+      "label": "1.2 to 2.5 m inclusive",
+      "min_inclusive_m": 1.2,
+      "max_exclusive_m": 2.5,
+      "upper_inclusive": true
+    },
+    {
+      "id": "d_gt_2_5",
+      "label": ">2.5 m",
+      "min_inclusive_m": 2.5,
+      "max_exclusive_m": null,
+      "lower_exclusive": true
+    },
+    {
+      "id": "unknown",
+      "label": "depth absent, stale or confidence below high",
+      "min_inclusive_m": null,
+      "max_exclusive_m": null
+    }
+  ],
+  "depth_table": {
+    "private_car": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "unsafe",
+      "d_0_3_to_0_6": "unsafe",
+      "d_0_6_to_1_2": "unsafe",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "caution"
+    },
+    "suv_4x4": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "unsafe",
+      "d_0_3_to_0_6": "unsafe",
+      "d_0_6_to_1_2": "unsafe",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "caution"
+    },
+    "high_clearance_truck": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "caution",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "caution"
+    },
+    "fire_engine": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "unsafe",
+      "d_0_3_to_0_6": "unsafe",
+      "d_0_6_to_1_2": "unsafe",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "caution"
+    },
+    "road_ambulance": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "unsafe",
+      "d_0_3_to_0_6": "unsafe",
+      "d_0_6_to_1_2": "unsafe",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "caution"
+    },
+    "amphibious_vehicle": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "tractor": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "unsafe",
+      "d_0_3_to_0_6": "unsafe",
+      "d_0_6_to_1_2": "unsafe",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "caution"
+    },
+    "aluminium_outboard": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "irb": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "rhib": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "paddle_canoe": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "pwc_sled": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "airboat": {
+      "d_lt_0_15": "caution",
+      "d_0_15_to_0_3": "caution",
+      "d_0_3_to_0_6": "caution",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "helicopter_hoist": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "suitable",
+      "d_0_3_to_0_6": "suitable",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "suitable"
+    },
+    "helicopter_landing": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "suitable",
+      "d_0_3_to_0_6": "suitable",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "suitable"
+    },
+    "drone_search": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "suitable",
+      "d_0_3_to_0_6": "suitable",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "suitable"
+    },
+    "drone_drop": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "suitable",
+      "d_0_3_to_0_6": "suitable",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "suitable"
+    },
+    "volunteer_wading": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "unsafe",
+      "d_0_3_to_0_6": "unsafe",
+      "d_0_6_to_1_2": "unsafe",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "suitable"
+    },
+    "swiftwater_team": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "suitable",
+      "d_0_3_to_0_6": "suitable",
+      "d_0_6_to_1_2": "suitable",
+      "d_1_2_to_2_5": "suitable",
+      "d_gt_2_5": "suitable",
+      "unknown": "caution"
+    },
+    "horse": {
+      "d_lt_0_15": "suitable",
+      "d_0_15_to_0_3": "unsafe",
+      "d_0_3_to_0_6": "unsafe",
+      "d_0_6_to_1_2": "unsafe",
+      "d_1_2_to_2_5": "unsafe",
+      "d_gt_2_5": "unsafe",
+      "unknown": "suitable"
+    }
+  },
+  "assets": {
+    "private_car": {
+      "label": "Private car",
+      "group": "road",
+      "role": "passenger_transport"
+    },
+    "suv_4x4": {
+      "label": "4x4 / SUV",
+      "group": "road",
+      "role": "passenger_transport"
+    },
+    "high_clearance_truck": {
+      "label": "High-clearance military/civil-defence truck",
+      "group": "road",
+      "role": "passenger_transport"
+    },
+    "fire_engine": {
+      "label": "Fire engine",
+      "group": "road",
+      "role": "support_and_conditional_transport"
+    },
+    "road_ambulance": {
+      "label": "Road ambulance",
+      "group": "road",
+      "role": "medical_transport"
+    },
+    "amphibious_vehicle": {
+      "label": "Amphibious vehicle",
+      "group": "water",
+      "role": "passenger_transport"
+    },
+    "tractor": {
+      "label": "Tractor",
+      "group": "road",
+      "role": "support_only_unless_approved_passenger_configuration"
+    },
+    "aluminium_outboard": {
+      "label": "Aluminium flat-bottom outboard boat",
+      "group": "water",
+      "role": "passenger_transport"
+    },
+    "irb": {
+      "label": "Inflatable rescue boat (IRB)",
+      "group": "water",
+      "role": "passenger_transport"
+    },
+    "rhib": {
+      "label": "Rigid-hull inflatable boat (RHIB)",
+      "group": "water",
+      "role": "passenger_transport"
+    },
+    "paddle_canoe": {
+      "label": "Rowing / paddle boat / canoe",
+      "group": "water",
+      "role": "passenger_transport"
+    },
+    "pwc_sled": {
+      "label": "Personal watercraft with rescue sled",
+      "group": "water",
+      "role": "conditional_passenger_transport"
+    },
+    "airboat": {
+      "label": "Airboat",
+      "group": "water",
+      "role": "passenger_transport"
+    },
+    "helicopter_hoist": {
+      "label": "Helicopter with hoist",
+      "group": "air",
+      "role": "technical_and_medical_extraction"
+    },
+    "helicopter_landing": {
+      "label": "Helicopter landing only",
+      "group": "air",
+      "role": "passenger_transport_at_verified_landing_site"
+    },
+    "drone_search": {
+      "label": "Drone: search / thermal",
+      "group": "drone",
+      "role": "search_only"
+    },
+    "drone_drop": {
+      "label": "Drone: payload delivery",
+      "group": "drone",
+      "role": "supply_only"
+    },
+    "volunteer_wading": {
+      "label": "Volunteer on foot / wading",
+      "group": "foot",
+      "role": "shore_support_only"
+    },
+    "swiftwater_team": {
+      "label": "Swiftwater rescue technician team",
+      "group": "team",
+      "role": "technical_rescue_requires_transport_package"
+    },
+    "horse": {
+      "label": "Horse (use as rescue asset unverified)",
+      "group": "animal",
+      "role": "not_approved_passenger_transport"
+    }
+  },
+  "rules": [
+    {
+      "id": "R000",
+      "order": 0,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "suitable",
+      "when": {
+        "all": []
+      },
+      "reason": "Eligible for human review only when every applicable verification gate is satisfied.",
+      "source_ids": [
+        "POLICY"
+      ],
+      "basis": "semantics"
+    },
+    {
+      "id": "R001",
+      "order": 1,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "h.hazards_current",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Hazard observations are missing or not current for the dispatch time.",
+      "source_ids": [
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R002",
+      "order": 2,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.known_people",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify people count before planning extraction or trip capacity.",
+      "source_ids": [
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R003",
+      "order": 3,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.mission_authorized",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Incident command must register this actual resource and authorize its assigned mission.",
+      "source_ids": [
+        "CALOES",
+        "GERMANY",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R004",
+      "order": 4,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.crew_qualified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Actual crew and mission-specific training are unverified.",
+      "source_ids": [
+        "TEAM",
+        "HELI2017",
+        "NFPA1006",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R005",
+      "order": 5,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.route_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Survey the whole outbound and return route, pickup and receiving point.",
+      "source_ids": [
+        "NWS",
+        "CALOES",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R006",
+      "order": 6,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.weather_released",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Operator has not released the mission against actual weather and equipment limits.",
+      "source_ids": [
+        "TEAM",
+        "HELI2017",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R007",
+      "order": 7,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.weather_within_limits",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "Known weather exceeds the actual resource's operating limits.",
+      "source_ids": [
+        "TEAM",
+        "HELI2017",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R008",
+      "order": 8,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.communications_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify working communications, assignment tracking and completion reporting.",
+      "source_ids": [
+        "TEAM",
+        "RSARMY",
+        "RSDUP",
+        "HARVEY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R009",
+      "order": 9,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.logistics_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify fuel or energy reserve, recovery/return and receiving-site support.",
+      "source_ids": [
+        "HARVEY",
+        "HELENE",
+        "RSFED",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R010",
+      "order": 10,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.equipment_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify mission equipment and personal protection for this resource.",
+      "source_ids": [
+        "TEAM",
+        "OSHA",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R011",
+      "order": 11,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.structural_access_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify pickup structure, safe access and a usable transfer point.",
+      "source_ids": [
+        "OSHA",
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R012",
+      "order": 12,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.trip_plan_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Validate crew, patient, pet and equipment mass/space plus number of trips; a team needs an assigned conveyance.",
+      "source_ids": [
+        "TEAM",
+        "LUND",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R013",
+      "order": 13,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "swiftwater_team"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.load_within_limits",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "Proposed trip exceeds verified passenger, mass, restraint or stability limits.",
+      "source_ids": [
+        "LUND",
+        "ZODIAC",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R014",
+      "order": 14,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "h.night",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.night_capable",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Night mission requires confirmed trained crew, navigation, lighting and equipment.",
+      "source_ids": [
+        "HELI2017",
+        "RSNIGHT",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R015",
+      "order": 15,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "h.night",
+            "op": "ne",
+            "value": false
+          },
+          {
+            "field": "h.night",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Day/night conditions must be known; night equipment is task-specific.",
+      "source_ids": [
+        "HELI2017",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R016",
+      "order": 16,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "h.duplicate_check_complete",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify request identity, assigned team and completion state to prevent duplicate visits.",
+      "source_ids": [
+        "RSDUP",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R017",
+      "order": 17,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "h.pump_station_outage",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "field": "h.pump_station_outage",
+                "op": "ne",
+                "value": false
+              }
+            ]
+          },
+          {
+            "field": "h.post_outage_reassessment",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Pump status cannot establish depth or electrical safety; refresh route/depth assessment.",
+      "source_ids": [
+        "RSARMY",
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R018",
+      "order": 18,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.receiving_destination_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify reachable suitable shelter or clinical destination; straight-line nearest-shelter distance is insufficient.",
+      "source_ids": [
+        "CALOES",
+        "HELENE",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R019",
+      "order": 19,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.available",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "This actual resource is unavailable.",
+      "source_ids": [
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R019A",
+      "order": 20,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.available",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Confirm current availability of the assigned resource; reported fleet totals are not dispatch inventory.",
+      "source_ids": [
+        "CALOES",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R019B",
+      "order": 21,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.demographics_known",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Confirm age, mobility and pet counts; absent case details must not be treated as zero.",
+      "source_ids": [
+        "TEAM",
+        "PFD",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R020",
+      "order": 22,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "h.electricity",
+        "op": "in",
+        "value": [
+          "live",
+          "suspected_live"
+        ]
+      },
+      "reason": "Do not enter live or suspected energized floodwater; utility isolation is required.",
+      "source_ids": [
+        "ELECTRIC",
+        "OSHA"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R021",
+      "order": 23,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "h.electricity",
+        "op": "ne",
+        "value": "isolated"
+      },
+      "reason": "Power-line status is unverified; outages do not prove the water is de-energized.",
+      "source_ids": [
+        "ELECTRIC",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R022",
+      "order": 24,
+      "assets": [
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "h.overhead_clearance",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "Known wires or obstacles obstruct the flight, rotor or hoist corridor.",
+      "source_ids": [
+        "ELECTRIC",
+        "HELI2017",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R023",
+      "order": 25,
+      "assets": [
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "h.overhead_clearance",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Survey wire, rotor and hoist clearance; power isolation does not remove wires.",
+      "source_ids": [
+        "ELECTRIC",
+        "HELI2017",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R024",
+      "order": 26,
+      "assets": [
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.airspace_authorized",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "Flight is not authorized or conflicts with rescue aviation.",
+      "source_ids": [
+        "DECEA",
+        "HELENE"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R025",
+      "order": 27,
+      "assets": [
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.airspace_authorized",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Obtain coordinated airspace clearance and separation from other rescue aircraft.",
+      "source_ids": [
+        "DECEA",
+        "HELENE"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R030",
+      "order": 28,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.wet",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "any": [
+              {
+                "field": "h.nearby_road_closure",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "field": "h.route_closed",
+                "op": "eq",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "reason": "Water at or potentially affecting the case plus a road closure excludes road rescue access.",
+      "source_ids": [
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R031",
+      "order": 29,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "h.route_closed",
+        "op": "eq",
+        "value": true
+      },
+      "reason": "Do not bypass a closed route or barricade, including an otherwise dry approach.",
+      "source_ids": [
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R032",
+      "order": 30,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor"
+      ],
+      "status": "caution",
+      "when": {
+        "any": [
+          {
+            "field": "h.nearby_road_closure",
+            "op": "ne",
+            "value": false
+          },
+          {
+            "field": "h.route_closed",
+            "op": "ne",
+            "value": false
+          }
+        ]
+      },
+      "reason": "Closure status is unverified or nearby closures need route review.",
+      "source_ids": [
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R033",
+      "order": 31,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown, stale or low-confidence depth can never clear a road vehicle as suitable.",
+      "source_ids": [
+        "NWS",
+        "FORD",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R034",
+      "order": 32,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "h.extent_date_matches",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Flood footprint date does not establish present route access; require current dated extent and survey.",
+      "source_ids": [
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R035",
+      "order": 33,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "fire_engine",
+        "road_ambulance"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.wet",
+        "op": "eq",
+        "value": true
+      },
+      "reason": "Generic road vehicle cannot enter floodwater; use verified dry staging and transfer.",
+      "source_ids": [
+        "NWS",
+        "FORD",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R036",
+      "order": 34,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.wet",
+        "op": "eq",
+        "value": true
+      },
+      "reason": "Flood operation requires a verified specialist truck configuration and site plan; height alone is insufficient.",
+      "source_ids": [
+        "UNIMOG",
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R037",
+      "order": 35,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.wet",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.fording_margin_verified",
+            "op": "eq",
+            "value": false
+          }
+        ]
+      },
+      "reason": "Surveyed route exceeds this truck's actual fording or stability margin.",
+      "source_ids": [
+        "UNIMOG",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R038",
+      "order": 36,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "d.wet",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.fording_margin_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Verify loaded whole-route depth, intact road and model-specific fording margin.",
+      "source_ids": [
+        "UNIMOG",
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R039",
+      "order": 37,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.wet",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "h.current",
+            "op": "in",
+            "value": [
+              "slow",
+              "strong"
+            ]
+          }
+        ]
+      },
+      "reason": "Road vehicles may not enter moving floodwater under this conservative policy.",
+      "source_ids": [
+        "FORD",
+        "NHTSA",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R040",
+      "order": 38,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "h.current",
+        "op": "in",
+        "value": [
+          null,
+          "unknown"
+        ]
+      },
+      "reason": "Current is unknown; obtain competent local flow and control assessment.",
+      "source_ids": [
+        "TEAM",
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R041",
+      "order": 39,
+      "assets": [
+        "aluminium_outboard",
+        "paddle_canoe"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "h.current",
+        "op": "eq",
+        "value": "strong"
+      },
+      "reason": "Generic volunteer/paddle craft lacks a verified strong-current rescue package.",
+      "source_ids": [
+        "TEAM",
+        "RSCURRENT",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R042",
+      "order": 40,
+      "assets": [
+        "irb",
+        "rhib",
+        "amphibious_vehicle",
+        "airboat",
+        "pwc_sled",
+        "swiftwater_team"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "h.current",
+            "op": "eq",
+            "value": "strong"
+          },
+          {
+            "field": "a.swiftwater_capable",
+            "op": "eq",
+            "value": false
+          }
+        ]
+      },
+      "reason": "Known strong current exceeds this resource's confirmed capability.",
+      "source_ids": [
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R043",
+      "order": 41,
+      "assets": [
+        "irb",
+        "rhib",
+        "amphibious_vehicle",
+        "airboat",
+        "pwc_sled",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "h.current",
+            "op": "eq",
+            "value": "strong"
+          },
+          {
+            "field": "a.swiftwater_capable",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Strong-current rescue needs a qualified package and site-specific control/recovery plan.",
+      "source_ids": [
+        "TEAM",
+        "HARVEY",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R044",
+      "order": 42,
+      "assets": [
+        "pwc_sled"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.infant_or_elderly",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "h.current",
+            "op": "eq",
+            "value": "strong"
+          }
+        ]
+      },
+      "reason": "Infants or elderly people in strong current must not use a jet-ski rescue sled.",
+      "source_ids": [
+        "POLICY",
+        "PFD",
+        "TEAM"
+      ],
+      "basis": "explicit_brief_policy_not_tested_engineering_limit"
+    },
+    {
+      "id": "R045",
+      "order": 43,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "h.debris",
+        "op": "ne",
+        "value": "clear"
+      },
+      "reason": "Debris and submerged obstacles require a site-specific route and recovery review.",
+      "source_ids": [
+        "NWS",
+        "OSHA",
+        "RSCURRENT",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R046",
+      "order": 44,
+      "assets": [
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "pwc_sled"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "h.debris",
+        "op": "eq",
+        "value": "heavy"
+      },
+      "reason": "Heavy debris can disable/entangle propellers or jet intakes; exclude powered entry on this route.",
+      "source_ids": [
+        "YAMAHA",
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R047",
+      "order": 45,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.under_keel_margin_verified",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "Loaded hull or propulsion clearance is insufficient on the surveyed route.",
+      "source_ids": [
+        "YAMAHA",
+        "AIRBOAT",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R048",
+      "order": 46,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.under_keel_margin_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify loaded minimum route depth, hull draft, drive/intake clearance and margin; point depth is insufficient.",
+      "source_ids": [
+        "YAMAHA",
+        "AIRBOAT",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R049",
+      "order": 47,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.launch_recovery_verified",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "No safe launch, recovery or shore transfer is available.",
+      "source_ids": [
+        "TEAM",
+        "CALOES",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R050",
+      "order": 48,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.launch_recovery_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify launch/recovery access, transfer point and backup recovery.",
+      "source_ids": [
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R051",
+      "order": 49,
+      "assets": [
+        "aluminium_outboard",
+        "irb",
+        "rhib"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.propeller_contact_plan_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify engine-off victim contact and safe propeller stand-off/guarding plan.",
+      "source_ids": [
+        "TEAM",
+        "OSHA",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R052",
+      "order": 50,
+      "assets": [
+        "pwc_sled"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.sled_approved",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify the actual rescue sled's retention, patient load and operator rescue training.",
+      "source_ids": [
+        "TEAM",
+        "YAMAHA",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R053",
+      "order": 51,
+      "assets": [
+        "airboat"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.fan_exclusion_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Keep victims and crew clear of the air propeller, fan wash and loose objects.",
+      "source_ids": [
+        "AIRBOAT",
+        "OSHA",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R060",
+      "order": 52,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "pwc_sled",
+        "paddle_canoe",
+        "tractor",
+        "horse",
+        "volunteer_wading"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.needs_stretcher",
+        "op": "eq",
+        "value": true
+      },
+      "reason": "Wheelchair or bedridden case requires an approved secured-litter extraction/transport package.",
+      "source_ids": [
+        "POLICY",
+        "TEAM",
+        "HELI2017"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R061",
+      "order": 53,
+      "assets": [
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "swiftwater_team"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.needs_stretcher",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.stretcher_capable",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "No confirmed secured litter, loading geometry and clinical transfer package for this patient.",
+      "source_ids": [
+        "POLICY",
+        "TEAM",
+        "HELI2017"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R062",
+      "order": 54,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "d.needs_stretcher",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.clinical_transfer_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Clinical team must verify packaging, attendants, transfer and wheelchair recovery plan.",
+      "source_ids": [
+        "TEAM",
+        "HELI2017",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R063",
+      "order": 55,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "d.vulnerable",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.vulnerable_patient_plan_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Verify age/condition-appropriate restraint, assisted transfer, warmth and monitoring.",
+      "source_ids": [
+        "PFD",
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R064",
+      "order": 56,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "swiftwater_team"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.correct_pfds_available",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "Required properly fitting flotation/PPE is unavailable for the proposed occupants.",
+      "source_ids": [
+        "PFD",
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R065",
+      "order": 57,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.correct_pfds_available",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify suitable properly fitting flotation/PPE for every occupant and rescue task.",
+      "source_ids": [
+        "PFD",
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R066",
+      "order": 58,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "c.pets",
+            "op": "gt",
+            "value": 0
+          },
+          {
+            "field": "a.animal_plan_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Confirm pet handling, containment, extra mass/space and safe receiving arrangements.",
+      "source_ids": [
+        "TEAM",
+        "RSNAVY",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R070",
+      "order": 59,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "tractor",
+        "volunteer_wading",
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.elevated",
+        "op": "eq",
+        "value": true
+      },
+      "reason": "Road/foot/horse asset cannot directly extract from a roof or upper floor.",
+      "source_ids": [
+        "POLICY",
+        "RSNAVY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R071",
+      "order": 60,
+      "assets": [
+        "amphibious_vehicle",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.elevated",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.eaves_transfer_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Roof/upper-floor water pickup requires verified eaves or window transfer; otherwise request hoist/technical access.",
+      "source_ids": [
+        "POLICY",
+        "TEAM",
+        "RSNAVY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R072",
+      "order": 61,
+      "assets": [
+        "helicopter_hoist"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.hoist_site_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify hover/hoist corridor, rescuer access, roof stability, patient rigging and receiving site.",
+      "source_ids": [
+        "HELI2017",
+        "RSNAVY",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R073",
+      "order": 62,
+      "assets": [
+        "helicopter_hoist"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.hoist_site_verified",
+        "op": "eq",
+        "value": false
+      },
+      "reason": "The pickup site cannot safely support the proposed hoist extraction.",
+      "source_ids": [
+        "HELI2017",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R074",
+      "order": 63,
+      "assets": [
+        "helicopter_landing"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.landing_zone_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Landing-only helicopter needs an accepted load-bearing clear LZ and safe patient path.",
+      "source_ids": [
+        "HELI2017",
+        "HELENE",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R075",
+      "order": 64,
+      "assets": [
+        "helicopter_landing"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.elevated",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.elevated_lz_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Rooftop/upper floor is not a landing zone without an engineered, pilot-accepted elevated LZ and transfer path.",
+      "source_ids": [
+        "POLICY",
+        "HELI2017"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R076",
+      "order": 65,
+      "assets": [
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.transport_package_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Technician team needs a separately verified conveyance and receiving handoff; it has no intrinsic seats.",
+      "source_ids": [
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R077",
+      "order": 66,
+      "assets": [
+        "swiftwater_team"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": [
+          {
+            "field": "d.elevated",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.vertical_access_verified",
+            "op": "eq",
+            "value": false
+          }
+        ]
+      },
+      "reason": "Known lack of a safe technical access package prevents elevated extraction.",
+      "source_ids": [
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R078",
+      "order": 67,
+      "assets": [
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "d.elevated",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.vertical_access_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Confirm appropriate rope/eaves/hoist-assist specialty, anchors and structural access.",
+      "source_ids": [
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R080",
+      "order": 68,
+      "assets": [
+        "drone_search"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "c.mission",
+        "op": "ne",
+        "value": "search"
+      },
+      "reason": "Search drone cannot transport people or deliver this case's rescue extraction.",
+      "source_ids": [
+        "RSDRONE",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R081",
+      "order": 69,
+      "assets": [
+        "drone_drop"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "c.mission",
+        "op": "ne",
+        "value": "supply"
+      },
+      "reason": "Payload drone provides supplies only and cannot evacuate people.",
+      "source_ids": [
+        "DJIDROP",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R082",
+      "order": 70,
+      "assets": [
+        "drone_search"
+      ],
+      "status": "caution",
+      "when": {
+        "all": [
+          {
+            "field": "c.thermal_required",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "field": "a.thermal_sensor_verified",
+            "op": "ne",
+            "value": true
+          }
+        ]
+      },
+      "reason": "Confirm fitted thermal sensor and trained interpretation; thermal cannot see through roofs.",
+      "source_ids": [
+        "DJISEARCH",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R083",
+      "order": 71,
+      "assets": [
+        "drone_drop"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.payload_drop_zone_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "No confirmed protected receiving zone and controlled payload delivery method.",
+      "source_ids": [
+        "DJIDROP",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R084",
+      "order": 72,
+      "assets": [
+        "drone_drop"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "a.payload_integrity_verified",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "Verify payload mass/retention, potable-water packaging or medicine storage/clinical authorization and radio usability.",
+      "source_ids": [
+        "DJIDROP",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R090",
+      "order": 73,
+      "assets": [
+        "volunteer_wading"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.wet",
+        "op": "eq",
+        "value": true
+      },
+      "reason": "Untrained volunteer flood-wading is excluded at any depth; use shore support or qualified rescue technicians.",
+      "source_ids": [
+        "NWS",
+        "OSHA",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R091",
+      "order": 74,
+      "assets": [
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "all": []
+      },
+      "reason": "Horse rescue-transport use and safe operating envelope are unverified; do not dispatch as victim conveyance.",
+      "source_ids": [
+        "RSHORSE",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R092",
+      "order": 75,
+      "assets": [
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.wet",
+        "op": "eq",
+        "value": true
+      },
+      "reason": "Unverified tractor passenger configuration and flood stability are unsafe; historical use is not a capability certification.",
+      "source_ids": [
+        "RSTRACTOR",
+        "NWS",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R093",
+      "order": 76,
+      "assets": [
+        "fire_engine",
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "a.approved_passenger_configuration",
+        "op": "ne",
+        "value": true
+      },
+      "reason": "No approved passenger seats/compartment for transporting this rescue case.",
+      "source_ids": [
+        "CALOES",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "R094",
+      "order": 77,
+      "assets": [
+        "private_car",
+        "suv_4x4",
+        "high_clearance_truck",
+        "fire_engine",
+        "road_ambulance",
+        "amphibious_vehicle",
+        "tractor",
+        "aluminium_outboard",
+        "irb",
+        "rhib",
+        "paddle_canoe",
+        "pwc_sled",
+        "airboat",
+        "helicopter_hoist",
+        "helicopter_landing",
+        "drone_search",
+        "drone_drop",
+        "volunteer_wading",
+        "swiftwater_team",
+        "horse"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "c.location_type",
+        "op": "in",
+        "value": [
+          null,
+          "unknown"
+        ]
+      },
+      "reason": "Confirm location/access type before assigning an extraction method.",
+      "source_ids": [
+        "TEAM",
+        "POLICY"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_private_car_d_0_15_to_0_3",
+      "order": 78,
+      "assets": [
+        "private_car"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_private_car_d_0_3_to_0_6",
+      "order": 79,
+      "assets": [
+        "private_car"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_private_car_d_0_6_to_1_2",
+      "order": 80,
+      "assets": [
+        "private_car"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_private_car_d_1_2_to_2_5",
+      "order": 81,
+      "assets": [
+        "private_car"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_private_car_d_gt_2_5",
+      "order": 82,
+      "assets": [
+        "private_car"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_private_car_unknown",
+      "order": 83,
+      "assets": [
+        "private_car"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_suv_4x4_d_0_15_to_0_3",
+      "order": 84,
+      "assets": [
+        "suv_4x4"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_suv_4x4_d_0_3_to_0_6",
+      "order": 85,
+      "assets": [
+        "suv_4x4"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_suv_4x4_d_0_6_to_1_2",
+      "order": 86,
+      "assets": [
+        "suv_4x4"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_suv_4x4_d_1_2_to_2_5",
+      "order": 87,
+      "assets": [
+        "suv_4x4"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_suv_4x4_d_gt_2_5",
+      "order": 88,
+      "assets": [
+        "suv_4x4"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_suv_4x4_unknown",
+      "order": 89,
+      "assets": [
+        "suv_4x4"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_high_clearance_truck_d_lt_0_15",
+      "order": 90,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS",
+        "UNIMOG"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_high_clearance_truck_d_0_15_to_0_3",
+      "order": 91,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS",
+        "UNIMOG"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_high_clearance_truck_d_0_3_to_0_6",
+      "order": 92,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS",
+        "UNIMOG"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_high_clearance_truck_d_0_6_to_1_2",
+      "order": 93,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS",
+        "UNIMOG"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_high_clearance_truck_d_1_2_to_2_5",
+      "order": 94,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "Depth reaches/exceeds the conservative truck screening ceiling; actual model limits may be lower.",
+      "source_ids": [
+        "POLICY",
+        "NWS",
+        "UNIMOG"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_high_clearance_truck_d_gt_2_5",
+      "order": 95,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "Depth reaches/exceeds the conservative truck screening ceiling; actual model limits may be lower.",
+      "source_ids": [
+        "POLICY",
+        "NWS",
+        "UNIMOG"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_high_clearance_truck_unknown",
+      "order": 96,
+      "assets": [
+        "high_clearance_truck"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS",
+        "UNIMOG"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_fire_engine_d_0_15_to_0_3",
+      "order": 97,
+      "assets": [
+        "fire_engine"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_fire_engine_d_0_3_to_0_6",
+      "order": 98,
+      "assets": [
+        "fire_engine"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_fire_engine_d_0_6_to_1_2",
+      "order": 99,
+      "assets": [
+        "fire_engine"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_fire_engine_d_1_2_to_2_5",
+      "order": 100,
+      "assets": [
+        "fire_engine"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_fire_engine_d_gt_2_5",
+      "order": 101,
+      "assets": [
+        "fire_engine"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_fire_engine_unknown",
+      "order": 102,
+      "assets": [
+        "fire_engine"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_road_ambulance_d_0_15_to_0_3",
+      "order": 103,
+      "assets": [
+        "road_ambulance"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_road_ambulance_d_0_3_to_0_6",
+      "order": 104,
+      "assets": [
+        "road_ambulance"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_road_ambulance_d_0_6_to_1_2",
+      "order": 105,
+      "assets": [
+        "road_ambulance"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_road_ambulance_d_1_2_to_2_5",
+      "order": 106,
+      "assets": [
+        "road_ambulance"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_road_ambulance_d_gt_2_5",
+      "order": 107,
+      "assets": [
+        "road_ambulance"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_road_ambulance_unknown",
+      "order": 108,
+      "assets": [
+        "road_ambulance"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_amphibious_vehicle_d_lt_0_15",
+      "order": 109,
+      "assets": [
+        "amphibious_vehicle"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_amphibious_vehicle_d_0_15_to_0_3",
+      "order": 110,
+      "assets": [
+        "amphibious_vehicle"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_amphibious_vehicle_d_0_3_to_0_6",
+      "order": 111,
+      "assets": [
+        "amphibious_vehicle"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_amphibious_vehicle_unknown",
+      "order": 112,
+      "assets": [
+        "amphibious_vehicle"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_tractor_d_0_15_to_0_3",
+      "order": 113,
+      "assets": [
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_tractor_d_0_3_to_0_6",
+      "order": 114,
+      "assets": [
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_tractor_d_0_6_to_1_2",
+      "order": 115,
+      "assets": [
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_tractor_d_1_2_to_2_5",
+      "order": 116,
+      "assets": [
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_tractor_d_gt_2_5",
+      "order": 117,
+      "assets": [
+        "tractor"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_tractor_unknown",
+      "order": 118,
+      "assets": [
+        "tractor"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_aluminium_outboard_d_lt_0_15",
+      "order": 119,
+      "assets": [
+        "aluminium_outboard"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_aluminium_outboard_d_0_15_to_0_3",
+      "order": 120,
+      "assets": [
+        "aluminium_outboard"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_aluminium_outboard_d_0_3_to_0_6",
+      "order": 121,
+      "assets": [
+        "aluminium_outboard"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_aluminium_outboard_unknown",
+      "order": 122,
+      "assets": [
+        "aluminium_outboard"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_irb_d_lt_0_15",
+      "order": 123,
+      "assets": [
+        "irb"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_irb_d_0_15_to_0_3",
+      "order": 124,
+      "assets": [
+        "irb"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_irb_d_0_3_to_0_6",
+      "order": 125,
+      "assets": [
+        "irb"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_irb_unknown",
+      "order": 126,
+      "assets": [
+        "irb"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_rhib_d_lt_0_15",
+      "order": 127,
+      "assets": [
+        "rhib"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_rhib_d_0_15_to_0_3",
+      "order": 128,
+      "assets": [
+        "rhib"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_rhib_d_0_3_to_0_6",
+      "order": 129,
+      "assets": [
+        "rhib"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_rhib_unknown",
+      "order": 130,
+      "assets": [
+        "rhib"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_paddle_canoe_d_lt_0_15",
+      "order": 131,
+      "assets": [
+        "paddle_canoe"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_paddle_canoe_d_0_15_to_0_3",
+      "order": 132,
+      "assets": [
+        "paddle_canoe"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_paddle_canoe_d_0_3_to_0_6",
+      "order": 133,
+      "assets": [
+        "paddle_canoe"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_paddle_canoe_unknown",
+      "order": 134,
+      "assets": [
+        "paddle_canoe"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_pwc_sled_d_lt_0_15",
+      "order": 135,
+      "assets": [
+        "pwc_sled"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_pwc_sled_d_0_15_to_0_3",
+      "order": 136,
+      "assets": [
+        "pwc_sled"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_pwc_sled_d_0_3_to_0_6",
+      "order": 137,
+      "assets": [
+        "pwc_sled"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_pwc_sled_unknown",
+      "order": 138,
+      "assets": [
+        "pwc_sled"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_airboat_d_lt_0_15",
+      "order": 139,
+      "assets": [
+        "airboat"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_lt_0_15"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_airboat_d_0_15_to_0_3",
+      "order": 140,
+      "assets": [
+        "airboat"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_airboat_d_0_3_to_0_6",
+      "order": 141,
+      "assets": [
+        "airboat"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "Shallow point depth does not verify loaded route/drive clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_airboat_unknown",
+      "order": 142,
+      "assets": [
+        "airboat"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_volunteer_wading_d_0_15_to_0_3",
+      "order": 143,
+      "assets": [
+        "volunteer_wading"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_volunteer_wading_d_0_3_to_0_6",
+      "order": 144,
+      "assets": [
+        "volunteer_wading"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_volunteer_wading_d_0_6_to_1_2",
+      "order": 145,
+      "assets": [
+        "volunteer_wading"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_volunteer_wading_d_1_2_to_2_5",
+      "order": 146,
+      "assets": [
+        "volunteer_wading"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_volunteer_wading_d_gt_2_5",
+      "order": 147,
+      "assets": [
+        "volunteer_wading"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_swiftwater_team_unknown",
+      "order": 148,
+      "assets": [
+        "swiftwater_team"
+      ],
+      "status": "caution",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "unknown"
+      },
+      "reason": "Unknown depth requires reconnaissance and prevents automatic depth clearance.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_horse_d_0_15_to_0_3",
+      "order": 149,
+      "assets": [
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_15_to_0_3"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_horse_d_0_3_to_0_6",
+      "order": 150,
+      "assets": [
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_3_to_0_6"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_horse_d_0_6_to_1_2",
+      "order": 151,
+      "assets": [
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_0_6_to_1_2"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_horse_d_1_2_to_2_5",
+      "order": 152,
+      "assets": [
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_1_2_to_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    },
+    {
+      "id": "D_horse_d_gt_2_5",
+      "order": 153,
+      "assets": [
+        "horse"
+      ],
+      "status": "unsafe",
+      "when": {
+        "field": "d.depth_band",
+        "op": "eq",
+        "value": "d_gt_2_5"
+      },
+      "reason": "This depth band excludes unapproved road, foot or animal flood transport.",
+      "source_ids": [
+        "POLICY",
+        "NWS"
+      ],
+      "basis": "conservative_policy"
+    }
+  ],
+  "sources": {
+    "NWS": {
+      "id": "NWS",
+      "url": "https://www.weather.gov/safety/flood-during",
+      "title": "During a Flood",
+      "publisher": "NOAA/National Weather Service",
+      "date": null,
+      "what_it_supports": "Public floodwater avoidance; moving water at six inches can knock a person down; hidden road, electrical and debris hazards.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "NHTSA": {
+      "id": "NHTSA",
+      "url": "https://www.nhtsa.gov/road-safety/driving-in-severe-weather",
+      "title": "Driving in Severe Weather",
+      "publisher": "NHTSA",
+      "date": null,
+      "what_it_supports": "Public danger examples: 12 inches rushing water for cars and two feet for most trucks/SUVs; these are not safe operating limits.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "FORD": {
+      "id": "FORD",
+      "url": "https://www.ford.com.au/support/discover-your-ford/vehicle/ranger/experiences/guide-to-offroading-2023",
+      "title": "Get up and go: Off-Roading",
+      "publisher": "Ford Australia",
+      "date": null,
+      "what_it_supports": "Example Ranger fording rating 0.8 m at up to 7 km/h; expressly excludes floodwater/fast-flowing water.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Open-page retrieval did not yield the article; indexed manufacturer content inspected."
+    },
+    "LR": {
+      "id": "LR",
+      "url": "https://www.landrover.com/ownership/off-road/wading-depths.html",
+      "title": "Driving Through Water / Wading Depths",
+      "publisher": "JLR",
+      "date": null,
+      "what_it_supports": "Model/suspension-specific examples: Defender 0.85-0.90 m, Discovery Sport 0.60 m, Range Rover variants 0.53-0.90 m; not a generic SUV limit.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "UNIMOG": {
+      "id": "UNIMOG",
+      "url": "https://mercedesbenz-trucks.ma/wp-content/uploads/2019/10/special-trucks_unimog_off-road_technical-data-u5023-en-01-2018.pdf",
+      "title": "Unimog U5023 technical data",
+      "publisher": "Daimler / Mercedes-Benz Special Trucks",
+      "date": "2018-01",
+      "what_it_supports": "Specific U5023 standard/optional fording depth 0.8/1.2 m; configuration-dependent, not a flood-safety certification.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "ELECTRIC": {
+      "id": "ELECTRIC",
+      "url": "https://www.cdc.gov/natural-disasters/response/what-to-do-protect-yourself-from-electrical-hazards.html",
+      "title": "What to Do to Protect Yourself From Electrical Hazards",
+      "publisher": "CDC",
+      "date": null,
+      "what_it_supports": "Avoid floodwater with downed lines and overhead electrical hazards; power outage alone does not verify isolation.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "OSHA": {
+      "id": "OSHA",
+      "url": "https://www.osha.gov/flood/response",
+      "title": "Flood Preparedness and Response: Response/Recovery",
+      "publisher": "OSHA",
+      "date": null,
+      "what_it_supports": "Flood response electrical, debris, contamination and responder protection hazards.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "PFD": {
+      "id": "PFD",
+      "url": "https://uscgboating.org/recreational-boaters/life-jacket-wear-wearing-your-life-jacket.php",
+      "title": "Life Jacket Wear",
+      "publisher": "US Coast Guard Boating Safety",
+      "date": null,
+      "what_it_supports": "Life jackets must fit the wearer, including infant sizes. A child is not an extra uncounted passenger.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "US guidance is a safety reference, not Brazilian licensing law."
+    },
+    "TEAM": {
+      "id": "TEAM",
+      "url": "https://rtlt.preptoolkit.fema.gov/Public/Resource/ViewFile/8-508-1020?q=swiftwater&s=FemaId&type=Pdf",
+      "title": "Swiftwater/Flood Search and Rescue Team, v1.8",
+      "publisher": "FEMA NIMS",
+      "date": "2021-03",
+      "what_it_supports": "Types 1/2/3 have minimum 16/12/6 members; Type 3 includes powered/paddle rescue in current at least one knot; Type 2 adds technical rope and coordination; Type 1 animal specialty; litter and communications equipment.",
+      "verified": true,
+      "verification_method": "full_pdf",
+      "accessed": "2026-10-24",
+      "limitations": "Typing describes a capability package; one knot is a minimum capability description, not an upper safe current or a local certification."
+    },
+    "HELI2017": {
+      "id": "HELI2017",
+      "url": "https://rtlt.preptoolkit.fema.gov/Public/Resource/ViewPublishedFile?FemaId=8-508-1162&Published=636456637163470000&Type=Pdf",
+      "title": "Search and Rescue Aircraft - Helicopter/Rotary Wing",
+      "publisher": "FEMA NIMS",
+      "date": "2017-11",
+      "what_it_supports": "Historic helicopter mission typing, trained crews and hoist/litter capability for the 2024 context.",
+      "verified": true,
+      "verification_method": "full_pdf",
+      "accessed": "2026-10-24",
+      "limitations": "PDF explicitly marked superseded; do not use for current qualification certification."
+    },
+    "HELI2025": {
+      "id": "HELI2025",
+      "url": "https://rtlt.preptoolkit.fema.gov/Public/Resource/ViewFile/8-508-1162?type=Pdf",
+      "title": "Helicopter/Rotary Wing Search and Rescue Team, v1.4",
+      "publisher": "FEMA NIMS",
+      "date": "2025-09",
+      "what_it_supports": "Current reference: Type 1 minimum five crew, Type 2 four, Types 3/4 three; Type 4 rescue and at least two transported people including litter provision; Type 2 night/IFR/NVG.",
+      "verified": true,
+      "verification_method": "full_pdf",
+      "accessed": "2026-10-24",
+      "limitations": "Postdates RS 2024; reference for present product validation only, not evidence of a 2024 Brazilian unit's qualifications."
+    },
+    "NFPA1006": {
+      "id": "NFPA1006",
+      "url": "https://www.nfpa.org/codes-and-standards/1/0/0/nfpa-1006",
+      "title": "NFPA 1006: Technical Rescue Personnel Professional Qualifications",
+      "publisher": "NFPA",
+      "date": null,
+      "what_it_supports": "Individual technical-rescue job performance qualifications; verify adopted edition and water/rope specialty with authority having jurisdiction.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "NFPA2500": {
+      "id": "NFPA2500",
+      "url": "https://www.nfpa.org/product/nfpa-2500-standard/p2500code",
+      "title": "NFPA 2500: Organizational Capabilities for Technical Search and Rescue",
+      "publisher": "NFPA",
+      "date": null,
+      "what_it_supports": "Organizational technical rescue capability framework; older NFPA 1670 references need edition checking.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Public catalogue only; no claim that clauses were audited or that NFPA is Brazilian law."
+    },
+    "CALOES": {
+      "id": "CALOES",
+      "url": "https://www.caloes.ca.gov/wp-content/uploads/Law-Enforcement/Documents/SAR-Swiftwater-Flood-MA-Guideline.pdf",
+      "title": "Swiftwater/Flood Search and Rescue SAR Annex",
+      "publisher": "California OES",
+      "date": "2001-01-24",
+      "what_it_supports": "Qualified resources, incident command, safety officer, staging and escalation when capability is exceeded.",
+      "verified": true,
+      "verification_method": "full_pdf",
+      "accessed": "2026-10-24",
+      "limitations": "Historical operational framework; not a replacement for FEMA's newer typing."
+    },
+    "LUND": {
+      "id": "LUND",
+      "url": "https://www.lundboats.com/content/dam/lund/technical/documents/23_ABG_LN_MY2024Catalog_v8b_digital3.pdf",
+      "title": "2024 Lund catalogue: Jon 1448M",
+      "publisher": "Lund Boats",
+      "date": "2024",
+      "what_it_supports": "Flat-bottom aluminium example: four total persons and 825 lb listed capacity; total occupants include crew. No safe flood draft given.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "ZODIAC": {
+      "id": "ZODIAC",
+      "url": "https://pdf.nauticexpo.com/pdf/zodiac-milpro-international/fc-470-rigid-floor/25507-23276.html",
+      "title": "FC-470 rigid floor manufacturer brochure",
+      "publisher": "Zodiac Milpro, hosted by NauticExpo",
+      "date": null,
+      "what_it_supports": "FC-470 example maximum ten total persons and 1250 kg payload; usable arrangement and rescue load still require confirmation.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Manufacturer-authored brochure on distributor catalogue host; does not establish actual RS inventory."
+    },
+    "YAMAHA": {
+      "id": "YAMAHA",
+      "url": "https://waverunners.yamaha-owners-manuals.com/om/LIT-18626-12-56/files/basic-html/page57.html",
+      "title": "WaveRunner owner's manual, page 57",
+      "publisher": "Yamaha",
+      "date": null,
+      "what_it_supports": "Example minimum clearance is 0.60 m below the bottom of the watercraft before running engine, to avoid ingestion/impeller damage. NOT total depth from surface.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "AIRBOAT": {
+      "id": "AIRBOAT",
+      "url": "https://www.biondoboats.com/content/rescue-airboats/models-and-specifications",
+      "title": "Rescue airboat models and specifications",
+      "publisher": "Biondo Boats",
+      "date": null,
+      "what_it_supports": "Manufacturer examples: draft 9-12 inches or 12 inches; six/eight passenger configurations, payload 1200/1500 lb.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": "Static listed draft, loading basis unspecified; dispatch needs loaded draft plus clearance; passenger versus crew basis must be checked."
+    },
+    "SHERP": {
+      "id": "SHERP",
+      "url": "https://sherpglobal.com/wp-content/uploads/2023/03/SHERP-Presentation_compressed.pdf",
+      "title": "SHERP firefighting UTV presentation",
+      "publisher": "SHERP",
+      "date": "2023-03",
+      "what_it_supports": "Illustrative amphibious UTV water speed 6 km/h and ground speed 40 km/h; not a CLAnf or generic amphibious rescue speed.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "AIRBUS": {
+      "id": "AIRBUS",
+      "url": "https://www.airbus.com/en/products-services/helicopters/military-helicopters/h225m/h225m-missions",
+      "title": "H225M missions",
+      "publisher": "Airbus",
+      "date": null,
+      "what_it_supports": "Model-specific SAR, night and medevac configurations, up to eleven stretchers plus four attendants; not guaranteed hoist payload or default rescue seating.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "DJISEARCH": {
+      "id": "DJISEARCH",
+      "url": "https://enterprise.dji.com/matrice-350-rtk/specs",
+      "title": "Matrice 350 RTK specifications",
+      "publisher": "DJI",
+      "date": null,
+      "what_it_supports": "Example max wind resistance 12 m/s, max horizontal speed 23 m/s, advertised flight time up to 55 minutes under specified test conditions; thermal sensor must be fitted.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "DJIDROP": {
+      "id": "DJIDROP",
+      "url": "https://www.dji.com/flycart-30/specs",
+      "title": "FlyCart 30 specifications",
+      "publisher": "DJI",
+      "date": null,
+      "what_it_supports": "Illustrative cargo platform: max horizontal speed 20 m/s, max wind resistance 12 m/s under stated conditions; cargo/winch limits require actual configuration.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": "Maximum test values are not conservative flight release limits. Do not confuse parachute max payload with cargo capacity."
+    },
+    "RSSTATE": {
+      "id": "RSSTATE",
+      "url": "https://defesacivil.rs.gov.br/defesa-civil-atualiza-balanco-das-enchentes-no-rs-19-5-18h",
+      "title": "Flood response balance, 19 May, 18h",
+      "publisher": "Defesa Civil RS",
+      "date": "2024-05-19",
+      "what_it_supports": "Statewide snapshot: 4061 vehicles, 21 aircraft and 302 boats; vehicle category does not equal high-clearance rescue trucks.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSCBM": {
+      "id": "RSCBM",
+      "url": "https://www.bombeiros.rs.gov.br/corpo-de-bombeiros-militar-do-rio-grande-do-sul-apresenta-balanco-das-enchentes-de-maio-de-2024",
+      "title": "CBMRS May floods operational balance",
+      "publisher": "CBMRS",
+      "date": "2024-07-12",
+      "what_it_supports": "CBMRS cumulative mobilization: 167 boats, 1064 vehicles; aircraft medical removals and direct rescues. Not simultaneous available inventory.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Official indexed article inspected; open request timed out."
+    },
+    "RSPRF": {
+      "id": "RSPRF",
+      "url": "https://www.gov.br/prf/pt-br/noticias/nacionais/2024/maio/prf-atua-no-resgate-e-no-transporte-de-mantimentos-para-populacao-atingida-pelas-chuvas-no-rs",
+      "title": "PRF rescue and supplies operations",
+      "publisher": "Polícia Rodoviária Federal",
+      "date": "2024-05-08",
+      "what_it_supports": "Article body: 78 vehicles, four boats and four helicopters, rescue/patrol/supplies; lead and body disagree on boat count.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Full-page request returned unauthorized; indexed body supports four boats, lead says one; record range one-four, use one for planning, never infer ready fleet."
+    },
+    "RSFED": {
+      "id": "RSFED",
+      "url": "https://www.gov.br/mds/pt-br/noticias-e-conteudos/desenvolvimento-social/noticias-desenvolvimento-social/20-mil-vidas-salvas-em-trabalhos-de-resgate-no-rio-grande-do-sul",
+      "title": "20 mil vidas salvas em trabalhos de resgate",
+      "publisher": "Ministério do Desenvolvimento Social",
+      "date": "2024-05-05",
+      "what_it_supports": "Published joint response figures: at least 30 helicopters, 182 boats, 866 vehicles; separate public-security structure includes one jet ski and two trucks; fuel supply measures.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Search-index verification only; live URL redirects to login and shows later update. Counts are dated reported figures, not certified contemporaneous inventory."
+    },
+    "RSNAVY": {
+      "id": "RSNAVY",
+      "url": "https://www.marinha.mil.br/com5dn/node/2327",
+      "title": "Navy rescues residents in metropolitan Porto Alegre",
+      "publisher": "Marinha do Brasil / Com5DN",
+      "date": "2024-05-03",
+      "what_it_supports": "Two aircraft UH-15/UH-12 and six teams; aircraft used where boats/vehicles could not access; boats moved people, pets and supplies.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSFAB": {
+      "id": "RSFAB",
+      "url": "https://www.fab.mil.br/noticias/imprime/42790/",
+      "title": "Aviação de Busca e Salvamento operations",
+      "publisher": "Força Aérea Brasileira",
+      "date": "2024",
+      "what_it_supports": "H-60L Black Hawk and H-36 Caracal participated in Taquari II; SAR and evacuation roles.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSNIGHT": {
+      "id": "RSNIGHT",
+      "url": "https://www.fab.mil.br/notimp/mostra/01-05-2024",
+      "title": "FAB daily press digest, 1 May 2024",
+      "publisher": "FAB hosting press reports",
+      "date": "2024-05-01",
+      "what_it_supports": "Reports night hoist rescue supported by night-vision equipment; two H-60 deployed initially.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Press digest, not an independent operational log."
+    },
+    "RSARMY": {
+      "id": "RSARMY",
+      "url": "https://eblog.eb.mil.br/w/opera%C3%A7%C3%A3o-taquari-ii-novos-ensinamentos-em-opera%C3%A7%C3%B5es-de-ajuda-humanit%C3%A1ria",
+      "title": "Operação Taquari II: novos ensinamentos",
+      "publisher": "Exército Brasileiro / EBlog",
+      "date": "2024",
+      "what_it_supports": "Power, water, communications and supply-logistics failures impeded coordination; satellite communications and volunteers were important.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSPM": {
+      "id": "RSPM",
+      "url": "https://www.parana.pr.gov.br/aen/Noticia/Com-resgates-aereos-e-barcos-forcas-do-Parana-ajudaram-150-pessoas-no-Rio-Grande-do-Sul",
+      "title": "Paraná forces support RS with aircraft and boats",
+      "publisher": "Governo do Paraná / AEN",
+      "date": "2024-05-03",
+      "what_it_supports": "Police and firefighters deployed aerial/boat resources for isolated residents; no total national PM fleet inferred.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSAMPH": {
+      "id": "RSAMPH",
+      "url": "https://www.marinha.mil.br/cgcfn/node/2342",
+      "title": "Novo contingente de Fuzileiros Navais atua na recuperação do RS",
+      "publisher": "Marinha do Brasil",
+      "date": "2024-06-28",
+      "what_it_supports": "Later recovery contingent includes CLAnf, eight boats and 65 vehicles around Guaíba, Eldorado and Porto Alegre islands.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "June recovery evidence, not proof of a particular May passenger rescue or May fleet count."
+    },
+    "RSAMPHMAY": {
+      "id": "RSAMPHMAY",
+      "url": "https://www.marinha.mil.br/rmb/sites/www.marinha.mil.br.rmb/files/RMB%202T-2024%20FLIP.pdf",
+      "title": "Atuação da Marinha no desastre ambiental no RS",
+      "publisher": "Revista Marítima Brasileira / Marinha",
+      "date": "2024-Q2",
+      "what_it_supports": "Operational retrospective describes CLAnf arrival and amphibious support in the RS disaster; no generic shallow-water minimum inferred.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSDRONE": {
+      "id": "RSDRONE",
+      "url": "https://agenciagov.ebc.com.br/noticias/202405/helicoptero-da-receita-chega-a-porto-alegre-para-reforcar-mobilizacao-e-ajudar-vitimas-das-enchente-no-rio-grande-do-sul",
+      "title": "Receita helicopter and drones reinforce response",
+      "publisher": "Agência Gov / Receita Federal",
+      "date": "2024-05-05",
+      "what_it_supports": "Drone and helicopter use for inaccessible areas, assessment and rescue support; report does not enumerate an operational drone fleet.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSDRONE2": {
+      "id": "RSDRONE2",
+      "url": "https://prefeitura.poa.br/smseg/noticias/prefeitura-intensifica-uso-de-drones-para-dar-seguranca-areas-alagadas",
+      "title": "Prefeitura intensifica uso de drones",
+      "publisher": "Prefeitura de Porto Alegre",
+      "date": "2024-05-09",
+      "what_it_supports": "Municipal drone surveillance in inundated areas, integrated security/rescue support; no evidence of person carriage.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "DECEA": {
+      "id": "DECEA",
+      "url": "https://sirius.decea.mil.br/decea-toma-medidas-de-seguranca-operacional-da-navegacao-aerea-nas-areas-afetadas-pelas-chuvas-do-rs/",
+      "title": "DECEA drone flight safety measures in RS",
+      "publisher": "DECEA / SIRIUS Brasil",
+      "date": "2024-05-05",
+      "what_it_supports": "Flight restriction zone created on 4 May to protect emergency aviation; coordinated authorization required for drones.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSACCIDENT": {
+      "id": "RSACCIDENT",
+      "url": "https://www.ssp.sp.gov.br/noticia/57716",
+      "title": "Polícia de São Paulo encerra missão humanitária no RS",
+      "publisher": "Secretaria da Segurança Pública SP",
+      "date": "2024-07-19",
+      "what_it_supports": "Reports rescuing volunteers from an overturned boat during early operations; helicopters, drones and boats had complementary roles.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Open retrieval did not provide readable article; official indexed content inspected."
+    },
+    "RSCURRENT": {
+      "id": "RSCURRENT",
+      "url": "https://www.cnnbrasil.com.br/nacional/jet-skis-e-barcos-sao-usados-para-resgate-apos-guaiba-atingir-nivel-recorde/",
+      "title": "Jet skis e barcos são usados para resgate após Guaíba atingir nível recorde",
+      "publisher": "CNN Brasil / Reuters reporting",
+      "date": "2024-05",
+      "what_it_supports": "Ilha da Pintada volunteer's hull damaged while rescuing neighbours in Guaíba current; local boats and jet skis used.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Indexed report; full page returned unavailable. No measured current speed or technical accident investigation."
+    },
+    "RSDUP": {
+      "id": "RSDUP",
+      "url": "https://exame.com/tecnologia/plataforma-criada-por-voluntarios-do-rio-grande-do-sul-ja-resgatou-12-mil-pessoas/",
+      "title": "Plataforma criada por voluntários centraliza resgates",
+      "publisher": "Exame",
+      "date": "2024-05-09",
+      "what_it_supports": "Salva RS introduced callback verification, closing completed records and removing duplicate requests because communications and dispersed requests complicated coordination.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSTRACTOR": {
+      "id": "RSTRACTOR",
+      "url": "https://www1.folha.uol.com.br/amp/cotidiano/2024/05/15-dias-de-enchentes-no-rio-grande-do-sul-as-imagens-da-tragedia-sem-precedentes-no-estado.shtml",
+      "title": "15 dias de enchentes: imagens da tragédia",
+      "publisher": "Folha de S.Paulo / Reuters photograph",
+      "date": "2024-05-14",
+      "what_it_supports": "Photo caption documents tractors used to rescue people in Eldorado do Sul; no passenger safety certification or fleet total.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSPRIVATE": {
+      "id": "RSPRIVATE",
+      "url": "https://www.poder360.com.br/poder-gente/havan-homenageia-pilotos-que-resgataram-vitimas-no-rs/",
+      "title": "Havan homenageia pilotos que resgataram vítimas no RS",
+      "publisher": "Poder360 reporting company statement",
+      "date": "2024-05-17",
+      "what_it_supports": "Company-reported two helicopters for supplies, medicines and rescues; not an audited private-fleet total.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSOMNI": {
+      "id": "RSOMNI",
+      "url": "https://www.omnihelicoptersinternational.com/omni-taxi-aereo-responds-to-the-floods-in-rio-grande-do-sul/",
+      "title": "Omni Taxi Aereo Responds to the Floods in Rio Grande do Sul",
+      "publisher": "Omni Helicopters International",
+      "date": "2024-05-15",
+      "what_it_supports": "Private operator directly reports rescue, transport of supplies and support reaching inaccessible areas; not a census of private aviation.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "RSAVEX": {
+      "id": "RSAVEX",
+      "url": "https://www.defesaaereanaval.com.br/aviacao/operacao-taquari-2-avex-envia-seis-helicopteros-para-apoio-as-enchentes-no-sul",
+      "title": "AvEx envia seis helicopteros para apoio as enchentes",
+      "publisher": "Defesa Aerea & Naval",
+      "date": "2024-05-03",
+      "what_it_supports": "Secondary deployment report identifies six Army helicopters sent to support operations, not simultaneous mission-ready inventory.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": "Secondary historical report; not used as a technical capability authority."
+    },
+    "RSHORSE": {
+      "id": "RSHORSE",
+      "url": "https://prefeitura.poa.br/eptc/noticias/todos-os-cavalos-resgatados-na-enchente-de-porto-alegre-foram-adotados-ou-devolvidos",
+      "title": "Cavalos resgatados foram adotados ou devolvidos",
+      "publisher": "Prefeitura de Porto Alegre / EPTC",
+      "date": "2024-07-26",
+      "what_it_supports": "Horses were flood victims and sheltered animals. Does not establish horses used as rescue transport.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "HARVEY": {
+      "id": "HARVEY",
+      "url": "https://www.hcffa.org/wp-content/uploads/2018/01/Harvey-AAR_Actions-Supplement.pdf",
+      "title": "Hurricane Harvey After Action Review: actions supplement",
+      "publisher": "Harris County Fire Fighters' Association",
+      "date": null,
+      "what_it_supports": "Explicit follow-up actions for boat operator training, resource ordering, staging notifications, logistics caches and staff roles.",
+      "verified": true,
+      "verification_method": "full_pdf",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "HELENE": {
+      "id": "HELENE",
+      "url": "https://www.ncdot.gov/news/press-releases/Pages/2024/2024-11-25-hurricane-helene-workshop-collaborative-plans.aspx",
+      "title": "Hurricane Helene aviation after-action workshop",
+      "publisher": "North Carolina DOT",
+      "date": "2024-11-25",
+      "what_it_supports": "Aircraft fuel management, airport coordination, power/communications and controlled takeoffs/landings are aviation readiness requirements.",
+      "verified": true,
+      "verification_method": "full_page",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "GERMANY": {
+      "id": "GERMANY",
+      "url": "https://www.bbk.bund.de/DE/Themen/Krisenmanagement/Mensch-und-Gesellschaft/Spontanhelfende/Aktivitaeten-BBK-Spontanhilfe/aktivitaeten-bbk-spontanhilfe.html",
+      "title": "BBK spontaneous-volunteer integration projects",
+      "publisher": "BBK Germany",
+      "date": null,
+      "what_it_supports": "HoWas2021 studied integration of responders and spontaneous volunteers after July 2021 floods; supports registration/assignment gate, not asset depth limits.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": "Indexed official content inspected; live request returned forbidden."
+    },
+    "PAKISTAN": {
+      "id": "PAKISTAN",
+      "url": "https://ndma.gov.pk/public/index.php/pages/single-news/ndma-held-national-post-monsoon-2022-review-conference-with-key-stakeholders",
+      "title": "Post-monsoon 2022 review conference",
+      "publisher": "NDMA Pakistan",
+      "date": "2022-12-21",
+      "what_it_supports": "Confirms a multi-agency lessons review; no usable asset-specific operating limit in public summary. No new dispatch threshold imported.",
+      "verified": true,
+      "verification_method": "search_index",
+      "accessed": "2026-10-24",
+      "limitations": ""
+    },
+    "POLICY": {
+      "id": "POLICY",
+      "url": null,
+      "title": "BRIEF_FLEET.md and conservative research policy",
+      "publisher": "This research deliverable",
+      "date": "2026-10-24",
+      "what_it_supports": "Requested depth bands, wheelchair/bedridden stretcher rule, infant/elderly strong-current sled exclusion, and explicitly labelled conservative defaults. These are design decisions, not sourced engineering safe limits.",
+      "verified": true,
+      "verification_method": "local_brief_and_inference",
+      "accessed": "2026-10-24",
+      "limitations": "Not external evidence; associated rules also cite the hazard/capability sources motivating them."
+    }
+  }
+}

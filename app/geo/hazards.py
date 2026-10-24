@@ -121,18 +121,25 @@ class HazardData:
             raise ValueError('invalid coordinates')
         if position_kind not in ('landmark',STREET_POSITION): raise ValueError('invalid position_kind')
         observed,layers=self.dated_layers(day)
-        wet=self.indices[observed].contains(lat,lon) if observed else None
-        result={'in_flood_extent':wet,'flood_observed_date':observed,'depth_m':None,'depth_source':'pending (depth research)',
+        from app.geo.depth import lookup
+        flood_by_date={d:self.indices[d].contains(lat,lon) for d in sorted(self.indices) if d<=day}
+        wet=any(flood_by_date.values()) if flood_by_date else None
+        result={'flood_by_date':flood_by_date,'in_flood_any':wet,**lookup(lon,lat,day),
                 'closures_nearby':[],'pumps_nearby':[],'events_nearby':[],'nearest_shelters':[],
                 'position_kind':position_kind,'facts':[]}
         def fact(key,text,source):
             token=hashlib.sha256((key+'|'+day+'|'+str(lat)+'|'+str(lon)).encode()).hexdigest()[:20]
             result['facts'].append({'id':'hazard:'+token,'text_pt':text,'source':source})
         fact('position', 'Posição de referência: '+position_kind+'.', 'data/hazards/street_points.csv' if position_kind==STREET_POSITION else 'data/landmarks.csv')
-        fact('flood','Sem observação de inundação até esta data.' if observed is None else
-             ('Ponto dentro' if wet else 'Ponto fora')+' da extensão observada em '+observed+'; publicação desconhecida; ausência não comprova segurança.',
-             'data/hazards/flood_'+observed+'.geojson' if observed else 'data/hazards/manifest.json')
-        fact('depth','Profundidade não disponível; pesquisa pendente.','pending (depth research)')
+        if not flood_by_date:
+            fact('flood:none','Sem observação de inundação até esta data.','data/hazards/manifest.json')
+        for observation,inside in flood_by_date.items():
+            fact('flood:'+observation,('Ponto dentro' if inside else 'Ponto fora')+' da extensão observada em '+observation+
+                 '; resultado falso posterior pode refletir cobertura, não recessão; publicação desconhecida.',
+                 'data/hazards/flood_'+observation+'.geojson')
+        depth_text=('Profundidade desconhecida; nenhum valor válido até 60 m.' if result['depth_m'] is None else
+                    'Profundidade estimada '+str(result['depth_m'])+' m; célula a '+str(result['depth_distance_m'])+' m; observada em '+result['depth_observed_date']+'.')
+        fact('depth',depth_text+' '+result['depth_confidence']+'. '+result['depth_confidence_reason'],result['depth_source'])
         for name,limit,key in (('closures',1000,'closures_nearby'),('pumps',3000,'pumps_nearby'),('events',3000,'events_nearby')):
             nearby=[]
             for f in layers[name]:
@@ -206,10 +213,15 @@ def map_data(day,cases=()):
         if not candidates: continue
         case=max(candidates,key=lambda f:(f.get('received_at',''),f.get('replay_time','')))
         position=case_position(case);hazards=assess(position['lat'],position['lon'],day,position['position_kind']) if position else None
-        summary={k:hazards[k] for k in ('in_flood_extent','flood_observed_date','depth_m','depth_source')} if hazards else None
+        from app.fleet import screen
+        screened=screen({**case,'hazards':hazards})
+        summary={k:hazards[k] for k in ('flood_by_date','in_flood_any','depth_m','depth_status','depth_band','depth_distance_m','depth_observed_date','depth_by_date','depth_confidence','depth_confidence_reason','depth_source','depth_retrospective')} if hazards else None
         if summary is not None:
             summary.update({key:len(hazards[key]) for key in ('closures_nearby','pumps_nearby','events_nearby','nearest_shelters')})
         result['cases'].append({'case_id':current['case_id'],'decision':case['result']['decision'],'priority':case['result'].get('priority'),
              'lat':position['lat'] if position else None,'lon':position['lon'] if position else None,
-             'position_kind':position['position_kind'] if position else None,'hazards':summary})
+             'position_kind':position['position_kind'] if position else None,'hazards':summary,
+             'fleet':screened['fleet'],'fleet_summary':screened['fleet_summary'],
+             'fleet_replay_date':day,'hazard_review_replay_time':case.get('replay_time'),
+             'hazard_review':case.get('hazard_review'),'hazard_unsupported':case.get('hazard_unsupported',0)})
     return result

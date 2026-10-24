@@ -43,27 +43,29 @@ class HazardTests(unittest.TestCase):
 
     def test_inside_real_may6_and_no_observation_before(self):
         lat,lon=self.point('2024-05-06')
-        self.assertTrue(assess(lat,lon,'2024-05-06','landmark')['in_flood_extent'])
-        self.assertIsNone(assess(lat,lon,'2024-05-05','landmark')['in_flood_extent'])
+        self.assertTrue(assess(lat,lon,'2024-05-06','landmark')['in_flood_any'])
+        self.assertIsNone(assess(lat,lon,'2024-05-05','landmark')['in_flood_any'])
 
     def test_may8_only_extent_not_backdated(self):
         lat,lon=self.point('2024-05-08','2024-05-06')
-        self.assertTrue(assess(lat,lon,'2024-05-08','landmark')['in_flood_extent'])
+        self.assertTrue(assess(lat,lon,'2024-05-08','landmark')['in_flood_any'])
         older=assess(lat,lon,'2024-05-06','landmark')
-        self.assertFalse(older['in_flood_extent'])
-        self.assertEqual(older['flood_observed_date'],'2024-05-06')
+        self.assertFalse(older['in_flood_any'])
+        self.assertEqual(set(older['flood_by_date']),{'2024-05-06'})
 
-    def test_rodoviaria_both_dates_facts_and_pending_depth(self):
+    def test_rodoviaria_both_dates_facts_and_depth(self):
         outputs=[]
         for day in ('2024-05-06','2024-05-08'):
             a=assess(float(self.station['lat']),float(self.station['lon']),day,'landmark');outputs.append(a)
-            self.assertEqual(a['flood_observed_date'],day)
-            self.assertIsNone(a['depth_m']);self.assertEqual(a['depth_source'],'pending (depth research)')
+            self.assertIn(day,a['flood_by_date'])
+            self.assertIn('EMSN194',a['depth_source'])
+            self.assertIn(a['depth_status'],('estimada','desconhecida'))
             self.assertTrue(all(set(f)=={'id','text_pt','source'} and f['source'] for f in a['facts']))
             self.assertEqual(a,assess(float(self.station['lat']),float(self.station['lon']),day,'landmark'))
-        self.assertTrue(outputs[0]['in_flood_extent'])
+        self.assertTrue(outputs[0]['in_flood_any'])
         # Different coverage must not be interpreted as recession or safety.
-        self.assertIsInstance(outputs[1]['in_flood_extent'],bool)
+        self.assertTrue(outputs[1]['flood_by_date']['2024-05-06'])
+        self.assertTrue(outputs[1]['in_flood_any'])
 
     def test_closure_publication_and_active_interval(self):
         for day in ('2024-05-02','2024-05-06','2024-05-08'):

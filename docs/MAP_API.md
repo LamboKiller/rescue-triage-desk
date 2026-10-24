@@ -1,4 +1,4 @@
-# Map API contract — V2-A
+# Map API contract — V2-B
 
 `GET /api/map?date=YYYY-MM-DD` returns `200 application/json; charset=utf-8`.
 Exactly one valid ISO calendar date is required; missing, duplicate or invalid
@@ -29,8 +29,9 @@ with the test case queue. Case arrays grow with registry history.
   "cases": [{
     "case_id":"example-id","decision":"REVIEW_REQUIRED","priority":8,
     "lat":-30.022194,"lon":-51.2198891,"position_kind":"landmark",
-    "hazards":{"in_flood_extent":false,"flood_observed_date":"2024-05-08",
-      "depth_m":null,"depth_source":"pending (depth research)",
+    "hazards":{"flood_by_date":{"2024-05-06":true,"2024-05-08":false},"in_flood_any":true,
+      "depth_m":0.62,"depth_status":"estimada","depth_band":"d_0_6_to_1_2",
+      "depth_source":"Copernicus Emergency Management Service (© 2024 European Union), EMSN194",
       "closures_nearby":0,"pumps_nearby":10,"events_nearby":3,"nearest_shelters":0}
   }]
 }
@@ -71,9 +72,30 @@ eligible historical analysis is selected; later analyses and actions do not leak
 into earlier maps. Hazards are recomputed for the map date, while decisions and
 priority remain those of the selected analysis. Do not imply they were rescored.
 
-In a case hazard summary, `in_flood_extent` is true/false for the latest dated
-extent or null before the first observation; `flood_observed_date` is that date or
-null. `depth_m` is always null and `depth_source` always `pending (depth research)`.
+In a case hazard summary, `flood_by_date` contains each available observation
+whose date is <= replay date; each value is true/false for that dated coverage
+(null is reserved for unavailable coverage). Before the first observation it is
+`{}`. `in_flood_any` is true if any eligible observation contains the point,
+false if all eligible observations exclude it, null if none exist. A false value
+on a later date can reflect different coverage, not recession. The former
+`in_flood_extent`/`flood_observed_date` single-date flags have been replaced.
+The visual flood layer still shows the latest eligible observation only.
+
+`depth_m` is the nearest valid native 20 m cell centre within 60 m in the latest
+observation <= replay, or null. `depth_distance_m` is its centre distance (null
+when absent), `depth_observed_date` is the selected grid date (null before May 6),
+`depth_status` is `estimada|desconhecida`, and `depth_by_date` contains eligible
+observations as `{"2024-05-06":{"depth_m":0.5,"distance_m":12.3}}`.
+No older observation fills a gap in the latest observation. No data is never dry.
+`depth_band` is the numeric fleet band ID or `unknown`; this is an estimate,
+not the fleet evaluator's permission to clear a vehicle. `depth_confidence` is
+`"baixa — estimativa HAND ±1 m, retrospectiva"`; `depth_confidence_reason`
+explains the 20 m HAND method, creation after the event and possible
+underestimation. `depth_source` is the Copernicus attribution and
+`depth_retrospective` is true. These fields appear in full assessments and map
+summaries. Observed May 6/8 grids were created June 12, 2024; observation-bounded
+replay does not claim they were available during rescue operations.
+
 The four remaining numeric fields are counts: active corridor candidates within
 1,000 m, pumps within 3,000 m, historical events within 3,000 m, and available
 shelters returned (at most 3), respectively. Nearby closure distance is to the
@@ -93,5 +115,101 @@ Full pipeline cases (`POST /run`, `GET /api/cases`) also contain `position`,
 
 The map endpoint supplies summary counts only. Read the full case assessment for
 citable detail; an assessment's replay date may differ from the current map date.
-Hazards are informational in V2-A and never feed decision/priority logic. No layer
+Hazards and fleet screening never feed triage decision/priority logic; the human dispatch gate rejects unsafe assets. No layer
 provides a safe route, rescue assignment or a real-time availability guarantee.
+
+
+`GET /api/depth?date=2024-05-08&bbox=-51.18,-30.00,-51.16,-29.99`
+requires exactly one ISO date and one WGS84 bbox (`west,south,east,north`). Missing,
+duplicate, empty, nonfinite or reversed parameters return HTTP 400. Cells are
+5×5 native pixels (100 m), aligned with the source UTM22S origin, using the
+maximum of valid pixels. Coordinates are their centres converted to WGS84;
+centres inside the bbox are returned. Missing pixels never contribute zero.
+Only the latest observation <= date is selected; before May 6 cells are empty.
+The response is bounded to 50,000 cells; larger queries return HTTP 400 asking
+for a narrower bbox. Current whole-grid responses are below 3 MB uncompressed.
+The maximum can include valid pixels elsewhere in a partly unknown cell; it is
+not full coverage or a surveyed route. A missing array entry means unknown.
+The JSON structure is exactly (cell below is illustrative):
+
+```json
+{"date":"2024-05-08","observation_date":"2024-05-08","cell_m":100,"crs":"EPSG:4326",
+ "columns":["lon","lat","band","max_depth_m"],
+ "cells":[[-51.171,-29.994,"d_gt_2_5",2.72]],"missing":"desconhecida",
+ "retrospective":true,"confidence":"baixa — estimativa HAND ±1 m, retrospectiva",
+ "source":"Copernicus Emergency Management Service (© 2024 European Union), EMSN194"}
+```
+
+Suggested depth colours: `d_lt_0_15` pale blue `#dbeafe`, `d_0_15_to_0_3`
+`#93c5fd`, `d_0_3_to_0_6` `#60a5fa`, `d_0_6_to_1_2` `#2563eb`,
+`d_1_2_to_2_5` `#7c3aed`, `d_gt_2_5` `#581c87`; unknown gray `#64748b`.
+Use hatching/low opacity for retrospective low confidence. Zero estimated depth
+is not a verified dry route. Numeric band boundaries are [0,.15), [.15,.3),
+[.3,.6), [.6,1.2), [1.2,2.5], and (2.5,infinity).
+
+Full pipeline cases include the following fields (arrays below illustrate the
+shape; all 20 assets and every matched rule/reason are returned):
+
+```json
+{"fleet":[{"asset":"road_ambulance","label_pt":"Ambulância rodoviária","verdict":"unsafe",
+ "reasons_pt":["Veículo rodoviário genérico não pode entrar em água de inundação; use apoio e transferência em local seco verificado."],
+ "rule_ids":["R035"],"source_ids":["NWS"]}],
+ "fleet_summary":{"options":[{"asset":"irb","label_pt":"Bote inflável de resgate","verdict":"caution"}],
+ "unsafe_assets":["road_ambulance"],"human_approval_required":true,"depth_band":"unknown",
+ "brief_pt":"Opções para revisão humana; disponibilidade, equipe, rota e transferência exigem verificação."},
+ "hazard_facts":[{"id":"fleet:road_ambulance","text_pt":"Ambulância rodoviária (road_ambulance): unsafe. ...",
+ "source":"data/fleet/dispatch_rules.json#R035"}],
+ "hazard_review":{"objections":[{"fact_ids":["fleet:road_ambulance"],
+ "text_pt":"Recurso inseguro conforme as regras citadas.","severity":"block"}],
+ "brief_pt":"Requer revisão humana e verificações locais."},"hazard_unsupported":0}
+```
+
+`fleet` is ordered by severity, then number of constraints, with source order as
+a stable tie breaker. `fleet_summary.options` contains only suitable/caution
+options, best first. Neither verdict authorizes deployment. All matching rules
+combine by maximum severity; no later rule erases a veto. Portuguese reasons,
+rule IDs and source IDs retain traceability to `data/fleet/dispatch_rules.json`
+(version 1.0.0-research). Unknown observations/attestations stay unknown. HAND
+confidence maps to low, so fleet depth clearance stays unknown regardless of the
+estimated numeric band. Wheelchair or extracted disabled/bedridden people require
+a secured-litter package; unknown demographics are never filled with zero.
+
+`hazard_facts` combines assessment facts with per-asset screening facts. The
+critic receives message text, case fields/result, those positional/flood/depth
+facts and nearby evidence (up to 16), the proposed asset's rule fact, fleet
+summary and `proposed_asset`. `/run` messages may supply a catalogue
+`proposed_asset`; otherwise the first non-unsafe option is reviewed. It runs only
+in live full mode after location for SEND_CANDIDATE/REVIEW_REQUIRED, through the
+existing streaming Nightshift client with the global deadline. The advisory
+review never changes triage decisions. Citation/number validation drops
+unsupported objections and counts them in `hazard_unsupported`; unsupported
+briefs are cleared and counted. Every objection needs existing fact IDs and
+numbers from its cited facts or case fields; brief numbers must appear in those
+accepted citations or case fields. Failure, timeout, skipped or offline review
+is `"hazard_review":"indisponível"`. Successful validated output is also in
+`agents.hazard_critic`; calls include role `hazard_critic`.
+
+Map cases include `fleet`, `fleet_summary`, `fleet_replay_date` (screening
+recomputed with map-date hazards), `hazard_review`, `hazard_unsupported` and
+`hazard_review_replay_time` (original eligible analysis). The review is not
+rerun or upgraded on map GET. Retrospective observations do not attest present
+conditions. Suggested verdict colours: suitable green, caution amber, unsafe
+red. Review block red; warn amber; unavailable gray.
+
+`POST /api/cases/{case_id}/actions` approval body:
+
+```json
+{"action":"approve_dispatch","expected_version":2,"actor":"operador",
+ "asset":"irb","caution_acknowledged":true}
+```
+
+Existing human/location/SEND_CANDIDATE/version gates still apply. Missing asset
+returns 400; unknown/unevaluated asset or an unsafe verdict returns 409 with
+`{"error":"..."}` explaining the rejection. A caution verdict requires explicit
+`caution_acknowledged:true`, otherwise 409. Successful approval records
+`approved_asset` and `caution_acknowledgement` containing asset, reasons_pt,
+rule_ids, source_ids, acknowledged:true and actor in the event log/projection.
+Suitable approval has null acknowledgement. New analysis/text invalidates
+approval and its acknowledgement. Dispatch and field confirmation transitions
+remain human-only and versioned. The proposed asset is advisory; the selected
+approval asset is checked independently.

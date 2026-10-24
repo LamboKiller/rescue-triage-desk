@@ -57,7 +57,7 @@ class PipelineTests(unittest.TestCase):
         llm = FakeLLM()
         result = Pipeline(self.registry, source=FakeSource(), client=llm).run(self.request())
         c = result['cases'][0]
-        self.assertEqual(llm.roles, ['intake', 'critic', 'revision'])
+        self.assertEqual(llm.roles, ['intake', 'critic', 'revision', 'hazard_critic'])
         self.assertNotIn('elderly', c['fields'])
         self.assertEqual(c['unsupported'][0]['reason'], 'unsupported_quote')
         self.assertEqual(c['result']['decision'], 'SEND_CANDIDATE')

@@ -10,7 +10,8 @@ import threading
 import time
 import uuid
 import re
-from app.agents import baseline, intake, critic, location as location_agent
+from app.agents import baseline, intake, critic, hazard_critic, location as location_agent
+from app.fleet import screen
 from app.agents.spans import validate
 from app.config import ROOT, safe_error
 from app.data.source import LocalSource, ZetarisSource
@@ -51,7 +52,13 @@ def validate_request(request):
         if not isinstance(received, str):
             raise ValueError('received_at inválido.')
         timestamp(received)
-        clean.append({'message_id': mid, 'text': text, 'received_at': received, 'synthetic': True})
+        proposed=message.get('proposed_asset')
+        if proposed is not None:
+            from app.fleet import document
+            if not isinstance(proposed,str) or proposed not in document()['assets']:
+                raise ValueError('proposed_asset inválido.')
+        clean.append({'message_id': mid, 'text': text, 'received_at': received, 'synthetic': True,
+                      **({'proposed_asset':proposed} if proposed else {})})
     return replay, clean
 
 
@@ -204,6 +211,13 @@ class Pipeline:
                     'call_count_complete': 'global_deadline' not in errors,
                     'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}
             attach(case)
+            screen(case)
+            case['hazard_review']='indisponível'
+            case['hazard_unsupported']=0
+            if not self.sample and ablation == 'full' and result['decision'] in ('SEND_CANDIDATE','REVIEW_REQUIRED'):
+                hazard_critic.attach(case,client,deadline)
+            if isinstance(client,Nightshift):
+                case['calls']=client.message_calls()
             case['seconds'] = round(time.monotonic()-message_started, 4)
             # Redact the entire model argument as well as input: models can emit PII.
             return json.loads(redact(json.dumps(case, ensure_ascii=False)))

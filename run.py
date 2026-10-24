@@ -12,6 +12,7 @@ from app.config import ROOT, load_env, sample_mode, setting
 from app.engines.world_model.registry import Registry, Conflict
 from app.pipeline import Pipeline
 from app.geo.hazards import map_data
+from app.geo.depth import depth_data
 
 
 def reachability(url):
@@ -61,6 +62,14 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                 self.send_json(200, {'SAMPLE_MODE': offline, 'mode': 'sample_offline' if offline else 'live',
                     'Nightshift': 'unavailable (offline)' if offline else reachability(setting('NIGHTSHIFT_BASE_URL', 'http://127.0.0.1:8088/v1')),
                     'Zetaris': 'unavailable (offline)' if offline else reachability(setting('ZETARIS_REST_URL', 'http://localhost:8888/api/v1.0'))})
+            elif path == '/api/depth':
+                try:
+                    query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query,keep_blank_values=True)
+                    if len(query.get('date',[]))!=1 or len(query.get('bbox',[]))!=1:
+                        raise ValueError('Provide exactly one date and bbox')
+                    self.send_json(200,depth_data(query['date'][0],query['bbox'][0]))
+                except ValueError as exc:
+                    self.send_json(400,{'error':str(exc)})
             elif path == '/api/map':
                 try:
                     query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -108,7 +117,8 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                     if not isinstance(request, dict):
                         raise ValueError('Envie um objeto JSON.')
                     cid = path.split('/')[3]
-                    case = registry.action(cid, request.get('action'), request.get('expected_version'), request.get('actor'), human=True)
+                    case = registry.action(cid, request.get('action'), request.get('expected_version'), request.get('actor'), human=True,
+                                           asset=request.get('asset'), caution_acknowledged=request.get('caution_acknowledged',False))
                     self.send_json(200, case)
                 else:
                     self.send_json(404, {'error': 'Rota não encontrada.'})

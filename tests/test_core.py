@@ -18,6 +18,7 @@ ROWS = [{'display_name': 'Rua das Flores', 'municipality': 'Porto Alegre',
 
 def case(mid='demo', text='3 pessoas', at=TIME):
     return {'message_id': mid, 'text': text, 'received_at': at, 'synthetic': True,
+            'fleet': [{'asset':'irb','label_pt':'Bote','verdict':'caution','reasons_pt':['Verifique a equipe.'],'rule_ids':['R004'],'source_ids':['POLICY']}],
             'result': {'priority': 1, 'decision': 'SEND_CANDIDATE'}}
 
 
@@ -145,13 +146,13 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaises(Conflict):
             self.r.action(cid, 'approve_dispatch', 1, 'demo', human=True)
         for action, status in [('approve_dispatch', 'human_approved'), ('dispatch', 'dispatched'), ('field_confirm', 'field_confirmed')]:
-            c = self.r.action(cid, action, c['version'], 'demo', human=True)
+            c = self.r.action(cid, action, c['version'], 'demo', human=True, asset='irb', caution_acknowledged=True)
             self.assertEqual(c['status'], status)
 
     def test_edit_invalidates_approval(self):
         c = self.r.ingest(case())
         c = self.r.action(c['case_id'], 'confirm_location', 1, 'demo', human=True)
-        c = self.r.action(c['case_id'], 'approve_dispatch', 2, 'demo', human=True)
+        c = self.r.action(c['case_id'], 'approve_dispatch', 2, 'demo', human=True, asset='irb', caution_acknowledged=True)
         c = self.r.ingest(case(text='agora 5 pessoas'))
         self.assertFalse(c['location_confirmed'])
         self.assertEqual(c['status'], 'proposed')

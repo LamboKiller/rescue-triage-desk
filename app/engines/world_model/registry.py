@@ -75,6 +75,8 @@ class Registry:
                         case['location_confirmed'] = True
                     elif action == 'approve_dispatch':
                         case['status'] = 'human_approved'
+                        case['approved_asset'] = event.get('asset')
+                        case['caution_acknowledgement'] = event.get('caution_acknowledgement')
                     elif action == 'dispatch':
                         case['status'] = 'dispatched'
                     elif action == 'field_confirm':
@@ -102,7 +104,7 @@ class Registry:
             previous = cases.get(cid)
             # A delivery is ingested once. A changed replay/analysis is a separate
             # versioned event, so an earlier-time replay never returns later evidence.
-            comparable = ('replay_time', 'mode', 'fields', 'errors')
+            comparable = ('replay_time', 'mode', 'fields', 'errors', 'fleet', 'hazard_review')
             reanalysis = provenance in seen and previous is not None and any(
                 previous.get(k) != case.get(k) for k in comparable)
             if provenance not in seen or reanalysis:
@@ -111,6 +113,8 @@ class Registry:
                     # New text must be reviewed again; prior approval cannot carry over.
                     case['status'] = 'proposed'
                     case['location_confirmed'] = False
+                    case['approved_asset'] = None
+                    case['caution_acknowledgement'] = None
                 self._append({'schema_version': 1, 'kind': 'analysis' if reanalysis else 'ingest', 'case_id': cid,
                               'provenance': provenance, 'version': cases.get(cid, {}).get('version', 0)+1,
                               'case': case})
@@ -121,7 +125,7 @@ class Registry:
             cases, _ = self._read()
             return copy.deepcopy(cases.get(case_id) if case_id else sorted(cases.values(), key=lambda c: -c['result']['priority']))
 
-    def action(self, case_id, action, expected_version, actor, *, human=False):
+    def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False):
         if not human:
             raise PermissionError('Ação exclusiva de operador humano.')
         if not isinstance(actor, str) or not actor.strip() or len(actor) > 120:
@@ -144,6 +148,21 @@ class Registry:
             if action == 'approve_dispatch' and (not case['location_confirmed'] or status != 'proposed'
                                                   or case['result']['decision'] != 'SEND_CANDIDATE'):
                 raise ValueError('Confirme a localização de um candidato proposto antes de aprovar.')
+            acknowledgement = None
+            if action == 'approve_dispatch':
+                if not isinstance(asset,str) or not asset:
+                    raise ValueError('Selecione o recurso para aprovar o despacho.')
+                selected = next((r for r in case.get('fleet',[]) if r['asset']==asset),None)
+                if selected is None:
+                    raise Conflict('Recurso sem avaliação de frota; reanalise o caso.')
+                if selected['verdict']=='unsafe':
+                    raise Conflict('Recurso inseguro: '+' '.join(selected['reasons_pt']))
+                if selected['verdict']=='caution':
+                    if caution_acknowledged is not True:
+                        raise Conflict('Reconheça explicitamente as cautelas do recurso.')
+                    acknowledgement = {'asset':asset,'reasons_pt':selected['reasons_pt'],
+                                       'rule_ids':selected['rule_ids'],'source_ids':selected['source_ids'],
+                                       'acknowledged':True,'actor':redact(actor.strip())}
             if action == 'dispatch' and status != 'human_approved':
                 raise ValueError('Aprovação humana necessária antes do despacho.')
             if action == 'field_confirm' and status != 'dispatched':
@@ -151,5 +170,6 @@ class Registry:
             if action == 'confirm_location' and status != 'proposed':
                 raise ValueError('Localização só pode ser confirmada durante a proposta.')
             self._append({'schema_version': 1, 'kind': 'action', 'case_id': case_id,
-                          'version': case['version']+1, 'action': action, 'actor': redact(actor.strip())})
+                          'version': case['version']+1, 'action': action, 'actor': redact(actor.strip()),
+                          **({'asset':asset,'caution_acknowledgement':acknowledgement} if action=='approve_dispatch' else {})})
             return copy.deepcopy(self._read()[0][case_id])

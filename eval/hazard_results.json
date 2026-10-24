@@ -1,0 +1,109 @@
+{
+  "mode": "offline_wiring_only",
+  "cases": 12,
+  "block_recall": 1.0,
+  "false_block_rate": 0.0,
+  "citation_validity": 1.0,
+  "unsupported_rate": 0.0,
+  "unsupported": 0,
+  "unavailable": 0,
+  "seconds": 1.75,
+  "results": [
+    {
+      "message_id": "hazard-rodoviaria",
+      "expected_block": true,
+      "blocked": true,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-airport",
+      "expected_block": true,
+      "blocked": true,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-farrapos_bedridden",
+      "expected_block": true,
+      "blocked": true,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-sarandi",
+      "expected_block": true,
+      "blocked": true,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-humaita",
+      "expected_block": true,
+      "blocked": true,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-rooftop",
+      "expected_block": true,
+      "blocked": true,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-moinhos",
+      "expected_block": false,
+      "blocked": false,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-mercado",
+      "expected_block": false,
+      "blocked": false,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-arena",
+      "expected_block": false,
+      "blocked": false,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-centro",
+      "expected_block": false,
+      "blocked": false,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-mathias",
+      "expected_block": false,
+      "blocked": false,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    },
+    {
+      "message_id": "hazard-farrapos",
+      "expected_block": false,
+      "blocked": false,
+      "unavailable": false,
+      "unsupported": 0,
+      "seconds": 0.0
+    }
+  ]
+}

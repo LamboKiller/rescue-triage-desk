@@ -1,0 +1,16 @@
+{
+  "width": 1413,
+  "height": 3468,
+  "pixel_m": 20.0,
+  "origin_x": 470705.33166061976,
+  "origin_y": 6720277.434587894,
+  "date_observed": "2024-05-08",
+  "unit": "m (stored as zlib-compressed little-endian uint16 cm, row-major from top-left, 65535 = no data)",
+  "crs": "EPSG:32722",
+  "source": "Copernicus EMS EMSN194 P04FLDEL02 WaterDepth v01 (HAND method, 20 m)",
+  "attribution": "Copernicus Emergency Management Service (\u00a9 2024 European Union), EMSN194",
+  "retrospective": "product created 2024-06-12; not available during the event",
+  "source_sha256": "d3a1c19892c6f862e6af0c41bab8baa86c11d74ead44b12faf3ffb639cc0a70e",
+  "valid_cells": 499480,
+  "max_m": 13.76
+}
