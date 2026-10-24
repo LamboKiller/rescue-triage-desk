@@ -174,6 +174,8 @@ def main():
                                    partial_messages=sum(not c['complete'] for c in cases))
             print(name+' / '+method+': '+str(len(cases))+' messages measured')
     (ROOT/'eval/results.json').write_text(json.dumps(results, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')
+    if not args.offline:  # offline runs must never overwrite the last live numbers
+        (ROOT/'eval/results_live.json').write_text(json.dumps(results, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')
     lines = ['# V1.3 synthetic evaluation', '', results['limitations'], '',
              'Generated held-out seeds: '+str(seeds)+'. Challenge texts are unchanged.', '',
              'Mean and nearest-rank p90 use per-message processing time; amortized batch wall time is separate.',
