@@ -49,7 +49,7 @@ def _file(handler, root, name):
     if not path.is_relative_to(root.resolve()) or not path.is_file():
         return _missing(handler)
     mime = {'.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-            '.md': 'text/plain; charset=utf-8', '.pbf': 'application/x-protobuf'}.get(path.suffix)
+            '.md': 'text/plain; charset=utf-8', '.woff2': 'font/woff2', '.pbf': 'application/x-protobuf'}.get(path.suffix)
     return _send(handler, path.read_bytes(), mime or mimetypes.guess_type(path)[0] or 'application/octet-stream')
 
 
