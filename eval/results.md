@@ -1,6 +1,6 @@
-# V1.2 synthetic evaluation
+# V1.3 synthetic evaluation
 
-Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. No evidence of critic benefit without live ablations. Landmark scores use a decision proxy when identity/status labels are absent. The supplied snapshot has no Salgado Filho airport.
+Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. No evidence of critic benefit without live ablations. Landmark scores use a decision proxy when identity/status labels are absent. Curated aliases and airport terminal dispatch use the local snapshot.
 
 Generated held-out seeds: [101, 202]. Challenge texts are unchanged.
 
@@ -12,7 +12,7 @@ Critic change outcomes count changed fields against truth, including removed fie
 
 | Method | Decision | Landmark* | Unsupported | Calls/msg | Mean s | p90 s | Failures |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| baseline | 1.0 | 1.0 | 0.0 | 0.0 | 0.5792 | 0.906 | 0 |
+| baseline | 1.0 | 1.0 | 0.0 | 0.0 | 0.679 | 1.1234 | 0 |
 | intake | unavailable (offline) | - | - | - | - | - | - |
 | full | unavailable (offline) | - | - | - | - | - | - |
 
@@ -41,7 +41,7 @@ Landmark identity/status labels: 0; expected-decision proxies: 30.
 
 | Method | Decision | Landmark* | Unsupported | Calls/msg | Mean s | p90 s | Failures |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| baseline | 0.575 | 0.7 | 0.0 | 0.0 | 1.1266 | 2.172 | 0 |
+| baseline | 0.55 | 0.7 | 0.0 | 0.0 | 1.4687 | 2.5246 | 0 |
 | intake | unavailable (offline) | - | - | - | - | - | - |
 | full | unavailable (offline) | - | - | - | - | - | - |
 

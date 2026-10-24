@@ -25,7 +25,7 @@ QUERIES = [
     ('mercado publico', 'Porto Alegre', '69749641'),
     ('clinicas', 'Porto Alegre', '126014206'),
     ('parkshopping', 'Canoas', None),
-    ('salgado filho', 'Porto Alegre', None),
+    ('salgado filho', 'Porto Alegre', '5320213'),
     ('zaffari da assis brasil', 'Porto Alegre', None),
     ('hospital de clinicas', 'Porto Alegre', '126014206'),
 ]
@@ -126,12 +126,6 @@ class RealLandmarkTests(unittest.TestCase):
             with self.subTest(query=query):
                 result = match(self.rows, landmark_quote=query, municipality=city,
                                streets=self.streets, message=query)
-                if query == 'salgado filho':
-                    # Airport now in data, but OSM lacks the 'Salgado Filho' alias (curated alias list pending):
-                    # must never silently resolve to the school of the same name.
-                    self.assertIn(result['status'], ('unresolved', 'ambiguous'))
-                    self.assertNotIn('Escola', str((result.get('matched') or {}).get('name', '')))
-                    continue
                 self.assertEqual(result['status'], 'resolved')
                 if oid:
                     self.assertEqual(result['matched']['osm_id'], oid)

@@ -14,6 +14,7 @@ def normalize(text):
 
 CONTEXT_STOP = {'dentro', 'perto', 'proximo', 'lado', 'ao', 'estamos', 'estou', 'aqui', 'junto'}
 CATEGORIES = {'hospital': {'amenity:hospital'}, 'escola': {'amenity:school'},
+              'colegio': {'amenity:school'},
               'igreja': {'amenity:place_of_worship'}, 'mercado': {'amenity:marketplace', 'shop:supermarket'},
               'aeroporto': {'aeroway:aerodrome', 'aeroway:terminal'}, 'estadio': {'leisure:stadium'},
               'shopping': {'shop:mall'}, 'rodoviaria': {'amenity:bus_station'}}
@@ -63,7 +64,7 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
     city = set(normalize(municipality).split())
     queries = []
     for q in (place_name, landmark_quote):
-        tokens = [t for t in normalize(q).split() if t not in CONTEXT_STOP]
+        tokens = [('escola' if t == 'colegio' else t) for t in normalize(q).split() if t not in CONTEXT_STOP]
         # Municipality is a scope, not a distinguishing landmark token.
         local = [t for t in tokens if t not in city]
         if local:
@@ -71,9 +72,17 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
     context = normalize(' '.join((message, landmark_quote, place_name, neighbourhood)))
     raw_context = ' '.join(re.findall(r'[a-z0-9]+', unicodedata.normalize('NFD',
                                   ' '.join((message, landmark_quote, place_name))).encode('ascii', 'ignore').decode().lower()))
+    words = set(raw_context.split())
+    school = bool(words & {'escola', 'colegio'})
+    station = 'trensurb' in words or 'estacao aeroporto' in raw_context
+    brique = 'brique' in words
     hints = {category for word, categories in CATEGORIES.items() if word in raw_context.split() for category in categories}
     if 'banco sangue' in context or 'laboratorio' in context.split():
         hints = {'amenity:clinic'}
+    if station:
+        hints = {'public_transport:station'}
+    if brique:
+        hints = {'amenity:marketplace'}
     # Established short names provide category evidence, never invented coordinates.
     if not hints:
         if 'salgado filho' in context:
@@ -82,7 +91,28 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
             hints = CATEGORIES['estadio']
         elif 'clinicas' in context.split():
             hints = CATEGORIES['hospital']
-    scoped = [r for r in rows if municipality and normalize(r['municipality']) == normalize(municipality)]
+    alias_hits = {}
+    for row in rows:
+        for alias in row.get('curated_aliases', []):
+            if municipality and normalize(alias['municipality']) != normalize(municipality):
+                continue
+            name = normalize(alias['alias'])
+            if name == 'conceicao' and 'hospital conceicao' not in raw_context:
+                continue
+            if not name or (' '+name+' ') not in (' '+context+' '):
+                continue
+            if (row['category'] == 'aeroway:aerodrome' and (school or station)
+                    or normalize(alias['alias']) in ('redencao', 'parque redencao') and brique
+                    or row['category'] == 'amenity:hospital' and hints == {'amenity:clinic'}):
+                continue
+            alias_hits.setdefault((row['osm_type'], row['osm_id']), []).append(name)
+    # A longer matching phrase suppresses shorter contained aliases, across targets.
+    names = {name for hits in alias_hits.values() for name in hits}
+    alias_hits = {key: max((name for name in hits if not any(
+        name != other and (' '+name+' ') in (' '+other+' ') for other in names)),
+        key=lambda name: (len(name.split()), len(name)), default='') for key, hits in alias_hits.items()}
+    scoped = [r for r in rows if (municipality and normalize(r['municipality']) == normalize(municipality))
+              or (not municipality and (r['osm_type'], r['osm_id']) in alias_hits)]
     street_cues = {street_normalize(r['display_name']) for r in streets
                    if normalize(r['municipality']) == normalize(municipality)
                    and street_normalize(r['display_name'])
@@ -100,9 +130,11 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
     candidates = []
     message_normalized = normalize(message)
     for row in distinct_places(scoped):
-        if hints and row['category'] not in hints:
+        alias = next((alias_hits.get((m['osm_type'], m['osm_id']), '') for m in row['osm_members']
+                      if alias_hits.get((m['osm_type'], m['osm_id']))), '')
+        if hints and row['category'] not in hints and not alias:
             continue
-        score = 0
+        score = 120 if alias else 0
         for name in [row['name']] + re.split(r'[|;]', row.get('alt_names', '')):
             n = normalize(name)
             if not n:
@@ -142,18 +174,58 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
             if any(w in normalize(row['name']) and w not in context for w in ('banco sangue', 'laboratorio', 'anexo')):
                 score -= 15
             candidates.append({**row, 'score': round(score + 10*preference, 3),
+                               'reason': 'alias:'+alias if alias else 'name',
                                'street_preferred': street_match, 'neighbourhood_preferred': preference})
     if street_cues:
         candidates = [c for c in candidates if c['street_preferred']]
+    # Airport dispatch uses the aerodrome; retain the specifically named terminal.
+    airports = [r for r in rows if r['category'] == 'aeroway:aerodrome']
+    collapsed = {}
+    for candidate in candidates:
+        if candidate['category'] == 'aeroway:terminal':
+            nearby = sorted((a for a in airports if distance(a, candidate) <= 3000),
+                            key=lambda a: (distance(a, candidate), a['osm_type'], a['osm_id']))
+            if nearby:
+                terminal = candidate
+                candidate = {**candidate, **nearby[0]}
+                candidate.pop('sub_place', None)
+                # Keep the terminal as a detail only when the message actually mentions one.
+                if 'terminal' in words:
+                    candidate['sub_place'] = {
+                        'name': terminal['name'], 'osm_type': terminal['osm_type'], 'osm_id': terminal['osm_id'],
+                        'osm_url': 'https://www.openstreetmap.org/'+terminal['osm_type']+'/'+terminal['osm_id']}
+                candidate['osm_members'] = [{'osm_type': candidate['osm_type'], 'osm_id': candidate['osm_id']}]
+        key = (candidate['osm_type'], candidate['osm_id'])
+        old = collapsed.get(key)
+        if old is None or candidate['score'] > old['score']:
+            if old and old.get('sub_place'):
+                candidate.setdefault('sub_place', old['sub_place'])
+            collapsed[key] = candidate
+        elif candidate.get('sub_place'):
+            old.setdefault('sub_place', candidate['sub_place'])
+    candidates = list(collapsed.values())
+    if 'terminal' in words:
+        for candidate in candidates:
+            if candidate['category'] == 'aeroway:aerodrome' and not candidate.get('sub_place'):
+                terminals = [r for r in rows if r['category'] == 'aeroway:terminal' and distance(r, candidate) <= 3000
+                             and normalize(r['name']) == 'terminal 1']
+                if terminals and not (words & {'2', 'antigo'}):
+                    terminal = terminals[0]
+                    candidate['sub_place'] = {'name': terminal['name'], 'osm_type': terminal['osm_type'],
+                                              'osm_id': terminal['osm_id'], 'osm_url':
+                                              'https://www.openstreetmap.org/'+terminal['osm_type']+'/'+terminal['osm_id']}
     candidates.sort(key=lambda r: (-r['score'], -r['neighbourhood_preferred'], r['name'], r['osm_id']))
-    generic = bool(queries) and all(set(q.split()) <= GENERIC for q in queries) and not street_cues and not suburbs
-    clear = bool(candidates) and not generic and candidates[0]['score'] >= 82 and (
+    generic = bool(queries) and all(set(q.split()) <= GENERIC for q in queries) and not street_cues and not suburbs and not any(alias_hits.values()) and not station
+    bare_ambiguous = bool(queries) and all(q in ('pronto socorro', 'conceicao') for q in queries) and not street_cues and not suburbs and not any(alias_hits.values())
+    clear = bool(candidates) and not generic and not bare_ambiguous and candidates[0]['score'] >= 82 and (
         len(candidates) == 1 or candidates[0]['score']-candidates[1]['score'] >= MARGIN)
     dates = [d for d in ('2024-05-06', '2024-05-08') if d <= replay[:10]]
     observed = dates[-1] if dates else None
     return {'status': 'resolved' if clear else ('ambiguous' if candidates else 'unresolved'),
             'matched': candidates[0] if clear else None, 'candidates': candidates[:3], 'observed_date': observed,
-            'reason': ('Nome e contexto identificam um local com margem de pelo menos 7 pontos.' if clear else
+            'sub_place': candidates[0].get('sub_place') if clear else None,
+            'reason': (candidates[0]['reason'] if clear and candidates[0]['reason'].startswith('alias:') else
+                       'Nome e contexto identificam um local com margem de pelo menos 7 pontos.' if clear else
                        'Há locais distintos sem margem suficiente; confirme o nome, rua ou bairro.' if candidates else
                        'Nenhum local compatível com nome, município e contexto no cadastro.'),
             'retrospective_water_overlap': candidates[0].get('in_water_'+observed) in ('1', True) if clear and observed else None,

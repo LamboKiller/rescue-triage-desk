@@ -7,7 +7,7 @@
     101,
     202
   ],
-  "limitations": "Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. No evidence of critic benefit without live ablations. Landmark scores use a decision proxy when identity/status labels are absent. The supplied snapshot has no Salgado Filho airport.",
+  "limitations": "Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. No evidence of critic benefit without live ablations. Landmark scores use a decision proxy when identity/status labels are absent. Curated aliases and airport terminal dispatch use the local snapshot.",
   "sets": {
     "generated": {
       "baseline": {
@@ -121,9 +121,9 @@
         "decision_accuracy": 1.0,
         "unsupported_claim_rate": 0.0,
         "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
-        "mean_seconds_per_message": 0.5792,
-        "p90_seconds_per_message": 0.906,
-        "amortized_wall_seconds_per_message": 0.2391,
+        "mean_seconds_per_message": 0.679,
+        "p90_seconds_per_message": 1.1234,
+        "amortized_wall_seconds_per_message": 0.2716,
         "landmark_resolution_accuracy": 1.0,
         "landmark_identity_messages": 0,
         "landmark_decision_proxy_messages": 30,
@@ -159,11 +159,11 @@
             "correct": 2,
             "n": 2
           },
-          "6": {
+          "4": {
             "correct": 2,
             "n": 2
           },
-          "4": {
+          "6": {
             "correct": 2,
             "n": 2
           },
@@ -187,19 +187,19 @@
             "correct": 2,
             "n": 2
           },
-          "8": {
-            "correct": 2,
-            "n": 2
-          },
           "12": {
             "correct": 2,
             "n": 2
           },
-          "14": {
+          "13": {
             "correct": 2,
             "n": 2
           },
-          "13": {
+          "8": {
+            "correct": 2,
+            "n": 2
+          },
+          "14": {
             "correct": 2,
             "n": 2
           }
@@ -323,12 +323,12 @@
             "f1": 0.75
           }
         },
-        "decision_accuracy": 0.575,
+        "decision_accuracy": 0.55,
         "unsupported_claim_rate": 0.0,
         "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
-        "mean_seconds_per_message": 1.1266,
-        "p90_seconds_per_message": 2.172,
-        "amortized_wall_seconds_per_message": 0.4351,
+        "mean_seconds_per_message": 1.4687,
+        "p90_seconds_per_message": 2.5246,
+        "amortized_wall_seconds_per_message": 0.5697,
         "landmark_resolution_accuracy": 0.7,
         "landmark_identity_messages": 15,
         "landmark_decision_proxy_messages": 25,
@@ -349,7 +349,7 @@
         "mean_calls_per_message": 0.0,
         "families": {
           "challenge": {
-            "correct": 23,
+            "correct": 22,
             "n": 40
           }
         },

@@ -146,7 +146,7 @@ def main():
     results = {'mode':'offline' if args.offline else 'live', 'tuning_seeds':[7], 'test_seeds':seeds,
                'limitations':'Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. '
                               'No evidence of critic benefit without live ablations. Landmark scores use a decision proxy '
-                              'when identity/status labels are absent. The supplied snapshot has no Salgado Filho airport.',
+                              'when identity/status labels are absent. Curated aliases and airport terminal dispatch use the local snapshot.',
                'sets':{}}
     for name, (messages, truth) in datasets(seeds, args.n, LocalSource().streets()).items():
         methods = results['sets'][name] = {}
@@ -168,7 +168,7 @@ def main():
                                    partial_messages=sum(not c['complete'] for c in cases))
             print(name+' / '+method+': '+str(len(cases))+' messages measured')
     (ROOT/'eval/results.json').write_text(json.dumps(results, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')
-    lines = ['# V1.2 synthetic evaluation', '', results['limitations'], '',
+    lines = ['# V1.3 synthetic evaluation', '', results['limitations'], '',
              'Generated held-out seeds: '+str(seeds)+'. Challenge texts are unchanged.', '',
              'Mean and nearest-rank p90 use per-message processing time; amortized batch wall time is separate.',
              'Unsupported rate is rejected schema/span/value proposals divided by all proposals, not semantic truth.',

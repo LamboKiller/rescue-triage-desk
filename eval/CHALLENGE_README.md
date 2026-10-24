@@ -8,9 +8,8 @@ supports, with omitted fields unknown and explicit negations zero/false.
 
 `challenge_truth.json` is evaluation-only. `expected_landmark` holds a desired
 status and canonical OSM name/type/id when available. Duplicate OSM member IDs
-are accepted as one place. Salgado Filho airport is absent from the supplied
-snapshot; its desired resolved label is retained so the missing coverage counts
-as a failure. Fictional and unnamed places remain unresolved labels. Truth is
+are accepted as one place. Salgado Filho airport is labelled with its canonical aerodrome identity;
+curated aliases connect its popular name to the snapshot. Fictional and unnamed places remain unresolved labels. Truth is
 never imported by runtime agents or deterministic matching.
 
 Run `python eval/run_eval.py --offline` for baseline measurements on this set and

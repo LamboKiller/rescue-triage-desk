@@ -1,0 +1,25 @@
+alias,municipality,osm_type,osm_id,target_name,note
+salgado filho,Porto Alegre,relation,5320213,Aeroporto Internacional de Porto Alegre,popular name of POA airport; never the Escola Salgado Filho unless 'escola/colegio' in message
+aeroporto salgado filho,Porto Alegre,relation,5320213,Aeroporto Internacional de Porto Alegre,
+aeroporto de porto alegre,Porto Alegre,relation,5320213,Aeroporto Internacional de Porto Alegre,
+aeroporto,Porto Alegre,relation,5320213,Aeroporto Internacional de Porto Alegre,'estacao aeroporto' (Trensurb station) stays the station
+redencao,Porto Alegre,relation,3190472,Parque Farroupilha,popular name; Brique da Redencao only if 'brique' in message
+parque da redencao,Porto Alegre,relation,3190472,Parque Farroupilha,
+gasometro,Porto Alegre,relation,8440037,Usina do Gasômetro,
+usina do gasometro,Porto Alegre,relation,8440037,Usina do Gasômetro,
+beira rio,Porto Alegre,relation,4587043,Estádio José Pinheiro Borda,
+gigante da beira rio,Porto Alegre,relation,4587043,Estádio José Pinheiro Borda,
+estadio do inter,Porto Alegre,relation,4587043,Estádio José Pinheiro Borda,
+arena do gremio,Porto Alegre,way,298169448,Arena do Grêmio,
+rodoviaria,Porto Alegre,way,236479491,Estação Rodoviária Central,within Porto Alegre only; Canoas/NH have their own
+rodoviaria de porto alegre,Porto Alegre,way,236479491,Estação Rodoviária Central,
+mercado publico,Porto Alegre,way,69749641,Mercado Público de Porto Alegre,
+clinicas,Porto Alegre,way,126014206,Hospital de Clínicas,never the Banco de Sangue unless named
+hcpa,Porto Alegre,way,126014206,Hospital de Clínicas,
+santa casa,Porto Alegre,way,126014194,Santa Casa de Misericórdia,
+hps,Porto Alegre,way,244644162,Hospital de Pronto Socorro,
+pronto socorro de porto alegre,Porto Alegre,way,244644162,Hospital de Pronto Socorro,bare 'pronto socorro' stays ambiguous (Cruz Azul)
+hospital conceicao,Porto Alegre,way,237709751,Hospital Nossa Senhora da Conceição,bare 'conceicao' is also Vila Conceicao (suburb)
+ghc,Porto Alegre,way,237709751,Hospital Nossa Senhora da Conceição,Grupo Hospitalar Conceicao
+catedral metropolitana,Porto Alegre,way,419053911,Catedral Metropolitana Nossa Senhora Mãe de Deus,
+parque marinha,Porto Alegre,relation,3190439,Parque Marinha do Brasil,

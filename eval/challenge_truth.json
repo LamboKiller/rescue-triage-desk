@@ -137,8 +137,10 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Salgado Filho",
-      "basis": "Text identifies Salgado Filho airport; absent from the supplied OSM snapshot. Keep resolved as the desired outcome, not school or railway station."
+      "name": "Aeroporto Internacional de Porto Alegre",
+      "basis": "Popular name identifies the airport; curated alias targets the verified aerodrome, not the school or railway station.",
+      "osm_type": "relation",
+      "osm_id": "5320213"
     }
   },
   {

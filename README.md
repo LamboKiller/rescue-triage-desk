@@ -221,20 +221,24 @@ There is no claim of outcomes, responder benefit or real-world validity.
 
 ## Named landmarks and review limits
 
-`data/landmarks.csv` contains 4,191 named OpenStreetMap features in six RS
+`data/landmarks.csv` contains 4,201 named OpenStreetMap features in six RS
 municipalities, fetched by the project owner via Overpass. OSM data is licensed
 under ODbL; query and snapshot timestamps are in [ATTRIBUTION](data/ATTRIBUTION.md).
 This October 2026 snapshot is retrospective relative to the May 2024 replay.
-No new landmark fetch was performed for V1.2. The supplied CSV lacks a Salgado
-Filho airport feature, despite the earlier brief's inventory; airport queries
-remain unresolved rather than being routed to the school with that name.
+The snapshot includes Porto Alegre airport and its terminal features.
+Curated aliases in `data/landmark_aliases.csv` cover popular names absent from OSM;
+this small, reviewed list has each target OSM id verified. LocalSource and
+ZetarisSource both load this local CSV in V1.3. School, Brique and station context
+override airport/park aliases; longer aliases win. Airport terminals within 3 km
+of an aerodrome resolve to that airport for dispatch, with terminal name and OSM
+link retained as `sub_place` in case detail. Bus terminals are unaffected.
 
 LocalSource reads that CSV in sample mode; normal mode reads Zetaris
 `landmarks_v3`. Register all source CSVs together with `--version v3` and update
 existing `.env` table settings as shown in `.env.example`. The live smoke requires
 a nonempty landmark table and checks its registered row count.
 
-Matching requires a municipality. Equal normalized primary names within 400 m
+Name matching requires a municipality; curated aliases also work when it is unknown. Equal normalized primary names within 400 m
 collapse into one place, preferring relation, then way, then node; distant places
 remain distinct. Scores rank full equality (100), all query tokens in a name (90),
 token-set similarity at least 0.8 (82+similarity), then partial matches (55).
@@ -254,8 +258,7 @@ are inferred.
 The [challenge set](eval/CHALLENGE_README.md) contains 40 author-written synthetic
 Portuguese requests, separate from generated held-out seeds 101 and 202. Native
 speaker review is pending; its texts were preserved in V1.2. Truth now includes
-canonical OSM identities where present; the missing airport remains an explicit
-expected resolved place, so its failure stays visible. Evaluation runs baseline,
+canonical OSM identities, including the Salgado Filho airport dispatch target. Evaluation runs baseline,
 intake-only and full intake/critic/revision/location on both sets, in batches of
 at most 15. Every measured method reports field P/R/F1, decisions, landmark
 identity/status or an explicitly counted decision proxy, unsupported rate,
