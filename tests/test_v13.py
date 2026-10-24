@@ -1,10 +1,61 @@
 """Curated aliases and airport dispatch targets on the real snapshot."""
 import csv
+import json
 import unittest
 from app.config import ROOT
 from app.data.source import LocalSource, ZetarisSource
-from app.geo.landmarks import match
+from app.geo.landmarks import GENERIC, match, normalize
 from unittest.mock import patch
+
+
+class ChallengeLandmarks(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        source = LocalSource()
+        cls.rows, cls.streets = source.landmarks(), source.streets()
+        cls.messages = {m['message_id']: m for m in (
+            json.loads(line) for line in (ROOT/'eval/challenge_set.jsonl').read_text(encoding='utf-8').splitlines())}
+        cls.truth = json.loads((ROOT/'eval/challenge_truth.json').read_text(encoding='utf-8'))
+
+    def test_labelled_challenge_places(self):
+        for target in self.truth:
+            expected = target.get('expected_landmark')
+            if expected is None:
+                continue
+            fields = target['expected_fields']
+            with self.subTest(message_id=target['message_id']):
+                result = match(self.rows, fields['landmark'], fields['landmark'],
+                               fields['municipality'], streets=self.streets,
+                               message=self.messages[target['message_id']]['text'])
+                if expected['status'] == 'resolved':
+                    self.assertEqual(result['status'], 'resolved')
+                    members = result['matched']['osm_members'] + [result['matched']]
+                    self.assertIn((expected['osm_type'], expected['osm_id']),
+                                  [(r['osm_type'], r['osm_id']) for r in members])
+                else:
+                    # An unnamed school can yield several candidates; neither
+                    # ambiguous nor unresolved provides a dispatch location.
+                    self.assertIn(result['status'], ('unresolved', 'ambiguous'))
+                    self.assertIsNone(result['matched'])
+                    if not set(normalize(fields['landmark']).split()) <= GENERIC:
+                        self.assertEqual(result['status'], expected['status'])
+                self.assertTrue(all(normalize(c['municipality']) == normalize(fields['municipality'])
+                                    for c in result['candidates']))
+
+    def test_neighbourhood_name_is_not_an_implicit_street(self):
+        common = dict(municipality='Porto Alegre', alt_names='', lat='-30', lon='-51', osm_type='way')
+        rows = [dict(common, name='Paroquia Aurora', category='amenity:place_of_worship', osm_id='1', street=''),
+                dict(common, name='Jardim Azul', category='place:suburb', osm_id='2', street=''),
+                dict(common, name='Escola Aurora', category='amenity:school', osm_id='3', street='Rua Jardim Azul')]
+        streets = [dict(municipality='Porto Alegre', display_name='Rua Jardim Azul')]
+        result = match(rows, 'Paroquia Aurora', municipality='Porto Alegre',
+                       message='Socorro na Paroquia Aurora no Jardim Azul', streets=streets)
+        self.assertEqual(result['status'], 'resolved')
+        self.assertEqual(result['matched']['osm_id'], '1')
+        # An explicit street qualifier still filters incompatible locations.
+        result = match(rows, 'Paroquia Aurora', municipality='Porto Alegre',
+                       message='Socorro na Paroquia Aurora na Rua Jardim Azul', streets=streets)
+        self.assertEqual(result['status'], 'unresolved')
 
 
 class Aliases(unittest.TestCase):

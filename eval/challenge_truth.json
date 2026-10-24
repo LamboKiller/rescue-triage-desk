@@ -29,10 +29,10 @@
     "synthetic": true,
     "expected_fields": {
       "people": 4,
-      "children": 2,
-      "pets": 0,
       "municipality": "Porto Alegre",
-      "landmark": "Arena do Grêmio"
+      "landmark": "Arena do Grêmio",
+      "children": 2,
+      "pets": 0
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
@@ -40,7 +40,7 @@
       "negation",
       "famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Speaker, mother and two children explicitly total four; sem bicho excludes pets. Mother alone does not imply elderly. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "Arena do Grêmio",
@@ -53,17 +53,17 @@
     "synthetic": true,
     "expected_fields": {
       "people": 12,
-      "children": 0,
       "municipality": "Porto Alegre",
-      "landmark": "Mercado Público"
+      "landmark": "Mercado Público",
+      "children": 0
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
-      "number_words",
       "negation",
-      "famous_landmark"
+      "famous_landmark",
+      "typos"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Twelve adult workers; explicitly no children. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "Mercado Público de Porto Alegre",
@@ -76,18 +76,18 @@
     "synthetic": true,
     "expected_fields": {
       "people": 5,
-      "elderly": 1,
-      "disabled": 1,
       "municipality": "Porto Alegre",
-      "landmark": "Beira-Rio"
+      "landmark": "Beira-Rio",
+      "elderly": 1,
+      "disabled": 1
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "corrections",
-      "famous_landmark",
-      "indirect_vulnerability"
+      "indirect_vulnerability",
+      "famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Five supersedes three; grandmother cannot walk, supporting one elderly and one disabled person. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "Estádio José Pinheiro Borda",
@@ -106,11 +106,11 @@
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
-      "partial_rescue",
       "relayed",
+      "partial_rescue",
       "famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Two still await rescue at Hospital de Clinicas (HCPA); only the neighbour was removed. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "Hospital de Clínicas",
@@ -123,22 +123,20 @@
     "synthetic": true,
     "expected_fields": {
       "people": 3,
-      "children": 1,
       "municipality": "Porto Alegre",
-      "landmark": "Aeroporto Salgado Filho"
+      "landmark": "Aeroporto Salgado Filho",
+      "children": 1
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "mixed_language",
-      "number_words",
-      "famous_landmark",
-      "indirect_vulnerability"
+      "indirect_vulnerability",
+      "famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Three people including one infant; Salgado Filho identifies the airport aerodrome. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "Aeroporto Internacional de Porto Alegre",
-      "basis": "Popular name identifies the airport; curated alias targets the verified aerodrome, not the school or railway station.",
       "osm_type": "relation",
       "osm_id": "5320213"
     }
@@ -173,16 +171,18 @@
     "expected_fields": {
       "people": 3,
       "municipality": "Porto Alegre",
-      "landmark": "Escola Fictícia Ipê de Papel"
+      "landmark": "Escola Estadual Infante Dom Henrique"
     },
-    "expected_decision": "CALLBACK",
+    "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "less_famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Three trapped at the named school in POA; street unknown; snapshot verifies school way 325811523. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
-      "status": "unresolved",
-      "name": null
+      "status": "resolved",
+      "name": "Escola Infante Dom Henrique",
+      "osm_type": "way",
+      "osm_id": "325811523"
     }
   },
   {
@@ -190,20 +190,22 @@
     "synthetic": true,
     "expected_fields": {
       "people": 4,
-      "children": 2,
       "municipality": "Canoas",
-      "landmark": "Igreja Fictícia Ponte de Nuvem"
+      "landmark": "Paróquia São Pio X",
+      "children": 2
     },
-    "expected_decision": "CALLBACK",
+    "expected_decision": "SEND_CANDIDATE",
     "tags": [
-      "less_famous_landmark",
       "relations",
-      "relayed"
+      "relayed",
+      "less_famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Cousin, father and two girls explicitly total four at the parish in Mathias Velho, Canoas; not Praca Pio X. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
-      "status": "unresolved",
-      "name": null
+      "status": "resolved",
+      "name": "Paroquia São Pio X",
+      "osm_type": "way",
+      "osm_id": "563974470"
     }
   },
   {
@@ -211,16 +213,16 @@
     "synthetic": true,
     "expected_fields": {
       "people": 5,
-      "municipality": "guaíba",
-      "landmark": "mercado fictício grão azul"
+      "municipality": "Guaíba",
+      "landmark": "Supermercado Rissul",
+      "risk_words": "água subiu muito"
     },
     "expected_decision": "CALLBACK",
     "tags": [
-      "less_famous_landmark",
       "audio",
-      "number_words"
+      "less_famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Five at Rissul in Guaiba; rising water; street unknown. No Rissul in that city in snapshot: callback must ask the place/street. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "unresolved",
       "name": null
@@ -232,16 +234,16 @@
     "expected_fields": {
       "people": 4,
       "children": 2,
+      "risk_words": "água já tá subindo",
       "street": "Avenida Farrapos",
       "number": "120",
-      "municipality": "Porto Alegre",
-      "risk_words": "água subindo"
+      "municipality": "Porto Alegre"
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
-      "number_words"
+      "typos"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Four explicitly includes two adults and two children; water rising in the yard. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-12",
@@ -249,8 +251,8 @@
     "expected_fields": {
       "people": 2,
       "children": 0,
-      "pets": 0,
       "elderly": 0,
+      "pets": 0,
       "street": "Rua dos Andradas",
       "number": "82",
       "municipality": "Porto Alegre"
@@ -259,7 +261,7 @@
     "tags": [
       "negation"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Two adults; explicitly no children, elderly people or pets. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-13",
@@ -274,23 +276,24 @@
     "tags": [
       "corrections"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Four explicitly corrects earlier two; no simultaneous conflicting totals. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-14",
     "synthetic": true,
     "expected_fields": {
       "people": 3,
+      "already_rescued": false,
       "street": "Avenida Farrapos",
       "number": "38",
-      "municipality": "Porto Alegre",
-      "already_rescued": false
+      "municipality": "Porto Alegre"
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
-      "partial_rescue"
+      "partial_rescue",
+      "typos"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Three remain trapped; boat rescued only the family in front. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-15",
@@ -304,9 +307,10 @@
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "mixed_language",
-      "relations"
+      "relations",
+      "number_words"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Speaker and mother explicitly total dos personas; no age inference from mother. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-16",
@@ -321,7 +325,7 @@
     "tags": [
       "contradiction"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Competing four and seven cannot be confirmed; no reliable total. Omitted fields are unknown; explicit negations are zero/false.",
     "ambiguous_fields": [
       "people"
     ]
@@ -358,9 +362,10 @@
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "relations",
-      "relayed"
+      "relayed",
+      "audio"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Relayed audio: nephew, wife and two children explicitly total four. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-19",
@@ -371,11 +376,9 @@
     },
     "expected_decision": "CALLBACK",
     "tags": [
-      "out_of_area",
-      "mixed_language",
-      "number_words"
+      "out_of_area"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Five in Recife, Pernambuco; explicitly outside RS. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-20",
@@ -414,7 +417,7 @@
       "out_of_area",
       "relayed"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Mother reports two in Curitiba, Parana; street unknown; no phone supplied. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-23",
@@ -427,9 +430,10 @@
     },
     "expected_decision": "CALLBACK",
     "tags": [
-      "contradiction"
+      "contradiction",
+      "relayed"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Spreadsheet says six, radio says three; total explicitly unconfirmed. Omitted fields are unknown; explicit negations are zero/false.",
     "ambiguous_fields": [
       "people"
     ]
@@ -439,18 +443,17 @@
     "synthetic": true,
     "expected_fields": {
       "people": 6,
-      "children": 3,
       "municipality": "Porto Alegre",
-      "landmark": "Mercado Público"
+      "landmark": "Mercado Público",
+      "children": 3
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "relations",
       "corrections",
-      "number_words",
       "famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Speaker, sister, three children and one additional person total six; earlier four is explicitly corrected. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "Mercado Público de Porto Alegre",
@@ -468,12 +471,9 @@
     "expected_decision": "CALLBACK",
     "tags": [
       "out_of_area",
-      "relayed",
-      "audio",
-      "typos",
-      "negation"
+      "relayed"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Four in Sao Paulo capital, explicitly not POA; house number missing. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-26",
@@ -509,7 +509,7 @@
       "injection",
       "relayed"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Real request has three people and one dog; copied SISTEMA dispatch instruction is untrusted, not rescue status. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-28",
@@ -543,9 +543,10 @@
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "partial_rescue",
-      "famous_landmark"
+      "famous_landmark",
+      "typos"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Four still await rescue; only people beside them were taken. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "Estádio José Pinheiro Borda",
@@ -567,19 +568,18 @@
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "number_words",
-      "negation",
-      "indirect_vulnerability"
+      "negation"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Twelve adults, zero children; one grandmother explicitly described as elderly. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-31",
     "synthetic": true,
     "expected_fields": {
       "people": 3,
-      "pets": 0,
       "municipality": "Canoas",
-      "landmark": "ParkShopping"
+      "landmark": "ParkShopping",
+      "pets": 0
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
@@ -588,7 +588,7 @@
       "negation",
       "famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Neighbour reports three in ParkShopping Canoas, sin animales; text-only contact does not change dispatch intent. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
       "name": "ParkShopping Canoas",
@@ -608,11 +608,9 @@
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
-      "relations",
-      "number_words",
-      "indirect_vulnerability"
+      "relations"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Speaker and wife explicitly total two; wife uses wheelchair, supporting one disabled person. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-33",
@@ -624,9 +622,10 @@
     },
     "expected_decision": "CALLBACK",
     "tags": [
+      "relayed",
       "less_famous_landmark"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Three at unnamed school in Novo Hamburgo; neither school name nor neighbourhood known. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "unresolved",
       "name": null
@@ -642,7 +641,7 @@
     },
     "expected_decision": "CALLBACK",
     "tags": [],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Four on roof in Eldorado do Sul, surrounded by water; street unknown. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-35",
@@ -653,40 +652,38 @@
       "municipality": "São Leopoldo"
     },
     "expected_decision": "CALLBACK",
-    "tags": [
-      "number_words"
-    ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "tags": [],
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Three including one child in Sao Leopoldo; speaker asks to be called again for forgotten address. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-36",
     "synthetic": true,
     "expected_fields": {
+      "already_rescued": true,
       "street": "Avenida Farrapos",
       "number": "84",
-      "municipality": "Porto Alegre",
-      "already_rescued": true
+      "municipality": "Porto Alegre"
     },
     "expected_decision": "REPORTED_RESCUED",
     "tags": [],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): All explicitly rescued and request dar baixa; no supported group count. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-37",
     "synthetic": true,
     "expected_fields": {
       "people": 2,
+      "already_rescued": false,
       "street": "Avenida Farrapos",
       "number": "49",
-      "municipality": "Porto Alegre",
-      "already_rescued": false
+      "municipality": "Porto Alegre"
     },
     "expected_decision": "SEND_CANDIDATE",
     "tags": [
       "corrections",
       "partial_rescue"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Of the original seven, five left by boat; two explicitly remain awaiting rescue. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-38",
@@ -704,7 +701,7 @@
     "tags": [
       "indirect_vulnerability"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Four people includes one elderly bedridden grandmother; one additional kitten is a pet, not a fifth person. Omitted fields are unknown; explicit negations are zero/false."
   },
   {
     "message_id": "challenge-39",
@@ -744,6 +741,6 @@
       "relations",
       "relayed"
     ],
-    "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false."
+    "basis": "Re-derived from native-speaker rewrite (24/10/2026): Forwarded speaker, mother and two children explicitly total four in Guaiba; street sign lost. Omitted fields are unknown; explicit negations are zero/false."
   }
 ]

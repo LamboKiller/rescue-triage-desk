@@ -7,7 +7,7 @@
     101,
     202
   ],
-  "limitations": "Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. No evidence of critic benefit without live ablations. Landmark scores use a decision proxy when identity/status labels are absent. Curated aliases and airport terminal dispatch use the local snapshot.",
+  "limitations": "Author-written synthetic truth; challenge texts reviewed by one native Porto Alegre speaker on 24/10/2026 and labels re-derived. Real-message accuracy unmeasured. No evidence of critic benefit without live ablations. Landmark scores use a decision proxy when identity/status labels are absent. Curated aliases and airport terminal dispatch use the local snapshot.",
   "sets": {
     "generated": {
       "baseline": {
@@ -121,9 +121,9 @@
         "decision_accuracy": 1.0,
         "unsupported_claim_rate": 0.0,
         "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
-        "mean_seconds_per_message": 0.679,
-        "p90_seconds_per_message": 1.1234,
-        "amortized_wall_seconds_per_message": 0.2716,
+        "mean_seconds_per_message": 0.7834,
+        "p90_seconds_per_message": 1.328,
+        "amortized_wall_seconds_per_message": 0.3125,
         "landmark_resolution_accuracy": 1.0,
         "landmark_identity_messages": 0,
         "landmark_decision_proxy_messages": 30,
@@ -151,11 +151,11 @@
             "correct": 2,
             "n": 2
           },
-          "2": {
+          "3": {
             "correct": 2,
             "n": 2
           },
-          "3": {
+          "2": {
             "correct": 2,
             "n": 2
           },
@@ -195,11 +195,11 @@
             "correct": 2,
             "n": 2
           },
-          "8": {
+          "14": {
             "correct": 2,
             "n": 2
           },
-          "14": {
+          "8": {
             "correct": 2,
             "n": 2
           }
@@ -219,28 +219,28 @@
         "n": 40,
         "fields": {
           "people": {
-            "tp": 16,
-            "fp": 7,
-            "fn": 19,
-            "precision": 0.6957,
-            "recall": 0.4571,
-            "f1": 0.5517
+            "tp": 23,
+            "fp": 6,
+            "fn": 12,
+            "precision": 0.7931,
+            "recall": 0.6571,
+            "f1": 0.7188
           },
           "children": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 12,
+            "precision": 1.0,
+            "recall": 0.1429,
+            "f1": 0.25
+          },
+          "elderly": {
             "tp": 0,
             "fp": 0,
-            "fn": 14,
+            "fn": 5,
             "precision": 0,
             "recall": 0.0,
             "f1": 0
-          },
-          "elderly": {
-            "tp": 1,
-            "fp": 0,
-            "fn": 4,
-            "precision": 1.0,
-            "recall": 0.2,
-            "f1": 0.3333
           },
           "disabled": {
             "tp": 0,
@@ -251,36 +251,36 @@
             "f1": 0
           },
           "pets": {
-            "tp": 2,
+            "tp": 1,
             "fp": 0,
-            "fn": 4,
+            "fn": 5,
             "precision": 1.0,
-            "recall": 0.3333,
-            "f1": 0.5
+            "recall": 0.1667,
+            "f1": 0.2857
           },
           "street": {
-            "tp": 18,
+            "tp": 4,
             "fp": 3,
-            "fn": 0,
-            "precision": 0.8571,
-            "recall": 1.0,
-            "f1": 0.9231
+            "fn": 14,
+            "precision": 0.5714,
+            "recall": 0.2222,
+            "f1": 0.32
           },
           "number": {
-            "tp": 18,
+            "tp": 4,
             "fp": 0,
-            "fn": 0,
+            "fn": 14,
             "precision": 1.0,
-            "recall": 1.0,
-            "f1": 1.0
+            "recall": 0.2222,
+            "f1": 0.3636
           },
           "municipality": {
-            "tp": 37,
-            "fp": 1,
-            "fn": 2,
-            "precision": 0.9737,
-            "recall": 0.9487,
-            "f1": 0.961
+            "tp": 16,
+            "fp": 0,
+            "fn": 23,
+            "precision": 1.0,
+            "recall": 0.4103,
+            "f1": 0.5818
           },
           "landmark": {
             "tp": 0,
@@ -299,12 +299,12 @@
             "f1": 0
           },
           "risk_words": {
-            "tp": 3,
+            "tp": 2,
             "fp": 0,
-            "fn": 0,
+            "fn": 2,
             "precision": 1.0,
-            "recall": 1.0,
-            "f1": 1.0
+            "recall": 0.5,
+            "f1": 0.6667
           },
           "already_rescued": {
             "tp": 1,
@@ -315,21 +315,21 @@
             "f1": 0.2857
           },
           "conflicting_counts": {
-            "tp": 3,
+            "tp": 1,
             "fp": 2,
-            "fn": 0,
-            "precision": 0.6,
-            "recall": 1.0,
-            "f1": 0.75
+            "fn": 2,
+            "precision": 0.3333,
+            "recall": 0.3333,
+            "f1": 0.3333
           }
         },
-        "decision_accuracy": 0.55,
+        "decision_accuracy": 0.5,
         "unsupported_claim_rate": 0.0,
         "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
-        "mean_seconds_per_message": 1.4687,
-        "p90_seconds_per_message": 2.5246,
-        "amortized_wall_seconds_per_message": 0.5697,
-        "landmark_resolution_accuracy": 0.7,
+        "mean_seconds_per_message": 0.6258,
+        "p90_seconds_per_message": 1.203,
+        "amortized_wall_seconds_per_message": 0.2836,
+        "landmark_resolution_accuracy": 0.6,
         "landmark_identity_messages": 15,
         "landmark_decision_proxy_messages": 25,
         "landmark_definition": "Identity/status on labelled landmarks; expected-decision proxy otherwise",
@@ -349,7 +349,7 @@
         "mean_calls_per_message": 0.0,
         "families": {
           "challenge": {
-            "correct": 22,
+            "correct": 20,
             "n": 40
           }
         },

@@ -113,6 +113,10 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
         key=lambda name: (len(name.split()), len(name)), default='') for key, hits in alias_hits.items()}
     scoped = [r for r in rows if (municipality and normalize(r['municipality']) == normalize(municipality))
               or (not municipality and (r['osm_type'], r['osm_id']) in alias_hits)]
+    suburbs = {normalize(r['name']) for r in scoped if r['category'] in ('place:suburb', 'place:neighbourhood')
+               and (' '+normalize(r['name'])+' ') in (' '+context+' ')}
+    if neighbourhood:
+        suburbs.add(normalize(neighbourhood))
     street_cues = {street_normalize(r['display_name']) for r in streets
                    if normalize(r['municipality']) == normalize(municipality)
                    and street_normalize(r['display_name'])
@@ -122,11 +126,11 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
                        (' '+street_normalize(r['street'])+' ') in (' '+street_normalize(context)+' '))
     street_cues = {s for s in street_cues if len(s.split()) >= 2 and
                    not any(set(s.split()) == set(q.split()) for q in queries) and
-                   not set(s.split()) <= city}
-    suburbs = {normalize(r['name']) for r in scoped if r['category'] in ('place:suburb', 'place:neighbourhood')
-               and (' '+normalize(r['name'])+' ') in (' '+context+' ')}
-    if neighbourhood:
-        suburbs.add(normalize(neighbourhood))
+                   not set(s.split()) <= city and
+                   # A neighbourhood can share its name with a street. Only
+                   # an explicit road designator makes it a street constraint.
+                   (s not in suburbs or re.search(
+                       r'\b(?:rua|r|avenida|av|travessa|tv|estrada|rodovia|alameda) '+re.escape(s)+r'\b', context))}
     candidates = []
     message_normalized = normalize(message)
     for row in distinct_places(scoped):

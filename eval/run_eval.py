@@ -144,7 +144,8 @@ def main():
     if 7 in seeds or len(set(seeds)) != len(seeds):
         parser.error('Use distinct held-out seeds; seed 7 is tuning data')
     results = {'mode':'offline' if args.offline else 'live', 'tuning_seeds':[7], 'test_seeds':seeds,
-               'limitations':'Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. '
+               'limitations':'Author-written synthetic truth; challenge texts reviewed by one native Porto Alegre speaker '
+                              'on 24/10/2026 and labels re-derived. Real-message accuracy unmeasured. '
                               'No evidence of critic benefit without live ablations. Landmark scores use a decision proxy '
                               'when identity/status labels are absent. Curated aliases and airport terminal dispatch use the local snapshot.',
                'sets':{}}

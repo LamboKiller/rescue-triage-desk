@@ -8,6 +8,7 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
+from app.config import ROOT
 from app.data.source import LocalSource, ZetarisSource
 from app.geo.landmarks import match, normalize
 from app.engines.world_model.registry import Registry
@@ -133,9 +134,17 @@ class RealLandmarkTests(unittest.TestCase):
                     self.assertTrue(all('assis brasil' in normalize(c['street']) for c in result['candidates']))
 
     def test_three_negative_queries(self):
-        for query in ('Observatorio Ficticio Nebulosa Azul', 'Igreja Ficticia Ponte de Nuvem'):
-            with self.subTest(query=query):
-                self.assertEqual(match(self.rows, query, municipality='Porto Alegre')['status'], 'unresolved')
+        self.assertEqual(match(self.rows, 'Observatorio Ficticio Nebulosa Azul',
+                               municipality='Porto Alegre')['status'], 'unresolved')
+        truth = json.loads((ROOT/'eval/challenge_truth.json').read_text(encoding='utf-8'))
+        for target in truth:
+            if target.get('expected_landmark', {}).get('status') != 'unresolved':
+                continue
+            fields = target['expected_fields']
+            with self.subTest(message_id=target['message_id']):
+                result = match(self.rows, fields['landmark'], municipality=fields['municipality'])
+                self.assertNotEqual(result['status'], 'resolved')
+                self.assertIsNone(result['matched'])
         self.assertEqual(match(self.rows, 'mercado', municipality='Porto Alegre')['status'], 'ambiguous')
 
     def test_explicit_subfacility_and_school_names(self):
