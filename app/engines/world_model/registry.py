@@ -56,6 +56,10 @@ class Registry:
         if self.path.exists():
             for line in self.path.read_text(encoding='utf-8').splitlines():
                 event = json.loads(line)  # Fail closed on damaged log; never silently skip.
+                if event['kind'] in ('merge', 'unmerge'):
+                    for projection in event['projections']:
+                        cases[projection['case_id']] = projection
+                    continue
                 cid = event['case_id']
                 if event['kind'] in ('ingest', 'analysis'):
                     seen.add(event['provenance'])
@@ -95,6 +99,7 @@ class Registry:
 
     def ingest(self, case):
         case = json.loads(redact(json.dumps(case, ensure_ascii=False)))
+        case.pop('case_id', None)
         mid = case['message_id']
         text_hash = hashlib.sha256(case['text'].encode()).hexdigest()
         provenance = mid + ':' + text_hash
@@ -102,6 +107,8 @@ class Registry:
         with self.locked():
             cases, seen = self._read()
             previous = cases.get(cid)
+            if previous and (previous.get('merge_state') or previous.get('status','').startswith('MERGED_INTO:')):
+                raise Conflict('Desfaça a união antes de reanalisar o caso.')
             # A delivery is ingested once. A changed replay/analysis is a separate
             # versioned event, so an earlier-time replay never returns later evidence.
             comparable = ('replay_time', 'mode', 'fields', 'errors', 'fleet', 'hazard_review', 'route', 'result')
@@ -126,6 +133,8 @@ class Registry:
             cases, _ = self._read()
             if case_id not in cases:
                 raise KeyError(case_id)
+            if cases[case_id].get('merge_state') or cases[case_id].get('status','').startswith('MERGED_INTO:'):
+                raise Conflict('Desfaça a união antes de responder.')
             if cases[case_id]['version'] != expected_version:
                 raise Conflict('Versão alterada. Recarregue e revise o caso.')
             case.update(status='proposed', location_confirmed=False, approved_asset=None,
@@ -140,7 +149,7 @@ class Registry:
             cases, _ = self._read()
             return copy.deepcopy(cases.get(case_id) if case_id else sorted(cases.values(), key=lambda c: -c['result']['priority']))
 
-    def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False):
+    def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False, target_case_id=None, target_expected_version=None):
         if not human:
             raise PermissionError('Ação exclusiva de operador humano.')
         if not isinstance(actor, str) or not actor.strip() or len(actor) > 120:
@@ -154,7 +163,11 @@ class Registry:
             case = cases[case_id]
             if case['version'] != expected_version:
                 raise Conflict('Versão alterada. Recarregue e revise o caso.')
+            if action in ('merge', 'unmerge'):
+                return self._merge(cases, case, action, actor, target_case_id, target_expected_version)
             status = case['status']
+            if status.startswith('MERGED_INTO:'):
+                raise Conflict('Caso unido; use o caso principal.')
             allowed = {'confirm_location', 'approve_dispatch', 'dispatch', 'field_confirm', 'request_callback', 'report_rescued'}
             if action not in allowed:
                 raise ValueError('Ação desconhecida.')
@@ -188,3 +201,79 @@ class Registry:
                           'version': case['version']+1, 'action': action, 'actor': redact(actor.strip()),
                           **({'asset':asset,'caution_acknowledgement':acknowledgement} if action=='approve_dispatch' else {})})
             return copy.deepcopy(self._read()[0][case_id])
+
+    def _merge(self, cases, case, action, actor, target_id, target_version):
+        """Called under the registry's process/OS lock; one append changes both."""
+        if action == 'unmerge':
+            if case['status'] in ('human_approved','dispatched','field_confirmed'):
+                raise Conflict('Despacho ativo; não desfaça a união.')
+            state = case.get('merge_state')
+            if not state:
+                raise ValueError('Caso sem união ativa.')
+            other = cases[state['other_id']]
+            if other['version'] != state['other_version']:
+                raise Conflict('Caso secundário alterado.')
+            restored = copy.deepcopy(state['before'])
+            for old in restored:
+                current = cases[old['case_id']]
+                old['version'] = current['version']+1
+                old['actions'] = current['actions'] + [{'action':'unmerge','actor':redact(actor.strip()),'version':old['version']}]
+            projections = restored
+        else:
+            if not isinstance(target_id,str) or target_id == case['case_id']:
+                raise ValueError('Informe outro target_case_id.')
+            if target_id not in cases:
+                raise KeyError(target_id)
+            other = cases[target_id]
+            if type(target_version) is not int:
+                raise ValueError('target_expected_version deve ser inteiro.')
+            if other['version'] != target_version:
+                raise Conflict('Versão do caso secundário alterada.')
+            for c in (case,other):
+                if c.get('merge_state') or c['status'].startswith('MERGED_INTO:') or c['status'] in ('human_approved','dispatched','field_confirmed'):
+                    raise Conflict('Caso unido ou despacho ativo; união indisponível.')
+            a,b = copy.deepcopy(case),copy.deepcopy(other)
+            before = [copy.deepcopy(case),copy.deepcopy(other)]
+            for c in (a,b):
+                c['version'] += 1
+                c['actions'].append({'action':'merge','actor':redact(actor.strip()),'version':c['version'],'target_case_id':target_id})
+            a['messages'] = []
+            a['evidence_union'] = []
+            for c in before:
+                for m in c.get('messages') or [{k:c[k] for k in ('message_id','text','received_at')}]:
+                    if m not in a['messages']: a['messages'].append(m)
+                for fact in c.get('facts',[]):
+                    if fact not in a['evidence_union']: a['evidence_union'].append(fact)
+            a['facts'] = copy.deepcopy(a['evidence_union'])
+            a['text'] = '\n'.join(m['text'] for m in a['messages'])
+            for key in ('hazard_facts','unsupported'):
+                a[key] = list(a.get(key,[]))
+                for fact in b.get(key,[]):
+                    if fact not in a[key]: a[key].append(fact)
+            a['open_items'] = list(a.get('open_items',[]))
+            for key in ('people','children','elderly','disabled','pets'):
+                av,bv = a.get('fields',{}).get(key),b.get('fields',{}).get(key)
+                if av and bv and av.get('value') != bv.get('value'):
+                    a['open_items'].append({'field':key,'reason':'conflicting_counts','values':[av,bv]})
+                    a['fields'].pop(key,None)
+                elif not av and bv:
+                    a.setdefault('fields',{})[key] = copy.deepcopy(bv)
+            if a['open_items']:
+                a['result'].update(conflicting_counts=True,people_derived=False,decision='REVIEW_REQUIRED',
+                                   decision_reason='Contagens conflitantes nos pedidos unidos; confirmar com uma pessoa.')
+                a['result'].setdefault('questions',[]).append('Confirmar contagens conflitantes dos pedidos unidos.')
+            a.update(status='proposed',location_confirmed=False,approved_asset=None,caution_acknowledgement=None)
+            # Demographics from either history can constrain the resource package.
+            from app.fleet import screen
+            prior_evidence = copy.deepcopy(a['hazard_facts'])
+            screen(a)
+            a['hazard_review'] = a['hazard_critic'] = 'indisponível'
+            a.setdefault('agents',{})['hazard_critic'] = 'indisponível'
+            for fact in prior_evidence:
+                if fact not in a['hazard_facts']: a['hazard_facts'].append(fact)
+            b['status'] = 'MERGED_INTO:'+a['case_id']
+            a['merge_state'] = {'other_id':target_id,'other_version':b['version'],'before':before}
+            projections = [a,b]
+        self._append({'schema_version':1,'kind':action,'case_id':case['case_id'],
+                      'actor':redact(actor.strip()),'projections':projections})
+        return copy.deepcopy(self._read()[0][case['case_id']])

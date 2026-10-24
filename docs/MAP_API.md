@@ -359,3 +359,94 @@ operator aid, not dispatch approval.
 two-message dialogues against separate truth: final decisions, field merges,
 contradictions, version counts and crashes. Omitting `--offline` uses providers.
 Offline results describe regex behavior, not live-provider validation.
+
+B-137 backend additions:
+
+* `GET /api/cases/<id>/duplicates` returns `{case_id,duplicates:[{case_id,
+  score,token_overlap,reasons,review}]}` (404 for an unknown case). Candidate
+  pairs must be within 12 hours inclusive. Independent blocks are a shared
+  resolved OSM ID, normalized street/number in the same municipality, street
+  reference points within 150 m with an overlapping known people/vulnerability
+  value, or normalized word-set overlap >= 0.8 (intersection divided by the
+  larger set). Explicit different house numbers suppress the proximity block.
+  Reasons identify each matching block. Scores are advisory, not probabilities.
+  Street centroids do not establish the location of a house.
+* Live full runs review at most three candidates per case, within the existing
+  deadline, using streaming Nemotron role `duplicate_reviewer`. Both messages
+  and their summaries are supplied as untrusted data. Review is
+  `{verdict:"same|different|unsure",evidence:[{case:"A|B",quote}],reason_pt}`;
+  every quote must occur in its labelled message and `same` requires quotes
+  from both. A is the requested case. Failed/offline/unreviewed candidates use
+  `review:"indisponível"`. GET performs no model calls. Reviews whose message
+  hashes changed are not reused. No candidate or model verdict merges cases.
+* Human `POST /api/cases/<primary>/actions` accepts
+  `{"action":"merge","expected_version":1,"actor":"operador",
+  "target_case_id":"secondary","target_expected_version":1}`.
+  Both versions must match (409 otherwise). One atomic append-only World Model
+  event increments both versions. The primary retains both message histories
+  and the union of analysis/hazard evidence (`messages`, `facts`,
+  `evidence_union`, `hazard_facts`). Conflicting demographic counts become
+  `open_items` with both supported values, are removed from resolved fields,
+  and require review; they are never summed. The secondary status becomes
+  `MERGED_INTO:<primary>`. Approval/location confirmation reset on the primary.
+  Active approved/dispatched/field-confirmed cases and nested merges are
+  rejected. Reanalysis/reply on either member requires unmerge first; ordinary
+  actions on the secondary are rejected. `{"action":"unmerge",
+  "expected_version":2,"actor":"operador"}` on the primary restores both
+  pre-merge projections, preserves action audit histories, and increments both
+  versions again. A changed secondary or an active dispatch on the primary
+  causes 409. Merging recomputes fleet screening from both message histories
+  and invalidates the earlier hazard review. Existing operator-only gates
+  and error envelopes apply.
+* `GET /api/stats?date=YYYY-MM-DD` requires exactly one valid date (400 otherwise).
+  Returns `date`, `status_basis`, `open_cases`, count dictionaries `by_priority`,
+  `by_decision`, `by_route`, `by_municipality`, `by_bairro`, `depth_bands`,
+  `people_waiting`, `asset_demand`, `hazards`, and `agent_metrics`. Latest
+  eligible analyses are bounded by received/replay day. Human status uses the
+  current registry projection: legacy actions have no historical timestamp.
+  Open excludes merged-away, field-confirmed and reported-rescued cases.
+  People/vulnerability entries (`people`, `children`, `elderly`, `disabled`,
+  `pets`) contain `{known_total,unknown_cases}`; conflicting/absent counts stay
+  unknown. Vulnerabilities can overlap and must not be added to people totals.
+  Geography missing from extracted fields is `unknown`.
+  Demand `only_asset` counts cases whose only non-unsafe option is that asset;
+  `only_group` counts cases whose options all belong to one catalogue group;
+  `no_options` counts cases with none. Fleet/depth context is recomputed for
+  the requested day. This counts cases needing review, not vehicles or seats.
+  Hazards include `flooded_area_km2`, `area_method`, `pumps_out`,
+  `pumps_unknown`, `active_closures`. Area is a 512-strip spherical scanline
+  union estimate with holes subtracted and overlapping products counted once.
+  Reopened/alternative-open records are excluded from active closure counts.
+  Source closure temporal/geometry limitations above still apply.
+  Metrics from stored eligible analysis calls include `calls_per_role`,
+  `wins_per_model` (successful routed model calls), nearest-rank
+  `p50_seconds`/`p90_seconds` (null with no timings), `failures`,
+  `critic_objections`, `revisions`, `hazard_critic_blocks`,
+  `validator_rejections`, `injections_detected`. Repeated analysis references
+  are deduplicated; retries count as separate stored calls.
+* `POST /run` with literal `"async":true` validates synchronously, then returns
+  HTTP 202 `{run_id,status:"running"}` immediately. The same one-active-run
+  gate applies; synchronous requests keep their existing response contract.
+  `GET /api/runs/<id>` returns `{run_id,status,result}`; status is
+  `running|complete|failed`, result is initially null, then the unchanged run
+  envelope or `{error}`. Unknown/evicted run IDs return 404. The last 20 runs
+  are retained in memory under a condition lock; restart clears them.
+* `GET /api/runs/<id>/events` returns `text/event-stream; charset=utf-8`,
+  `Cache-Control:no-cache`, `Connection:keep-alive`. It replays events from the
+  beginning, flushes new events, sends `: keep-alive` comments while idle and
+  closes after `event: done`. Each `data` JSON contains `stage`, `run_id`,
+  `case_id`, `role`, `model`, `receipt`, `seconds`; unavailable values are null
+  (seconds defaults to zero). Stages include `received`,
+  `intake_started/done/error`, `critic_*`, `revision_*`, `location_*`,
+  `checks_done`, `hazard_critic_*`, `duplicate_reviewer_*`, `decision`, `error`,
+  and `done`. Only executed stages emit agent events; offline intake emits
+  null model metadata. Decision events additionally include `decision`.
+  Failures still terminate with `done`; client disconnects do not cancel work.
+
+`python eval/run_duplicates.py --offline` evaluates 12 original synthetic
+pairs against `duplicate_truth.json`: six same incidents (paraphrases,
+forwarded/later messages, corrected counts) and six similar different incidents
+(other floor, other house number, other day). It reports candidate recall,
+crashes, automatic merges (always zero), and null reviewer accuracy/wrong-merge
+suggestions offline. Without `--offline`, it measures reviewer accuracy and
+wrong `same` suggestions using the streaming client. Truth never enters runtime.

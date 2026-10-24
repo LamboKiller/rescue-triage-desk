@@ -1,5 +1,6 @@
 """CLI and trusted-operator demo web server (Python 3.12 standard library)."""
 import gzip
+import hashlib
 import argparse
 import json
 import os
@@ -28,6 +29,8 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
     offline = sample_mode() if sample is None else sample
     registry = pipeline.registry if pipeline else Registry(registry_path or ROOT/'runtime/events.jsonl')
     pipeline = pipeline or Pipeline(registry, sample=offline)
+    from app.runs import RunStore
+    runs = RunStore()
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass  # Raw paths and requests can contain identifiers.
@@ -57,7 +60,50 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
             else:
                 if routes_v2.handle_get(self, path, query):
                     return
-            if path == '/':
+            if path == '/api/stats':
+                from app.stats import build_stats
+                try:
+                    if len(query.get('date',[])) != 1: raise ValueError('Provide exactly one date')
+                    self.send_json(200,build_stats(query['date'][0],registry.read()))
+                except ValueError as exc:
+                    self.send_json(400,{'error':str(exc)})
+            elif path.startswith('/api/runs/'):
+                run_id=path.split('/')[3]
+                result=runs.read(run_id)
+                if result is None:
+                    self.send_json(404,{'error':'Run not found'})
+                elif path == '/api/runs/'+run_id+'/events':
+                    self.send_response(200)
+                    self.send_header('Content-Type','text/event-stream; charset=utf-8')
+                    self.send_header('Cache-Control','no-cache')
+                    self.send_header('Connection','keep-alive')
+                    self.end_headers()
+                    try:
+                        for event in runs.events(run_id):
+                            self.wfile.write(event.encode('utf-8'))
+                            self.wfile.flush()
+                    except (BrokenPipeError,ConnectionResetError,TimeoutError):
+                        pass
+                    self.close_connection=True
+                elif path == '/api/runs/'+run_id:
+                    self.send_json(200,result)
+                else:
+                    self.send_json(404,{'error':'Route not found'})
+            elif path.startswith('/api/cases/') and path.endswith('/duplicates'):
+                from app.duplicates import candidates
+                case=registry.read(path.split('/')[3])
+                if case:
+                    suggestions=candidates(case,registry.read())
+                    stored={d['case_id']:d for d in case.get('duplicates',[])}
+                    for d in suggestions:
+                        other=registry.read(d['case_id'])
+                        hashes=[hashlib.sha256(c['text'].encode()).hexdigest() for c in (case,other)]
+                        saved=stored.get(d['case_id'],{})
+                        d['review']=saved.get('review') if saved.get('message_hashes')==hashes else 'indispon\u00edvel'
+                    self.send_json(200,{'case_id':case['case_id'],'duplicates':suggestions})
+                else:
+                    self.send_json(404,{'error':'Case not found'})
+            elif path == '/':
                 body = (ROOT/'app/web/index.html').read_bytes()
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -99,7 +145,7 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
             elif path.startswith('/api/cases/') and path.endswith('/card'):
                 from app.dispatch_card import build_card
                 case = registry.read(path.split('/')[3])
-                self.send_json(200 if case else 404, build_card(case) if case else {'error':'Caso n?o encontrado.'})
+                self.send_json(200 if case else 404, build_card(case) if case else {'error':'Caso nãoo encontrado.'})
             elif path.startswith('/api/cases/'):
                 case = registry.read(path.rsplit('/', 1)[1])
                 self.send_json(200 if case else 404, case or {'error': 'Caso não encontrado.'})
@@ -123,7 +169,10 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                 request = json.loads(self.rfile.read(length).decode('utf-8'))
                 path = urllib.parse.urlsplit(self.path).path
                 if path == '/run':
-                    self.send_json(200, pipeline.run(request))
+                    if isinstance(request,dict) and request.get('async') is True:
+                        self.send_json(202,runs.start(pipeline,request))
+                    else:
+                        self.send_json(200, pipeline.run(request))
                 elif path.startswith('/api/cases/') and path.endswith('/reply'):
                     self.send_json(200, pipeline.reply(path.split('/')[3], request))
                 elif path.startswith('/api/cases/') and path.endswith('/actions'):
@@ -131,7 +180,8 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                         raise ValueError('Envie um objeto JSON.')
                     cid = path.split('/')[3]
                     case = registry.action(cid, request.get('action'), request.get('expected_version'), request.get('actor'), human=True,
-                                           asset=request.get('asset'), caution_acknowledged=request.get('caution_acknowledged',False))
+                                           asset=request.get('asset'), caution_acknowledged=request.get('caution_acknowledged',False),
+                                           target_case_id=request.get('target_case_id'), target_expected_version=request.get('target_expected_version'))
                     self.send_json(200, case)
                 else:
                     self.send_json(404, {'error': 'Rota não encontrada.'})

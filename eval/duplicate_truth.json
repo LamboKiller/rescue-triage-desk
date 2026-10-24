@@ -1,0 +1,38 @@
+{
+  "same-paraphrase": {
+    "same": true
+  },
+  "same-forward": {
+    "same": true
+  },
+  "same-correction": {
+    "same": true
+  },
+  "same-later": {
+    "same": true
+  },
+  "same-short": {
+    "same": true
+  },
+  "same-landmark": {
+    "same": true
+  },
+  "different-floor": {
+    "same": false
+  },
+  "different-number": {
+    "same": false
+  },
+  "different-day": {
+    "same": false
+  },
+  "different-floor-two": {
+    "same": false
+  },
+  "different-number-two": {
+    "same": false
+  },
+  "different-day-two": {
+    "same": false
+  }
+}

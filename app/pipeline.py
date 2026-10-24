@@ -102,12 +102,15 @@ class Pipeline:
         finally:
             self.run_lock.release()
 
-    def _run(self, replay, messages, ablation, previous=None):
+    def _run(self, replay, messages, ablation, previous=None, event_sink=None, run_id=None):
         started = time.monotonic()
         deadline = started+self.budget_seconds
-        run_id = uuid.uuid4().hex
+        run_id = run_id or uuid.uuid4().hex
         trace = ROOT/'logs'/('run_'+run_id+'.jsonl')
         client = self.client or Nightshift(trace)
+        if event_sink:
+            for message in messages:
+                event_sink('received',case_id=hashlib.sha256(message['message_id'].encode()).hexdigest()[:24])
         source_error = None
         landmark_rows, landmark_error = [], None
         source_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -125,6 +128,12 @@ class Pipeline:
         finally:
             source_pool.shutdown(wait=False, cancel_futures=True)
         def process(message):
+            from app.runs import EventClient
+            cid = previous['case_id'] if previous else hashlib.sha256(message['message_id'].encode()).hexdigest()[:24]
+            def emit(stage, **data):
+                if event_sink:
+                    event_sink(stage, case_id=cid, **data)
+            agent_client = EventClient(client, emit)
             message_started = time.monotonic()
             fields, unsupported, calls, errors = {}, [], [], []
             review_degraded = False
@@ -136,13 +145,15 @@ class Pipeline:
             if source_error:
                 errors.append('data_source_failed:'+source_error)
             if self.sample or ablation == 'baseline':
+                emit('intake_started',role='intake')
                 context_city = previous['fields'].get('municipality', {}).get('value') if previous else None
                 output = baseline.extract(message['text'], rows, context_city) if previous else baseline.extract(message['text'], rows)
                 fields, unsupported = validate(output, message['text'])
                 stages = {role: 'unavailable (offline)' for role in stages}
+                emit('intake_done',role='intake')
             else:
                 try:
-                    output, meta = intake.run(client, message['text'], deadline)
+                    output, meta = intake.run(agent_client, message['text'], deadline)
                     calls.append(meta)
                     stages['intake'] = output
                     fields, rejected = validate(output, message['text'])
@@ -152,7 +163,7 @@ class Pipeline:
                         raise ValueError('Intake schema invalid')
                     if ablation != 'intake' and previous is None:
                         try:
-                            review, meta = critic.run(client, message['text'], fields, deadline)
+                            review, meta = critic.run(agent_client, message['text'], fields, deadline)
                         except Exception as exc:
                             stages['critic'] = 'failed'
                             review_degraded = True
@@ -163,7 +174,7 @@ class Pipeline:
                             stages['critic'] = review
                         objections = review['objections'] + [{'field': r['field'], 'reason': r['reason']} for r in rejected]
                         if objections and not review_degraded:
-                            revised, meta = intake.run(client, message['text'], deadline, objections)
+                            revised, meta = intake.run(agent_client, message['text'], deadline, objections)
                             calls.append(meta)
                             stages['revision'] = revised
                             fields, rejected = validate(revised, message['text'])
@@ -180,7 +191,7 @@ class Pipeline:
             if previous is not None:
                 from app.dialogue import merge
                 fields, history, conflicts, changes, review, metas = merge(
-                    previous, fields, message, client, deadline, self.sample)
+                    previous, fields, message, agent_client, deadline, self.sample)
                 calls.extend(metas)
                 stages['critic'] = review
                 dialogue_data = {'messages':history, 'contradictions':conflicts, 'changes':changes,
@@ -206,6 +217,7 @@ class Pipeline:
                 derived = written_total(message['text']) or derive_people(message['text'])
                 if derived:
                     fields['people'] = derived
+            emit('location_started', role='location')
             location = lookup(rows, get('street'), get('municipality'), replay)
             cross = lookup(rows, get('cross_street'), get('municipality'), replay) if get('cross_street') else None
             landmark = None
@@ -215,7 +227,7 @@ class Pipeline:
                          'municipality': get('municipality'), 'neighbourhood': ''}
                 if not self.sample and ablation == 'full':
                     try:
-                        guess, meta = location_agent.run(client, message['text'], get('municipality'), deadline)
+                        guess, meta = location_agent.run(agent_client, message['text'], get('municipality'), deadline)
                         if get('municipality'):
                             guess['municipality'] = get('municipality')
                         stages['location'] = guess
@@ -230,6 +242,7 @@ class Pipeline:
                     landmark['source_error'] = landmark_error
                 if time.monotonic() >= deadline:
                     complete = False
+            emit('location_done', role='location')
             result = decide(fields, location, replay, message['received_at'], complete=complete,
                             cross_location=cross, landmark_location=landmark)
             if previous is not None and dialogue_data.get('contradictions'):
@@ -259,16 +272,19 @@ class Pipeline:
             apply_route(case, rows)
             attach(case)
             screen(case)
+            emit('checks_done')
             case['hazard_review']='indisponível'
             case['hazard_critic']='indisponível'
             case['hazard_unsupported']=0
             if not self.sample and ablation == 'full' and (previous is not None or result['decision'] in ('SEND_CANDIDATE','REVIEW_REQUIRED')):
-                hazard_critic.attach(case,client,deadline)
+                hazard_critic.attach(case,agent_client,deadline)
             if isinstance(client,Nightshift):
                 case['calls']=client.message_calls()
             if previous is not None and 'hazard_critic' in case['agents'] and not isinstance(case['hazard_review'], dict):
                 case['complete'] = False
                 case['errors'].append('hazard_critic_failed')
+            emit('decision', decision=case['result']['decision'], seconds=round(time.monotonic()-message_started,4))
+            if case['errors']: emit('error')
             finish_route(case)
             case['seconds'] = round(time.monotonic()-message_started, 4)
             # Redact the entire model argument as well as input: models can emit PII.
@@ -285,13 +301,51 @@ class Pipeline:
                     try:
                         results.append(future.result())
                     except Exception as exc:
+                        if event_sink: event_sink('error',case_id=hashlib.sha256(futures[future]['message_id'].encode()).hexdigest()[:24])
                         results.append(self.failed_case(futures[future], replay, run_id, safe_error(exc)))
             for future in pending:
                 future.cancel()
+                if event_sink: event_sink('error',case_id=hashlib.sha256(futures[future]['message_id'].encode()).hexdigest()[:24])
                 results.append(self.failed_case(futures[future], replay, run_id, 'global_deadline'))
         finally:
             # Workers have bounded network timeouts and may not mutate the registry.
             pool.shutdown(wait=False, cancel_futures=True)
+        if previous is None:
+            from app.duplicates import candidates
+            from app.agents import duplicate_reviewer
+            existing = self.registry.read()
+            peers = existing + [{**c,'case_id':hashlib.sha256(c['message_id'].encode()).hexdigest()[:24]} for c in results]
+            reviewed = {}
+            for case in results:
+                cid = hashlib.sha256(case['message_id'].encode()).hexdigest()[:24]
+                suggestions = candidates({**case,'case_id':cid},peers)
+                case['duplicates'] = []
+                for suggestion in suggestions[:3]:
+                    other = next(c for c in peers if c['case_id']==suggestion['case_id'])
+                    pair = tuple(sorted((cid,other['case_id'])))
+                    entry = {**suggestion,'message_hashes':[hashlib.sha256(c['text'].encode()).hexdigest() for c in (case,other)],'review':'indisponível'}
+                    if not self.sample and ablation == 'full' and time.monotonic()<deadline:
+                        if pair not in reviewed:
+                            from app.runs import EventClient
+                            def review_emit(stage, **data):
+                                if event_sink: event_sink(stage,case_id=cid,**data)
+                            if isinstance(client,Nightshift): client.start_message(case['message_id'])
+                            try:
+                                review,meta = duplicate_reviewer.run(EventClient(client,review_emit),case,other,deadline)
+                                reviewed[pair] = (cid,review)
+                                if not isinstance(client,Nightshift): case['calls'].append(meta)
+                            except ValueError:
+                                case['duplicate_unsupported'] = case.get('duplicate_unsupported',0)+1
+                                reviewed[pair] = (cid,'indisponível')
+                            except Exception:
+                                reviewed[pair] = (cid,'indisponível')
+                            if isinstance(client,Nightshift): case['calls'].extend(client.message_calls())
+                        first,review=reviewed[pair]
+                        entry['review']=copy.deepcopy(review)
+                        if first!=cid and isinstance(entry['review'],dict):
+                            for evidence in entry['review']['evidence']:
+                                evidence['case']='B' if evidence['case']=='A' else 'A'
+                    case['duplicates'].append(entry)
         if previous is not None:
             from app.dialogue import messages as reply_messages
             case = results[0]

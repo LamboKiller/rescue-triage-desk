@@ -1,0 +1,132 @@
+{
+  "mode": "offline",
+  "pairs": 12,
+  "candidate_recall": 1.0,
+  "reviewer_accuracy": null,
+  "reviewed": 0,
+  "wrong_merge_suggestions": null,
+  "automatic_merges": 0,
+  "crashes": 0,
+  "results": [
+    {
+      "pair_id": "same-paraphrase",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.583,
+        "reasons": [
+          "same_street_number"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "same-forward",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.462,
+        "reasons": [
+          "same_resolved_osm_id"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "same-correction",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.615,
+        "reasons": [
+          "same_street_number"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "same-later",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.545,
+        "reasons": [
+          "same_street_number"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "same-short",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.5,
+        "reasons": [
+          "same_street_number"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "same-landmark",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.625,
+        "reasons": [
+          "same_resolved_osm_id"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "different-floor",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.727,
+        "reasons": [
+          "same_resolved_osm_id"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "different-number",
+      "candidate": {
+        "score": 0.8,
+        "token_overlap": 0.889,
+        "reasons": [
+          "normalized_text_overlap_0.8"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "different-day",
+      "candidate": null,
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "different-floor-two",
+      "candidate": {
+        "score": 0.95,
+        "token_overlap": 0.727,
+        "reasons": [
+          "same_street_number"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "different-number-two",
+      "candidate": {
+        "score": 0.8,
+        "token_overlap": 0.875,
+        "reasons": [
+          "normalized_text_overlap_0.8"
+        ]
+      },
+      "review": "unavailable (offline)"
+    },
+    {
+      "pair_id": "different-day-two",
+      "candidate": null,
+      "review": "unavailable (offline)"
+    }
+  ]
+}
