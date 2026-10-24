@@ -19,7 +19,8 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
         return fields.get(key, {}).get('value', default)
     questions = []
     people = v('people', 0)
-    conflict = v('conflicting_counts', False) or any(v(k, 0) > people for k in ('children', 'elderly', 'disabled'))
+    # A vulnerable-group count can only contradict a total that was actually given (no total -> ask the count, not a conflict).
+    conflict = v('conflicting_counts', False) or (people >= 1 and any(v(k, 0) > people for k in ('children', 'elderly', 'disabled')))
     lm = landmark_location or {}
     resolved = lm.get('status') == 'resolved'
     landmark_request = bool(v('landmark') or lm.get('requested'))

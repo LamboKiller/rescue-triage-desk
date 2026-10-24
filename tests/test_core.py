@@ -87,6 +87,15 @@ class GeoDecisionTests(unittest.TestCase):
         f['already_rescued'] = {'value': True}
         self.assertEqual(decide(f, loc, TIME, TIME)['decision'], 'REPORTED_RESCUED')
 
+    def test_no_total_is_not_a_conflict(self):
+        # "estou com meus dois bebes": children known, total not given -> ask the count, don't claim a conflict.
+        f = {k: {'value': v} for k, v in {'children': 2, 'number': '20', 'municipality': 'Porto Alegre'}.items()}
+        r = decide(f, {'found': True}, TIME, TIME)
+        self.assertFalse(r['conflicting_counts'])
+        self.assertIn('Quantas pessoas precisam de resgate?', r['questions'])
+        f['people'] = {'value': 1}
+        self.assertTrue(decide(f, {'found': True}, TIME, TIME)['conflicting_counts'])
+
     def test_failure_future_time(self):
         f = {k: {'value': v} for k, v in {'people': 1, 'number': '20', 'municipality': 'Porto Alegre'}.items()}
         loc = {'found': True}
