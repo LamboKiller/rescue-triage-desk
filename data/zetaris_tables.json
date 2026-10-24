@@ -1,5 +1,7 @@
 {
-  "road_closures_v2": 31,
-  "streets_flood_v2": 12586,
-  "messages_seed7_v2": 15
+  "landmark_aliases_v3": 24,
+  "landmarks_v3": 4201,
+  "road_closures_v3": 31,
+  "streets_flood_v3": 12586,
+  "messages_seed7_v3": 15
 }
