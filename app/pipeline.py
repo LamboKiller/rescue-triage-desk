@@ -15,7 +15,7 @@ from app.agents.spans import validate
 from app.config import ROOT, safe_error
 from app.data.source import LocalSource, ZetarisSource
 from app.decide import decide, timestamp
-from app.derive_count import derive_people
+from app.derive_count import CORRECTION, canonical_municipality, count_values, derive_people, written_total
 from app.geo.streets import lookup
 from app.geo.landmarks import match as match_landmark
 from app.llm.nightshift import Nightshift, TRACE_LOCK
@@ -146,12 +146,16 @@ class Pipeline:
                 errors.append('global_deadline')
             get = lambda key: fields.get(key, {}).get('value', '')
             # This textual contradiction check does not depend on model compliance.
-            counts = re.findall(r'\b(\d+)\s+(?:pessoas|pesssoas)\b', message['text'], re.I)
-            if len(set(counts)) > 1 and not re.search(r'na verdade|corrigindo|corrijo', message['text'], re.I):
+            counts = set(re.findall(r'\b(\d+)\s+(?:pessoas|pesssoas)\b', message['text'], re.I)) | {
+                str(n) for n in count_values(message['text'])}
+            if len(counts) > 1 and not CORRECTION.search(message['text']):
                 fields['conflicting_counts'] = {'value': True, 'quote': message['text']}
-            # Yussef 24/10: no written total -> count the sender + the people they list, in code; flagged for confirmation.
+            if get('municipality'):
+                fields['municipality'] = {**fields['municipality'],
+                                          'value': canonical_municipality(get('municipality'))}
+            # Yussef 24/10: counting is code. A single written total wins; else sender + listed people (flagged).
             if not get('people'):
-                derived = derive_people(message['text'])
+                derived = written_total(message['text']) or derive_people(message['text'])
                 if derived:
                     fields['people'] = derived
             location = lookup(rows, get('street'), get('municipality'), replay)
