@@ -1,0 +1,224 @@
+[
+  {
+    "message_id": "synthetic-seed101-000",
+    "template_family": 0,
+    "expected_fields": {
+      "people": 6,
+      "street": "Rua Capistrano de Abreu",
+      "municipality": "Canoas",
+      "number": "956",
+      "children": 1,
+      "elderly": 1,
+      "risk_words": "água subindo"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-001",
+    "template_family": 1,
+    "expected_fields": {
+      "people": 5,
+      "street": "Rua das Dracenas",
+      "municipality": "São Leopoldo",
+      "number": "719",
+      "elderly": 1,
+      "disabled": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-002",
+    "template_family": 2,
+    "expected_fields": {
+      "people": 2,
+      "street": "Rua Beira Lago",
+      "municipality": "Novo Hamburgo",
+      "number": "465",
+      "children": 1,
+      "disabled": 1,
+      "pets": 1,
+      "risk_words": "telhado"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-003",
+    "template_family": 3,
+    "expected_fields": {
+      "people": 5,
+      "street": "Rua Iron Paulo Springer",
+      "municipality": "São Leopoldo",
+      "number": "223",
+      "elderly": 1,
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-004",
+    "template_family": 4,
+    "expected_fields": {
+      "people": 6,
+      "street": "Rua Rio Botuí",
+      "municipality": "Canoas",
+      "number": "706",
+      "children": 1,
+      "elderly": 1,
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-005",
+    "template_family": 5,
+    "expected_fields": {
+      "people": 5,
+      "street": "Rua Álvaro Chaves",
+      "municipality": "Porto Alegre",
+      "number": "772",
+      "children": 1,
+      "disabled": 1,
+      "risk_words": "água entrou"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-006",
+    "template_family": 6,
+    "expected_fields": {
+      "people": 2,
+      "street": "Avenida Frederico Warstat",
+      "municipality": "Eldorado do Sul",
+      "number": "389",
+      "children": 1,
+      "disabled": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-007",
+    "template_family": 7,
+    "expected_fields": {
+      "people": 3,
+      "street": "Rua João Pedro Schmitt",
+      "municipality": "Novo Hamburgo",
+      "number": "294",
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-008",
+    "template_family": 8,
+    "expected_fields": {
+      "people": 5,
+      "street": "Passagem 11",
+      "municipality": "Porto Alegre",
+      "children": 1,
+      "elderly": 1
+    },
+    "expected_decision": "CALLBACK",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-009",
+    "template_family": 9,
+    "expected_fields": {
+      "people": 2,
+      "municipality": "Novo Hamburgo",
+      "children": 1,
+      "elderly": 1,
+      "pets": 1,
+      "landmark": "perto da escola sem nome"
+    },
+    "expected_decision": "CALLBACK",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-010",
+    "template_family": 10,
+    "expected_fields": {
+      "people": 7,
+      "street": "Beco dos Amigos",
+      "municipality": "Porto Alegre",
+      "number": "193",
+      "elderly": 1,
+      "conflicting_counts": true
+    },
+    "expected_decision": "CALLBACK",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-011",
+    "template_family": 11,
+    "expected_fields": {
+      "people": 4,
+      "street": "Rua Inventada de Teste",
+      "municipality": "Curitiba",
+      "number": "394",
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "CALLBACK",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-012",
+    "template_family": 12,
+    "expected_fields": {
+      "people": 7,
+      "street": "Rua Doutor Gastão Rhodes",
+      "municipality": "Porto Alegre",
+      "number": "854",
+      "children": 1,
+      "disabled": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-013",
+    "template_family": 13,
+    "expected_fields": {
+      "street": "Rua Cassiano do Nascimento",
+      "municipality": "Porto Alegre",
+      "number": "124",
+      "already_rescued": true
+    },
+    "expected_decision": "REPORTED_RESCUED",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed101-014",
+    "template_family": 14,
+    "expected_fields": {},
+    "expected_decision": "CALLBACK",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  }
+]

@@ -1,0 +1,36 @@
+# Derived data attribution
+
+Only derived CSVs are distributed. Source packs D1–D3 were prepared 21–23 October 2026.
+The supplied backup contains no D1–D3 REPORT.md or manifest.json. Full manifest-based
+attribution could not be verified; do not describe it as complete. Available source
+research and inventories support the following credits:
+
+* Street names/geometries: © OpenStreetMap contributors, Open Database License 1.0
+  (https://www.openstreetmap.org/copyright). Derived database streets_flood.csv is
+  distributed under ODbL 1.0, separately from the MIT application code.
+  D1 snapshot 2024-06-15 is retrospective, later than the replay window.
+* Census tracts/municipalities: IBGE, Censo Demográfico 2022; supplied D1 export.
+  https://www.ibge.gov.br/estatisticas/sociais/populacao/22827-censo-demografico-2022.html
+* Observed water: Possantti et al., UFRGS and collaborators, Banco de dados das
+  cheias na Região Hidrográfica do Lago Guaíba em Maio de 2024, CC BY 4.0 per the
+  supplied source brief. D1 gpkg_layer_inventory.json links the observed-water
+  layers and IBGE input to Zenodo record 14617475 (v1.4, published 2025-01-08):
+  https://doi.org/10.5281/zenodo.14617475 . Collection DOI:
+  https://doi.org/10.5281/zenodo.11164049 . Earliest supplied version is record
+  11164050 (2024-05-09); original per-layer publication remains unverified.
+  The public record confirms version/date/authors; its extracted rights section
+  did not expose a license identifier, so the license statement relies on the brief.
+* Road closures: supplied D3 road_closures.csv, 31 rows. Each row preserves source,
+  source_locator, published timestamp and quality notes. Sources include DNIT and
+  public official bulletins. Research also identifies Fiocruz GIS Zenodo 11193971,
+  CC BY 4.0 (https://doi.org/10.5281/zenodo.11193971); it is not claimed as D1's record.
+
+Method: named OSM highway ways, street normalization, census polygon membership of
+all road vertices and segment midpoints (bbox grid prefilter + ray casting, holes
+respected); count a way once per municipality/name and once per observed-water date.
+Narrow polygon crossings between sample points can be missed. Normalization merges
+aliases differing only by road type, accents and de/da/do/das/dos; counts therefore
+differ from the R3 intersecting-way calculation. No household location is inferred.
+Unknown publication times exclude flood overlap from contemporaneous decisions.
+No permanent-water mask: overlap is not flood depth, passability or a route check.
+May 8 coverage differs substantially; zero overlap never establishes recession.

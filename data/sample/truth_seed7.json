@@ -1,0 +1,237 @@
+[
+  {
+    "message_id": "synthetic-seed7-000",
+    "template_family": 0,
+    "expected_fields": {
+      "people": 5,
+      "street": "Beco Lami",
+      "municipality": "Porto Alegre",
+      "number": "676",
+      "pets": 1,
+      "risk_words": "água subindo"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-001",
+    "template_family": 1,
+    "expected_fields": {
+      "people": 3,
+      "street": "Rua Mário Schenini Cademartori",
+      "municipality": "Porto Alegre",
+      "number": "48",
+      "elderly": 1,
+      "disabled": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-002",
+    "template_family": 2,
+    "expected_fields": {
+      "people": 5,
+      "street": "Rua Olinto de Oliveira",
+      "municipality": "São Leopoldo",
+      "number": "70",
+      "pets": 1,
+      "risk_words": "telhado"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-003",
+    "template_family": 3,
+    "expected_fields": {
+      "people": 2,
+      "street": "Rua Cidreira",
+      "municipality": "Porto Alegre",
+      "number": "580",
+      "elderly": 1,
+      "disabled": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-004",
+    "template_family": 4,
+    "expected_fields": {
+      "people": 4,
+      "street": "Rua Paganini",
+      "municipality": "Novo Hamburgo",
+      "number": "583",
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-005",
+    "template_family": 5,
+    "expected_fields": {
+      "people": 2,
+      "street": "Rua Tenente Arthur Otaviano Tavares Alves",
+      "municipality": "São Leopoldo",
+      "number": "587",
+      "disabled": 1,
+      "pets": 1,
+      "risk_words": "água entrou"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-006",
+    "template_family": 6,
+    "expected_fields": {
+      "people": 6,
+      "street": "Rua Leonel de Moura Brizola",
+      "municipality": "Canoas",
+      "number": "955",
+      "children": 1,
+      "elderly": 1,
+      "disabled": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-007",
+    "template_family": 7,
+    "expected_fields": {
+      "people": 3,
+      "street": "Avenida Severo Dullius",
+      "municipality": "Porto Alegre",
+      "number": "93",
+      "children": 1,
+      "elderly": 1,
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-008",
+    "template_family": 0,
+    "expected_fields": {
+      "people": 2,
+      "street": "Rua Allan Kardec",
+      "municipality": "Canoas",
+      "number": "534",
+      "children": 1,
+      "disabled": 1,
+      "risk_words": "água subindo"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-009",
+    "template_family": 1,
+    "expected_fields": {
+      "people": 2,
+      "street": "Rua Joaneta",
+      "municipality": "São Leopoldo",
+      "number": "995",
+      "elderly": 1,
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-010",
+    "template_family": 2,
+    "expected_fields": {
+      "people": 5,
+      "street": "Passagem A",
+      "municipality": "Porto Alegre",
+      "number": "80",
+      "elderly": 1,
+      "disabled": 1,
+      "risk_words": "telhado"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-011",
+    "template_family": 3,
+    "expected_fields": {
+      "people": 4,
+      "street": "Rua do Sindicato",
+      "municipality": "Canoas",
+      "number": "672",
+      "children": 1,
+      "elderly": 1,
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-012",
+    "template_family": 4,
+    "expected_fields": {
+      "people": 4,
+      "street": "Rua Laudelino Freire",
+      "municipality": "Porto Alegre",
+      "number": "182",
+      "elderly": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-013",
+    "template_family": 5,
+    "expected_fields": {
+      "people": 7,
+      "street": "Beco 1088",
+      "municipality": "Porto Alegre",
+      "number": "263",
+      "children": 1,
+      "elderly": 1,
+      "disabled": 1,
+      "risk_words": "água entrou"
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  },
+  {
+    "message_id": "synthetic-seed7-014",
+    "template_family": 6,
+    "expected_fields": {
+      "people": 6,
+      "street": "Rua Irineu Francisco da Silva",
+      "municipality": "Porto Alegre",
+      "number": "294",
+      "elderly": 1,
+      "disabled": 1,
+      "pets": 1
+    },
+    "expected_decision": "SEND_CANDIDATE",
+    "synthetic": true,
+    "basis": "text-supported labels; no actual people or household coordinates"
+  }
+]

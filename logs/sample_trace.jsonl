@@ -1,0 +1,1 @@
+{"kind": "run_summary", "run_id": "8226a6ae254d44c68ad7ad190a0901ff", "mode": "sample_offline", "messages": 3, "partial": false, "seconds": 1.75, "unsupported": [{"message_id": "example-1-2", "fields": []}, {"message_id": "example-1-1", "fields": []}, {"message_id": "example-1-3", "fields": []}]}

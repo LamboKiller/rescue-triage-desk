@@ -1,0 +1,23 @@
+{
+  "replay_time": "2024-05-06T14:00:00-03:00",
+  "messages": [
+    {
+      "message_id": "example-1-1",
+      "text": "3 pessoas na Avenida Farrapos, número 120, Porto Alegre. 1 criança. A água subindo. FONE-TESTE-A",
+      "synthetic": true,
+      "received_at": "2024-05-06T12:00:00-03:00"
+    },
+    {
+      "message_id": "example-1-2",
+      "text": "Minha tia pediu ajuda: 2 pessoas perto da escola sem nome, Canoas. Não sei a rua nem o número.",
+      "synthetic": true,
+      "received_at": "2024-05-06T12:00:00-03:00"
+    },
+    {
+      "message_id": "example-1-3",
+      "text": "Atualização do pedido na Avenida Farrapos, número 120, Porto Alegre: já fomos resgatados. Foi o que disseram no grupo.",
+      "synthetic": true,
+      "received_at": "2024-05-06T12:00:00-03:00"
+    }
+  ]
+}
