@@ -3,6 +3,7 @@
 The only offline extraction is the explicit regex baseline. Ground truth and
 saved example answers are never read by this module.
 """
+import copy
 import concurrent.futures
 import hashlib
 import json
@@ -82,7 +83,26 @@ class Pipeline:
         finally:
             self.run_lock.release()
 
-    def _run(self, replay, messages, ablation):
+    def reply(self, case_id, request):
+        if not isinstance(request, dict):
+            raise ValueError('Envie um objeto JSON.')
+        previous = self.registry.read(case_id)
+        if previous is None:
+            raise KeyError(case_id)
+        received = request.get('received_at')
+        timestamp(received)
+        if timestamp(received) < timestamp(previous['received_at']):
+            raise ValueError('Resposta anterior à última mensagem.')
+        replay, clean = validate_request({'replay_time':received, 'messages':[
+            {**request, 'message_id':previous['message_id']+':reply:'+str(previous['version'])}]})
+        if not self.run_lock.acquire(blocking=False):
+            raise ValueError('Já existe uma execução ativa nesta mesa.')
+        try:
+            return self._run(replay, clean, 'full', previous)['cases'][0]
+        finally:
+            self.run_lock.release()
+
+    def _run(self, replay, messages, ablation, previous=None):
         started = time.monotonic()
         deadline = started+self.budget_seconds
         run_id = uuid.uuid4().hex
@@ -116,7 +136,9 @@ class Pipeline:
             if source_error:
                 errors.append('data_source_failed:'+source_error)
             if self.sample or ablation == 'baseline':
-                fields, unsupported = validate(baseline.extract(message['text'], rows), message['text'])
+                context_city = previous['fields'].get('municipality', {}).get('value') if previous else None
+                output = baseline.extract(message['text'], rows, context_city) if previous else baseline.extract(message['text'], rows)
+                fields, unsupported = validate(output, message['text'])
                 stages = {role: 'unavailable (offline)' for role in stages}
             else:
                 try:
@@ -128,7 +150,7 @@ class Pipeline:
                     initial_fields = dict(fields)
                     if not isinstance(output, dict) or not isinstance(output.get('fields'), dict):
                         raise ValueError('Intake schema invalid')
-                    if ablation != 'intake':
+                    if ablation != 'intake' and previous is None:
                         try:
                             review, meta = critic.run(client, message['text'], fields, deadline)
                         except Exception as exc:
@@ -154,11 +176,26 @@ class Pipeline:
             if time.monotonic() >= deadline:
                 complete = False
                 errors.append('global_deadline')
+            dialogue_data = {}
+            if previous is not None:
+                from app.dialogue import merge
+                fields, history, conflicts, changes, review, metas = merge(
+                    previous, fields, message, client, deadline, self.sample)
+                calls.extend(metas)
+                stages['critic'] = review
+                dialogue_data = {'messages':history, 'contradictions':conflicts, 'changes':changes,
+                    'change_summary_pt':'; '.join(f"{c['field']}: {c['from']} → {c['to']} (mensagem {c['message_index']})" for c in changes)
+                        or 'Nenhum campo alterado; confirmar pendências.', 'parent_version':previous['version']}
+                # Extraction sees only the reply; downstream rules see the contact history.
+                message = {**message, 'text':'\n'.join(m['text'] for m in history)}
+                if not history[-1]['text'].strip():
+                    complete = False
+                    errors.append('empty_reply')
             get = lambda key: fields.get(key, {}).get('value', '')
             # This textual contradiction check does not depend on model compliance.
             counts = set(re.findall(r'\b(\d+)\s+(?:pessoas|pesssoas)\b', message['text'], re.I)) | {
                 str(n) for n in count_values(message['text'])}
-            if len(counts) > 1 and not CORRECTION.search(message['text']):
+            if previous is None and len(counts) > 1 and not CORRECTION.search(message['text']):
                 fields['conflicting_counts'] = {'value': True, 'quote': message['text']}
             if get('municipality'):
                 fields['municipality'] = {**fields['municipality'],
@@ -195,6 +232,12 @@ class Pipeline:
                     complete = False
             result = decide(fields, location, replay, message['received_at'], complete=complete,
                             cross_location=cross, landmark_location=landmark)
+            if previous is not None and dialogue_data.get('contradictions'):
+                result['questions'].append('Confirmar contradições entre mensagens: '+', '.join(sorted({c['field'] for c in dialogue_data['contradictions']}))+'.')
+                if not result['conflicting_counts']:
+                    result.update(decision='REVIEW_REQUIRED', decision_reason='Local ou fatos contraditórios entre mensagens; confirmar com o contato.')
+                dialogue_data['change_summary_pt'] += '; Contradições em aberto: '+', '.join(
+                    f"{c['field']}: {c.get('previous', {}).get('value', '?')} → {c.get('reply', {}).get('value', c.get('quote', '?'))} (mensagem {c['message_index']})" for c in dialogue_data['contradictions'])
             if review_degraded:
                 result.update(decision='REVIEW_REQUIRED', questions=[],
                               decision_reason='A crítica falhou; leitura inicial preservada para revisão humana.')
@@ -212,16 +255,20 @@ class Pipeline:
                     'complete': complete, 'proposed_field_count': proposed,
                     'call_count_complete': 'global_deadline' not in errors,
                     'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}
+            case.update(dialogue_data)
             apply_route(case, rows)
             attach(case)
             screen(case)
             case['hazard_review']='indisponível'
             case['hazard_critic']='indisponível'
             case['hazard_unsupported']=0
-            if not self.sample and ablation == 'full' and result['decision'] in ('SEND_CANDIDATE','REVIEW_REQUIRED'):
+            if not self.sample and ablation == 'full' and (previous is not None or result['decision'] in ('SEND_CANDIDATE','REVIEW_REQUIRED')):
                 hazard_critic.attach(case,client,deadline)
             if isinstance(client,Nightshift):
                 case['calls']=client.message_calls()
+            if previous is not None and 'hazard_critic' in case['agents'] and not isinstance(case['hazard_review'], dict):
+                case['complete'] = False
+                case['errors'].append('hazard_critic_failed')
             finish_route(case)
             case['seconds'] = round(time.monotonic()-message_started, 4)
             # Redact the entire model argument as well as input: models can emit PII.
@@ -245,7 +292,23 @@ class Pipeline:
         finally:
             # Workers have bounded network timeouts and may not mutate the registry.
             pool.shutdown(wait=False, cancel_futures=True)
-        cases = [self.registry.ingest(case) for case in results]
+        if previous is not None:
+            from app.dialogue import messages as reply_messages
+            case = results[0]
+            if not case['complete'] or case.get('review_degraded') or any('failed' in e for e in case.get('errors', [])):
+                failure = copy.deepcopy(previous)
+                for key in ('facts','actions'):
+                    failure.pop(key, None)
+                failure.update(messages=reply_messages(previous, messages[0]), received_at=messages[0]['received_at'],
+                    replay_time=replay, parent_version=previous['version'], complete=False,
+                    errors=case['errors'], changes=[], route=case['route'],
+                    reply_attempt={k:case.get(k) for k in ('agents','calls','errors','run_id','complete')},
+                    change_summary_pt='Falha na resposta; análise anterior preservada para revisão.')
+                failure['result'].update(decision='REVIEW_REQUIRED', decision_reason='Falha na resposta; revisão humana obrigatória.')
+                case = failure
+            cases = [self.registry.append_reply(previous['case_id'], previous['version'], case)]
+        else:
+            cases = [self.registry.ingest(case) for case in results]
         summary = {'run_id': run_id, 'mode': 'sample_offline' if self.sample else ablation,
                    'synthetic': True, 'seconds': round(time.monotonic()-started, 3),
                    'partial': any(not c['complete'] for c in results), 'cases': cases}

@@ -6,7 +6,7 @@ import re
 from app.geo.streets import normalize
 
 
-def extract(text, rows):
+def extract(text, rows, municipality=None):
     fields = {}
     def match(key, pattern, value=None):
         m = re.search(pattern, text, re.I)
@@ -31,7 +31,7 @@ def extract(text, rows):
         if m:
             fields['municipality'] = {'value': city, 'quote': m[0]}
             break
-    city = fields.get('municipality', {}).get('value')
+    city = fields.get('municipality', {}).get('value') or municipality
     for row in sorted((r for r in rows if r['municipality'] == city),
                       key=lambda r: len(r['display_name']), reverse=True):
         pattern = r'\b' + re.escape(row['display_name']).replace(r'\ ', r'\s+(?:(?:de|da|das|do|dos)\s+)?') + r'\b'

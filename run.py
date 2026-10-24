@@ -96,6 +96,10 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                     self.send_json(400, {'error': str(exc)})
             elif path == '/api/cases':
                 self.send_json(200, {'cases': registry.read()})
+            elif path.startswith('/api/cases/') and path.endswith('/card'):
+                from app.dispatch_card import build_card
+                case = registry.read(path.split('/')[3])
+                self.send_json(200 if case else 404, build_card(case) if case else {'error':'Caso n?o encontrado.'})
             elif path.startswith('/api/cases/'):
                 case = registry.read(path.rsplit('/', 1)[1])
                 self.send_json(200 if case else 404, case or {'error': 'Caso não encontrado.'})
@@ -120,6 +124,8 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                 path = urllib.parse.urlsplit(self.path).path
                 if path == '/run':
                     self.send_json(200, pipeline.run(request))
+                elif path.startswith('/api/cases/') and path.endswith('/reply'):
+                    self.send_json(200, pipeline.reply(path.split('/')[3], request))
                 elif path.startswith('/api/cases/') and path.endswith('/actions'):
                     if not isinstance(request, dict):
                         raise ValueError('Envie um objeto JSON.')

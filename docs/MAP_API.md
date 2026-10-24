@@ -322,3 +322,40 @@ against separately stored truth, reporting decisions, routes, key fields, crash 
 unsafe SEND count and elapsed time. Omitting `--offline` uses live agents/providers.
 The pipeline never reads these truth files. Offline scores measure the regex baseline,
 not live-agent quality; the set is author-written and is not held-out human validation.
+
+## Callback replies and dispatch cards (A3 / A5)
+
+`POST /api/cases/<id>/reply` accepts `{text, received_at}`; text may be empty
+(up to 12,000 characters), and the ISO timestamp must include a timezone and
+must not precede the latest message. It returns the updated Case, or the usual
+400/404/409 errors. Concurrent analysis/action changes are checked atomically
+against the version read before processing. Replies reset human approval.
+
+Intake sees only the new text. The code merge retains missing fields and updates
+explicit new values; every merged field carries its original `quote` and a
+zero-based `message_index` into `messages`. Explicit count corrections update
+the count. Unresolved conflicting counts retain the prior count and both pieces
+of evidence in `contradictions`; changed locations are recorded as open
+contradictions requiring review. The live `critic` compares message history only
+for contradictions. Sample mode uses regex extraction, including the previous
+municipality as street lookup context. Location, hazards, fleet, routing, decision
+and live hazard critique are recomputed. Failed replies retain the previous
+analysis, append the received message, and require human review.
+
+The append-only event has the same case ID, `parent_version`, structured `changes`
+and `change_summary_pt` (field, old/new values, message index). `messages` contains
+the original texts and timestamps; `facts` retains all analysis versions. An
+invalid request or stale-version conflict does not append a version.
+
+`GET /api/cases/<id>/card` returns `{text_pt, lines, facts_used}` or 404. No write
+occurs. Code assembles place/confidence, people/vulnerabilities, estimated depth
+band and observation date, chosen/top eligible asset and its cautions, equipment
+supported by its matched fleet rules, arrival questions, case ID and version.
+Each `facts_used` entry has a case `path` and exact `value`. Missing values are
+shown as unknown; no capacity or equipment quantity is invented. A card is an
+operator aid, not dispatch approval.
+
+`python eval/run_dialogues.py --offline` evaluates ten original synthetic
+two-message dialogues against separate truth: final decisions, field merges,
+contradictions, version counts and crashes. Omitting `--offline` uses providers.
+Offline results describe regex behavior, not live-provider validation.

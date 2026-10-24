@@ -120,6 +120,21 @@ class Registry:
                               'case': case})
             return copy.deepcopy(self._read()[0][cid])
 
+    def append_reply(self, case_id, expected_version, case):
+        case = json.loads(redact(json.dumps(case, ensure_ascii=False)))
+        with self.locked():
+            cases, _ = self._read()
+            if case_id not in cases:
+                raise KeyError(case_id)
+            if cases[case_id]['version'] != expected_version:
+                raise Conflict('Versão alterada. Recarregue e revise o caso.')
+            case.update(status='proposed', location_confirmed=False, approved_asset=None,
+                        caution_acknowledgement=None, parent_version=expected_version)
+            self._append({'schema_version':1, 'kind':'analysis', 'case_id':case_id,
+                'provenance':case['message_id']+':reply:'+str(expected_version),
+                'version':expected_version+1, 'case':case})
+            return copy.deepcopy(self._read()[0][case_id])
+
     def read(self, case_id=None):
         with self.locked():
             cases, _ = self._read()

@@ -1,0 +1,103 @@
+[
+  {
+    "dialogue_id": "street",
+    "decision": "SEND_CANDIDATE",
+    "fields": {
+      "people": 3,
+      "street": "Rua das Flores",
+      "number": "20"
+    },
+    "contradiction": false,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "correction",
+    "decision": "SEND_CANDIDATE",
+    "fields": {
+      "people": 4,
+      "street": "Rua das Flores"
+    },
+    "contradiction": false,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "conflict",
+    "decision": "CALLBACK",
+    "fields": {
+      "people": 3,
+      "conflicting_counts": true
+    },
+    "contradiction": true,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "rescued",
+    "decision": "REPORTED_RESCUED",
+    "fields": {
+      "people": 3,
+      "already_rescued": true
+    },
+    "contradiction": false,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "bedridden",
+    "decision": "SEND_CANDIDATE",
+    "fields": {
+      "people": 3,
+      "disabled": 1
+    },
+    "contradiction": false,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "moved",
+    "decision": "REVIEW_REQUIRED",
+    "fields": {
+      "municipality": "Canoas",
+      "street": "Rua Brasil",
+      "number": "30"
+    },
+    "contradiction": true,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "injection",
+    "decision": "REVIEW_REQUIRED",
+    "fields": {
+      "people": 3
+    },
+    "contradiction": false,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "empty",
+    "decision": "REVIEW_REQUIRED",
+    "fields": {
+      "people": 3
+    },
+    "contradiction": false,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "english",
+    "decision": "SEND_CANDIDATE",
+    "fields": {
+      "people": 3,
+      "street": "Rua das Flores",
+      "number": "20"
+    },
+    "contradiction": false,
+    "version_count": 2
+  },
+  {
+    "dialogue_id": "landmark",
+    "decision": "SEND_CANDIDATE",
+    "fields": {
+      "people": 3,
+      "landmark": "perto da Rodoviária de Porto Alegre"
+    },
+    "contradiction": false,
+    "version_count": 2
+  }
+]
