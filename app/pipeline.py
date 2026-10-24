@@ -22,6 +22,7 @@ from app.geo.streets import lookup
 from app.geo.landmarks import match as match_landmark
 from app.llm.nightshift import Nightshift, TRACE_LOCK
 from app.redact import redact
+from app.routing import apply_route, finish_route
 
 
 def validate_request(request):
@@ -36,8 +37,8 @@ def validate_request(request):
     timestamp(replay)
     clean, ids = [], set()
     for message in messages:
-        if not isinstance(message, dict) or not isinstance(message.get('text'), str) or not 1 <= len(message['text'].strip()) <= 12000:
-            raise ValueError('Cada mensagem deve ter texto de 1 a 12000 caracteres.')
+        if not isinstance(message, dict) or not isinstance(message.get('text'), str) or len(message['text']) > 12000:
+            raise ValueError('Cada mensagem deve ter texto de até 12000 caracteres.')
         text = redact(message['text'])
         mid = message.get('message_id')
         if mid is None:
@@ -161,7 +162,8 @@ class Pipeline:
                 fields['conflicting_counts'] = {'value': True, 'quote': message['text']}
             if get('municipality'):
                 fields['municipality'] = {**fields['municipality'],
-                                          'value': canonical_municipality(get('municipality'))}
+                                          'value': canonical_municipality(get('municipality')),
+                                          'derived': True, 'source': 'rule:canonical_municipality'}
             # Yussef 24/10: counting is code. A single written total wins; else sender + listed people (flagged).
             if not get('people'):
                 derived = written_total(message['text']) or derive_people(message['text'])
@@ -210,6 +212,7 @@ class Pipeline:
                     'complete': complete, 'proposed_field_count': proposed,
                     'call_count_complete': 'global_deadline' not in errors,
                     'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}
+            apply_route(case, rows)
             attach(case)
             screen(case)
             case['hazard_review']='indisponível'
@@ -219,6 +222,7 @@ class Pipeline:
                 hazard_critic.attach(case,client,deadline)
             if isinstance(client,Nightshift):
                 case['calls']=client.message_calls()
+            finish_route(case)
             case['seconds'] = round(time.monotonic()-message_started, 4)
             # Redact the entire model argument as well as input: models can emit PII.
             return json.loads(redact(json.dumps(case, ensure_ascii=False)))
@@ -257,7 +261,7 @@ class Pipeline:
 
     def failed_case(self, message, replay, run_id, error):
         location = lookup([], '', '', replay)
-        return screen({**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else 'full',
+        case = screen({**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else 'full',
                 'fields': {}, 'unsupported': [], 'agents': {r: 'unavailable (failed)' for r in ('intake', 'critic', 'revision')},
                 'calls': [], 'checks': location, 'cross_street_check': None,
                 'position': None, 'hazards': None, 'hazards_reason': 'Location unavailable after failed analysis.',
@@ -265,3 +269,7 @@ class Pipeline:
                 'result': decide({}, location, replay, message['received_at'], complete=False),
                 'errors': [error], 'complete': False, 'proposed_field_count': 0,
                 'call_count_complete': False, 'extraction_method': 'unavailable'})
+
+        apply_route(case, [])
+        finish_route(case)
+        return case

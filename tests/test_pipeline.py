@@ -129,7 +129,8 @@ class PipelineTests(unittest.TestCase):
         result = Pipeline(self.registry, source=FakeSource(), client=SlowFakeLLM(), budget_seconds=.03).run(self.request())
         self.assertLess(time.monotonic()-start, .3)
         self.assertTrue(result['partial'])
-        self.assertEqual(result['cases'][0]['result']['decision'], 'CALLBACK')
+        self.assertEqual(result['cases'][0]['result']['decision'], 'REVIEW_REQUIRED')
+        self.assertEqual(result['cases'][0]['route']['id'], 'agent_failure')
         time.sleep(.15)  # Drain the bounded test worker before scratch cleanup.
         self.assertEqual(len(self.registry.read()), 1)
 
@@ -139,7 +140,8 @@ class PipelineTests(unittest.TestCase):
                 raise ConnectionError('do not expose provider body')
         result = Pipeline(self.registry, sample=True, source=BrokenSource()).run(self.request())
         self.assertTrue(result['partial'])
-        self.assertEqual(result['cases'][0]['result']['decision'], 'CALLBACK')
+        self.assertEqual(result['cases'][0]['result']['decision'], 'REVIEW_REQUIRED')
+        self.assertEqual(result['cases'][0]['route']['id'], 'agent_failure')
 
     def test_slow_source_cannot_exceed_response_deadline(self):
         class SlowSource:
@@ -150,7 +152,8 @@ class PipelineTests(unittest.TestCase):
         result = Pipeline(self.registry, sample=True, source=SlowSource(), budget_seconds=.03).run(self.request())
         self.assertLess(time.monotonic()-start, .3)
         self.assertTrue(result['partial'])
-        self.assertEqual(result['cases'][0]['result']['decision'], 'CALLBACK')
+        self.assertEqual(result['cases'][0]['result']['decision'], 'REVIEW_REQUIRED')
+        self.assertEqual(result['cases'][0]['route']['id'], 'agent_failure')
         time.sleep(.17)
 
     def test_generator_deterministic_and_no_identifiers(self):

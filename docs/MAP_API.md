@@ -276,3 +276,49 @@ Suitable approval has null acknowledgement. New analysis/text invalidates
 approval and its acknowledgement. Dispatch and field confirmation transitions
 remain human-only and versioned. The proposed asset is advisory; the selected
 approval asset is checked independently.
+
+
+## Deterministic case routes (A2 / A6)
+
+Every newly analyzed case includes `route: {id, label_pt, reason_pt, steps}`.
+Each step has `stage`, `status` (`ran`, `failed`, `skipped`), and `reason_pt`.
+Steps describe regex/model extraction, critique/revision, street and landmark checks,
+hazards, fleet, decision, and hazard critique. Sample mode has no model calls
+(`calls: []`); it records skipped agents explicitly. Hazard critique is advisory;
+a CALLBACK skips it in live full mode, with the decision in the step reason.
+
+| Route id | Meaning / deterministic outcome |
+| --- | --- |
+| `street` | Valid street/number or crossing and count; SEND_CANDIDATE pending human checks. |
+| `landmark` | Resolved local reference and count; SEND_CANDIDATE pending confirmation. |
+| `ambiguous_place` | Ambiguous reference or multiple alternative places/requests; CALLBACK with a location question. |
+| `already_rescued` | Reported rescue; REPORTED_RESCUED pending field confirmation. |
+| `not_a_request_or_injection` | No usable request, or detected instructions; CALLBACK, or REVIEW_REQUIRED when a request accompanies instructions. Never SEND. |
+| `out_of_area` | Municipality outside the six covered, or explicit external state/city; CALLBACK for human referral. Never SEND. |
+| `agent_failure` | Incomplete/failed analysis, source failure, or degraded critic; REVIEW_REQUIRED. |
+| `incomplete` | Count/address missing or conflicting; CALLBACK with questions. |
+
+Failure takes precedence, then coverage, injection, rescued report, ambiguous place,
+incomplete data, and resolved street/landmark. `routing_flags` records injection and
+coverage flags with the deterministic rule source. This conservative injection guard
+also holds a genuine request for review if it is mixed with instructions. Explicit
+outside-city/state text is checked independently of extracted model fields. Offline
+regex coverage and multilingual extraction remain limited; ambiguity is held for humans.
+Empty/whitespace messages are accepted as CALLBACK cases; non-string or oversized
+messages remain invalid. No route authorizes dispatch.
+
+`python tools/check_traceability.py` audits offline examples and every stored
+`ingest`/`analysis` case in `runtime/eval_*.jsonl`, including old versions. It prints
+counts by violation kind and exits nonzero on any violation. `--sample-only` checks
+only fresh offline examples. The checker verifies exact source quotes or derivation
+metadata, hazard IDs/sources, call role/model/receipt metadata, and reason/route.
+Failed provider attempts may record explicit null model/receipt because no receipt
+was issued. Historical logs are audited unchanged; pre-route records are reported
+as violations, never silently upgraded. New alias normalization and count arithmetic
+carry their rule source; normalized model quotes are stored as the original substring.
+
+`python eval/run_adversarial.py --offline` evaluates the 24 original synthetic cases
+against separately stored truth, reporting decisions, routes, key fields, crash count,
+unsafe SEND count and elapsed time. Omitting `--offline` uses live agents/providers.
+The pipeline never reads these truth files. Offline scores measure the regex baseline,
+not live-agent quality; the set is author-written and is not held-out human validation.

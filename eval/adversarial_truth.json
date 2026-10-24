@@ -1,0 +1,175 @@
+[
+  {
+    "message_id": "adv-english",
+    "expected_decision": "SEND_CANDIDATE",
+    "expected_route": "street",
+    "expected_fields": {
+      "people": 3,
+      "number": "20",
+      "municipality": "Porto Alegre",
+      "street": "Rua das Flores"
+    }
+  },
+  {
+    "message_id": "adv-spanish",
+    "expected_decision": "CALLBACK",
+    "expected_route": "incomplete",
+    "expected_fields": {
+      "people": 4
+    }
+  },
+  {
+    "message_id": "adv-rambling",
+    "expected_decision": "CALLBACK",
+    "expected_route": "incomplete",
+    "expected_fields": {
+      "people": 3
+    }
+  },
+  {
+    "message_id": "adv-two_places",
+    "expected_decision": "CALLBACK",
+    "expected_route": "ambiguous_place",
+    "expected_fields": {
+      "people": 3
+    }
+  },
+  {
+    "message_id": "adv-two_requests",
+    "expected_decision": "CALLBACK",
+    "expected_route": "ambiguous_place",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-nonsense",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-emoji",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-empty",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-whitespace",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-audio",
+    "expected_decision": "CALLBACK",
+    "expected_route": "incomplete",
+    "expected_fields": {
+      "people": 3
+    }
+  },
+  {
+    "message_id": "adv-recife",
+    "expected_decision": "CALLBACK",
+    "expected_route": "out_of_area",
+    "expected_fields": {
+      "people": 3
+    }
+  },
+  {
+    "message_id": "adv-curitiba",
+    "expected_decision": "CALLBACK",
+    "expected_route": "out_of_area",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-sp",
+    "expected_decision": "CALLBACK",
+    "expected_route": "out_of_area",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-state",
+    "expected_decision": "CALLBACK",
+    "expected_route": "out_of_area",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-markdown",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-system",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-encoded",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-roleplay",
+    "expected_decision": "CALLBACK",
+    "expected_route": "not_a_request_or_injection",
+    "expected_fields": {}
+  },
+  {
+    "message_id": "adv-real_fake",
+    "expected_decision": "SEND_CANDIDATE",
+    "expected_route": "landmark",
+    "expected_fields": {
+      "people": 3
+    }
+  },
+  {
+    "message_id": "adv-mixed",
+    "expected_decision": "CALLBACK",
+    "expected_route": "incomplete",
+    "expected_fields": {
+      "people": 3,
+      "children": 2
+    }
+  },
+  {
+    "message_id": "adv-correction",
+    "expected_decision": "CALLBACK",
+    "expected_route": "incomplete",
+    "expected_fields": {
+      "people": 5
+    }
+  },
+  {
+    "message_id": "adv-pets",
+    "expected_decision": "CALLBACK",
+    "expected_route": "incomplete",
+    "expected_fields": {
+      "pets": 2
+    }
+  },
+  {
+    "message_id": "adv-hospital",
+    "expected_decision": "CALLBACK",
+    "expected_route": "incomplete",
+    "expected_fields": {
+      "people": 40,
+      "municipality": "Canoas"
+    }
+  },
+  {
+    "message_id": "adv-rescued",
+    "expected_decision": "REPORTED_RESCUED",
+    "expected_route": "already_rescued",
+    "expected_fields": {
+      "people": 3
+    }
+  }
+]

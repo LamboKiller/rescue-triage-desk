@@ -39,7 +39,7 @@ TOTAL_FORMS = re.compile(r'\b(?:somos|tamo|tamos|estamos|ficamos|ficaram|restam|
                          # other count mentions: only used to detect a SECOND, different count
                          r'|\b(?:tem|t[aá]|falaram em|dizem|diz|conto|teima que tem)\s+'+_N+r'\b', re.I)
 # Instructions or "not a request" inside the text: code must never read a count out of these (the model ignores them too).
-INJECTION = re.compile(r'retorne|json|finja|ignore (?:as )?regras|\[sistema\]|approve_dispatch|n[aã]o h[aá] pedido', re.I)
+INJECTION = re.compile(r'retorne|json|finja|ignore (?:as )?regras|\[sistema\]|approve_dispatch|\bsystem\s*:|\[/?(?:system|assistant)\]|```|role.?play|interprete (?:o papel|um)|base64|ignore (?:all|previous|todas|instru)|n[aã]o h[aá] pedido', re.I)
 
 
 def count_values(text):
@@ -91,4 +91,4 @@ def derive_people(text):
         first = first or m
     if not listed or first is None:
         return None
-    return {'value': total, 'quote': first.group(0).strip(), 'derived': True, 'listed': listed}
+    return {'value': total, 'quote': first.group(0).strip(), 'derived': True, 'source': 'rule:sender_plus_listed_people', 'listed': listed}

@@ -230,6 +230,7 @@ class GateAndApiTests(unittest.TestCase):
                                     '2024-05-08T12:00:00-03:00','test','global_deadline')
         self.assertEqual(failed['hazard_critic'],'indisponível')
         self.assertIsNone(failed['hazards']);self.assertEqual(len(failed['fleet']),20)
-        self.assertEqual(failed['result']['decision'],'CALLBACK')
+        self.assertEqual(failed['result']['decision'],'REVIEW_REQUIRED')
+        self.assertEqual(failed['route']['id'],'agent_failure')
 
 if __name__=='__main__':unittest.main()

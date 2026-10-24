@@ -19,6 +19,20 @@ def folded(text):
                    if unicodedata.category(c) != 'Mn')
 
 
+def exact_quote(text, quote):
+    """Recover the original substring after accent/case-insensitive validation."""
+    chars, indices = [], []
+    for index, char in enumerate(text):
+        part = folded(char)
+        chars.extend(part)
+        indices.extend([index] * len(part))
+    start = ''.join(chars).find(folded(quote))
+    if start < 0:
+        return quote
+    end = start + len(folded(quote)) - 1
+    return text[indices[start]:indices[end]+1]
+
+
 def validate(output, text):
     accepted, unsupported = {}, []
     fields = output.get('fields', {}) if isinstance(output, dict) else {}
@@ -49,5 +63,5 @@ def validate(output, text):
         if reason:
             unsupported.append({'field': key, 'reason': reason})
         else:
-            accepted[key] = {'value': value, 'quote': quote}
+            accepted[key] = {'value': value, 'quote': exact_quote(text, quote)}
     return accepted, unsupported

@@ -1,0 +1,680 @@
+{
+  "checked_utc_date": "2026-10-24",
+  "aoi": [
+    -51.32,
+    -30.28,
+    -51.0,
+    -29.65
+  ],
+  "core_zone_bounds": {
+    "centro_rodoviaria": [
+      -51.245,
+      -30.045,
+      -51.205,
+      -30.018
+    ],
+    "farrapos_4d": [
+      -51.225,
+      -30.018,
+      -51.19,
+      -29.993
+    ],
+    "humaita_sarandi_arena": [
+      -51.215,
+      -29.993,
+      -51.115,
+      -29.955
+    ],
+    "airport": [
+      -51.19,
+      -30.006,
+      -51.15,
+      -29.974
+    ],
+    "canoas_mathias_velho": [
+      -51.215,
+      -29.94,
+      -51.17,
+      -29.895
+    ]
+  },
+  "sources": [
+    {
+      "id": "osm",
+      "name": "OpenStreetMap",
+      "url": "https://www.openstreetmap.org/copyright",
+      "licence": "ODbL-1.0",
+      "date": "snapshot queried 2026-10-24",
+      "coverage": "AOI, all 5 zones",
+      "resolution": "individual mapped footprints",
+      "size": {
+        "aoi_nwr": 545593,
+        "height_tag_pct": 0.131,
+        "levels_tag_pct": 0.757
+      },
+      "offline": true,
+      "effort": "done",
+      "quality": "Community tags; 712 height tags, 4128 levels tags, 215 with both; tags are not survey validation. AOI nwr count includes nodes and relation members.",
+      "zones": {
+        "centro_rodoviaria": {
+          "buildings": 14562,
+          "explicit_height": 422,
+          "levels_tag": 920,
+          "height_or_levels": 1298,
+          "bytes": 7731921
+        },
+        "farrapos_4d": {
+          "buildings": 10449,
+          "explicit_height": 5,
+          "levels_tag": 120,
+          "height_or_levels": 123,
+          "bytes": 5162319
+        },
+        "humaita_sarandi_arena": {
+          "buildings": 23106,
+          "explicit_height": 0,
+          "levels_tag": 40,
+          "height_or_levels": 40,
+          "bytes": 11334596
+        },
+        "airport": {
+          "buildings": 7794,
+          "explicit_height": 1,
+          "levels_tag": 48,
+          "height_or_levels": 48,
+          "bytes": 3809286
+        },
+        "canoas_mathias_velho": {
+          "buildings": 2642,
+          "explicit_height": 5,
+          "levels_tag": 84,
+          "height_or_levels": 86,
+          "bytes": 1094699
+        }
+      },
+      "evidence": "OSM count result and per-zone geometry requests; counts retained in building_stats.json",
+      "licence_url": "https://opendatacommons.org/licenses/odbl/1-0/"
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft Global ML Building Footprints",
+      "url": "https://github.com/microsoft/GlobalMLBuildingFootprints",
+      "licence": "CDLA-Permissive-2.0",
+      "date": "release 2026-08-13; imagery 2014–2024 (varies)",
+      "coverage": "AOI",
+      "resolution": "ML roofprints",
+      "size": {
+        "aoi_buildings": 909695,
+        "height_pct": 0,
+        "source_gzip_bytes": 113925526
+      },
+      "offline": true,
+      "effort": "done",
+      "quality": "All AOI heights unavailable (-1); measured from downloaded records. Not a substitute for height data.",
+      "partitions": [
+        {
+          "Location": "Brazil",
+          "QuadKey": "210312311",
+          "Url": "https://bfppub.z5.web.core.windows.net/2026-08-13/global-buildings.geojsonl/RegionName=Brazil/quadkey=210312311/part-00145-110f5303-ff85-4c71-a2bf-c6070024fec8.c000.csv.gz",
+          "Size": "101.6MB",
+          "UploadDate": "2026-08-13",
+          "bbox": [
+            -51.328125,
+            -30.145127183376115,
+            -50.625,
+            -29.535229562948455
+          ]
+        },
+        {
+          "Location": "Brazil",
+          "QuadKey": "210312313",
+          "Url": "https://bfppub.z5.web.core.windows.net/2026-08-13/global-buildings.geojsonl/RegionName=Brazil/quadkey=210312313/part-00121-110f5303-ff85-4c71-a2bf-c6070024fec8.c000.csv.gz",
+          "Size": "7.1MB",
+          "UploadDate": "2026-08-13",
+          "bbox": [
+            -51.328125,
+            -30.751277776257812,
+            -50.625,
+            -30.145127183376115
+          ]
+        }
+      ],
+      "licence_url": "https://cdla.dev/permissive-2-0/"
+    },
+    {
+      "id": "google25d",
+      "name": "Google Open Buildings 2.5D Temporal",
+      "url": "https://sites.research.google/gr/open-buildings/temporal/",
+      "licence": "CC-BY-4.0 elected; alternative ODbL-1.0",
+      "date": "annual 2016–2023; acquired 2023 inference",
+      "coverage": "Brazil expressly listed; 5 zones sampled",
+      "resolution": "effective 4 m; stored 0.5 m float32 rasters",
+      "size": {
+        "height_blocks_cached": "see discarded_downloads.json",
+        "building_count": "not defined as vector count; fractional-count raster not integrated for whole AOI"
+      },
+      "offline": true,
+      "effort": "done",
+      "quality": "ML height above ground, not a measured roof survey. Bounding-box-centre sampling can hit courtyard/street/adjacent roof; original raster not a building polygon dataset. No-data or nonpositive values stay null; overlapping S2 rectangles can contain -99 padding; positive valid fallback used.",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "evidence_files": [
+        "google_height_sources.json",
+        "google_height_sources_osm.json",
+        "building_stats.json"
+      ]
+    },
+    {
+      "id": "overture",
+      "name": "Overture Buildings",
+      "url": "https://docs.overturemaps.org/guides/buildings/",
+      "licence": "ODbL-1.0",
+      "date": "release 2026-10-21.0",
+      "coverage": "global, Brazil; AOI precision query deferred",
+      "resolution": "footprints with optional height / num_floors",
+      "size": {
+        "pmtiles_planet_bytes": 180679746134,
+        "first_two_geoparquet_objects_bytes": [
+          533137080,
+          533341551
+        ],
+        "aoi_count": null,
+        "aoi_height_pct": null
+      },
+      "offline": true,
+      "effort": "approval tool for full GeoJSON",
+      "quality": "Optional source-dependent heights and floors; no AOI percentage invented. Stdlib cannot decode GeoParquet. Official PMTiles route verified but z14 MVT is simplified/clipped display geometry; unique feature counts are not an exact GeoParquet audit.",
+      "catalog": "https://stac.overturemaps.org/catalog.json",
+      "geoparquet_objects": [
+        {
+          "key": "release/2026-10-21.0/theme=buildings/type=building/part-00000-85375c54-5dfb-57c7-b21d-8b5e5245ad06-c000.zstd.parquet",
+          "bytes": 533137080,
+          "url": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-10-21.0/theme=buildings/type=building/part-00000-85375c54-5dfb-57c7-b21d-8b5e5245ad06-c000.zstd.parquet"
+        },
+        {
+          "key": "release/2026-10-21.0/theme=buildings/type=building/part-00001-25a868c6-9ddc-5e1c-8e0e-8286ae2005d9-c000.zstd.parquet",
+          "bytes": 533341551,
+          "url": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-10-21.0/theme=buildings/type=building/part-00001-25a868c6-9ddc-5e1c-8e0e-8286ae2005d9-c000.zstd.parquet"
+        }
+      ],
+      "pmtiles_url": "https://tiles.overturemaps.org/2026-10-21.0/buildings.pmtiles",
+      "pmtiles_header": {
+        "root_offset": 127,
+        "root_length": 14124,
+        "meta_offset": 180645693026,
+        "meta_length": 534,
+        "leaf_offset": 180645693560,
+        "leaf_length": 34052574,
+        "data_offset": 16384,
+        "data_length": 180645676642,
+        "addressed": 16068537,
+        "entries": 16068537,
+        "contents": 16068537,
+        "clustered": 1,
+        "internal_compression": 2,
+        "tile_compression": 2,
+        "tile_type": 1,
+        "minzoom": 0,
+        "maxzoom": 14
+      },
+      "geojson_route": "After approval: overturemaps download CLI; see remaining_tools.json",
+      "licence_url": "https://docs.overturemaps.org/attribution/"
+    },
+    {
+      "id": "anadem",
+      "name": "ANADEM v1",
+      "url": "https://hge-iph.github.io/anadem/",
+      "licence": "data grant unclear; repository software MIT",
+      "date": "v1 updated 2024-02-28; object modified 2025-08-20",
+      "coverage": "South America / AOI in 22J",
+      "resolution": "30 m vegetation-bias correction; not proof all building bias removed",
+      "size": {
+        "22J_full_tiff_bytes": 1580639358,
+        "header_range_bytes": 65536
+      },
+      "offline": "not redistributed",
+      "effort": "licence/datum clarification",
+      "vertical_datum": "Expected Copernicus EGM2008 by inheritance; not independently established in checked data metadata",
+      "format": "GeoTIFF 22273×26916 float32; tiled 512; DEFLATE; predictor 1; HTTP 206 verified; range clip feasible",
+      "evidence": [
+        {
+          "url": "https://metadados.snirh.gov.br/files/anadem_v1_tiles/anadem_v1_22J.tif",
+          "status": 200,
+          "headers": {
+            "Date": "Sat, 24 Oct 2026 18:59:36 GMT",
+            "Content-Type": "image/tiff",
+            "Content-Length": "1580639358",
+            "Connection": "close",
+            "Server": "nginx/1.20.1",
+            "x-amz-id-2": "eSa0xZO4iItpTNx6muZ7WCV66TQSFyh7NNYbGGtf7qgaNS4cr3QGK79+4fea1d82oFDdaNZG1pijGarOTckQ27Rqhao9MeV+",
+            "x-amz-request-id": "ZZF8Y6T2SBSJ3FSR",
+            "Last-Modified": "Wed, 20 Aug 2025 18:20:59 GMT",
+            "ETag": "\"9eedd9b25c31273a5ad74b96031b0964\"",
+            "x-amz-storage-class": "INTELLIGENT_TIERING",
+            "x-amz-server-side-encryption": "AES256",
+            "x-amz-version-id": "K_65Ok5OvyUezsZpBmRZVfzvSFZaVjhL",
+            "Accept-Ranges": "bytes"
+          },
+          "bytes": 0,
+          "error": null
+        },
+        {
+          "url": "https://metadados.snirh.gov.br/files/anadem_v1_tiles/anadem_v1_22J.tif",
+          "status": 206,
+          "headers": {
+            "Date": "Sat, 24 Oct 2026 18:59:37 GMT",
+            "Content-Type": "image/tiff",
+            "Content-Length": "65536",
+            "Connection": "close",
+            "Server": "nginx/1.20.1",
+            "x-amz-request-id": "V3KCHKFFHVB8ARXP",
+            "x-amz-id-2": "UsKOKRjn9tiLI/a0+as35DZqE1HqkUuuFYB8cnQLcghKTXex8NXARzNcM/boGapQf7yHp6BwvjnYsltInr8oD7TzRYclwyfm",
+            "Accept-Ranges": "bytes",
+            "Content-Range": "bytes 0-65535/1580639358",
+            "Last-Modified": "Wed, 20 Aug 2025 18:20:59 GMT",
+            "ETag": "\"9eedd9b25c31273a5ad74b96031b0964\"",
+            "x-amz-version-id": "K_65Ok5OvyUezsZpBmRZVfzvSFZaVjhL",
+            "x-amz-server-side-encryption": "AES256",
+            "x-amz-storage-class": "INTELLIGENT_TIERING"
+          },
+          "bytes": 65536,
+          "error": null
+        }
+      ],
+      "reason": "Do not confuse MIT source-code licence with an explicit data redistribution grant; full object alone exceeds total download cap."
+    },
+    {
+      "id": "copernicus",
+      "name": "Copernicus GLO-30",
+      "url": "https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM",
+      "licence": "Copernicus DEM free/open licence with attribution",
+      "date": "TanDEM-X 2011–2015; AWS objects checked",
+      "coverage": "global; S30/S31 W052 verified",
+      "resolution": "1 arc second DSM",
+      "size": {
+        "aoi_source_tile_bytes": [
+          49045637,
+          36409491
+        ]
+      },
+      "offline": true,
+      "effort": "optional",
+      "vertical_datum": "EGM2008, EPSG:3855",
+      "quality": "Includes buildings and vegetation; unsuited to precise local ground elevation without correction.",
+      "evidence": [
+        {
+          "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_S30_00_W052_00_DEM/Copernicus_DSM_COG_10_S30_00_W052_00_DEM.tif",
+          "status": 200,
+          "headers": {
+            "x-amz-id-2": "3t7bEuu2hxsYJXPXUCYDUtvEsvLA7fD3KpdhT21tu39RhMvNoXxK/0zCHKEsxNASGQe9wvTCaico/u8sIECkrs41E714aZTr",
+            "x-amz-request-id": "1TFJNNZT9HDSVP84",
+            "Server": "AmazonS3",
+            "Date": "Sat, 24 Oct 2026 18:36:54 GMT",
+            "Last-Modified": "Mon, 09 May 2022 15:03:24 GMT",
+            "ETag": "\"9f96ede87843571d1ede75d373ff693b\"",
+            "x-amz-version-id": "null",
+            "Accept-Ranges": "bytes",
+            "Content-Length": "49045637",
+            "Content-Type": "image/tiff",
+            "Connection": "close"
+          }
+        },
+        {
+          "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_S31_00_W052_00_DEM/Copernicus_DSM_COG_10_S31_00_W052_00_DEM.tif",
+          "status": 200,
+          "headers": {
+            "x-amz-id-2": "eqC8MZdg/iyfKHu+7J/ZI5II/7F3I+xWJWROaNw2zg0ACTBl0Ikv0uOHdYSsCogVou5kGneJnnbKxIUSr0SwWOrXOVLb3qvC",
+            "x-amz-request-id": "1TFQGJ02YJCJFRM1",
+            "Server": "AmazonS3",
+            "Date": "Sat, 24 Oct 2026 18:36:54 GMT",
+            "Last-Modified": "Mon, 09 May 2022 15:03:41 GMT",
+            "ETag": "\"b0c0d0a1aba379e8e1b623fce986b200\"",
+            "x-amz-version-id": "null",
+            "Accept-Ranges": "bytes",
+            "Content-Length": "36409491",
+            "Content-Type": "image/tiff",
+            "Connection": "close"
+          }
+        }
+      ],
+      "licence_url": "https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/DEM/resources/license/License-COPDEM-30.pdf"
+    },
+    {
+      "id": "fabdem",
+      "name": "FABDEM v1.2",
+      "url": "https://research-information.bris.ac.uk/en/datasets/fabdem-v1-2/",
+      "licence": "CC-BY-NC-SA-4.0; commercial use restricted",
+      "date": "2023-01-17",
+      "coverage": "global; AOI crosses S30 boundary (2 zip groups)",
+      "resolution": "1 arc second buildings/forest corrected",
+      "size": {
+        "zip_objects": [
+          {
+            "url": "https://data.bris.ac.uk/datasets/s5hqmjcdj8yo2ibzi9b4ew3sn/S40W060-S30W050_FABDEM_V1-2.zip",
+            "headers": {
+              "Server": "nginx/1.24.0 (Ubuntu)",
+              "Date": "Sat, 24 Oct 2026 18:46:34 GMT",
+              "Content-Type": "application/zip",
+              "Content-Length": "864903137",
+              "Last-Modified": "Wed, 07 Dec 2022 15:44:53 GMT",
+              "Connection": "close",
+              "ETag": "\"6390b4f5-338d5fe1\"",
+              "Accept-Ranges": "bytes",
+              "Set-Cookie": "BIGipServerDATA.BRIS.AC.UK-DATASET-WEBSHARE_POP_POOL=3188267436.47873.0000; path=/; Httponly; Secure"
+            },
+            "status": 200
+          },
+          {
+            "url": "https://data.bris.ac.uk/datasets/s5hqmjcdj8yo2ibzi9b4ew3sn/S30W060-S20W050_FABDEM_V1-2.zip",
+            "headers": {
+              "Server": "nginx/1.24.0 (Ubuntu)",
+              "Date": "Sat, 24 Oct 2026 18:46:35 GMT",
+              "Content-Type": "application/zip",
+              "Content-Length": "2135111799",
+              "Last-Modified": "Wed, 07 Dec 2022 15:56:54 GMT",
+              "Connection": "close",
+              "ETag": "\"6390b7c6-7f433877\"",
+              "Accept-Ranges": "bytes",
+              "Set-Cookie": "BIGipServerDATA.BRIS.AC.UK-DATASET-WEBSHARE_POP_POOL=3188267436.47873.0000; path=/; Httponly; Secure"
+            },
+            "status": 200
+          }
+        ]
+      },
+      "offline": "NC only; excluded from unrestricted bundle",
+      "effort": "optional conditional",
+      "vertical_datum": "EGM2008 inherited from Copernicus",
+      "quality": "Better ground candidate but not unrestricted open data; no raster fetched.",
+      "licence_url": "https://data.bris.ac.uk/datasets/s5hqmjcdj8yo2ibzi9b4ew3sn/license.txt"
+    },
+    {
+      "id": "skadi",
+      "name": "SRTM-derived Mapzen Skadi",
+      "url": "https://registry.opendata.aws/terrain-tiles/",
+      "licence": "USGS/NASA/NOAA public-domain source components here; retain attribution",
+      "date": "SRTM mission Feb 2000; composite object dates in HTTP evidence",
+      "coverage": "AOI + tile margins, S30/S31 W052/W051",
+      "resolution": "3601² int16 HGT, 1 arc second; nominal accuracy can be coarser",
+      "size": {
+        "source_gzip_bytes": 32884188,
+        "grid_zlib_bytes": 1446924,
+        "terrain_rgb_bytes": 12201064,
+        "terrain_rgb_tiles": 697
+      },
+      "offline": true,
+      "effort": "done",
+      "vertical_datum": "SRTM EGM96 nominal; source transitions/void fill not independently audited",
+      "quality": "Merged multi-source surface: SRTM, GMTED/ETOPO fill. Urban rooftop/canopy bias remains; not a validated bare-earth DTM.",
+      "format": "Acquired .hgt.gz (big-endian signed int16); exported clipped LE int16 zlib + JSON and PNG terrain-RGB z9–14",
+      "licence_url": "https://github.com/tilezen/joerd/blob/master/docs/attribution.md",
+      "upstream_urls": [
+        "https://s3.amazonaws.com/elevation-tiles-prod/skadi/S30/S30W052.hgt.gz",
+        "https://s3.amazonaws.com/elevation-tiles-prod/skadi/S30/S30W051.hgt.gz",
+        "https://s3.amazonaws.com/elevation-tiles-prod/skadi/S31/S31W052.hgt.gz",
+        "https://s3.amazonaws.com/elevation-tiles-prod/skadi/S31/S31W051.hgt.gz"
+      ]
+    },
+    {
+      "id": "municipal",
+      "name": "Porto Alegre municipal MDT 2010",
+      "url": "https://gis-smamus.portoalegre.rs.gov.br/server/rest/services/C01_URBAN/urb_mdt_2010_102100/ImageServer?f=pjson",
+      "licence": "licenceInfo, copyrightText and accessInformation blank",
+      "date": "2010 named service",
+      "coverage": "POA municipal footprint; not all Canoas",
+      "resolution": "1 m pixels in EPSG:3857",
+      "size": {
+        "export_size": null,
+        "metadata_bytes": 2837
+      },
+      "offline": "online only pending grant",
+      "effort": "clarify licence and datum",
+      "vertical_datum": "not stated in inspected metadata; not inferred from horizontal CRS",
+      "evidence_files": [
+        "evidence/municipal_mdt.json",
+        "evidence/municipal_mdt_item.json"
+      ],
+      "quality": "Most promising POA ground upgrade. No elevation tiles redistributed; service availability does not establish public-repo rights."
+    },
+    {
+      "id": "protomaps",
+      "name": "Protomaps v4 basemap",
+      "url": "https://docs.protomaps.com/basemaps/downloads",
+      "licence": "ODbL Produced Work (OSM attribution); style BSD-3-Clause",
+      "date": "2026-10-24 build, v4.15.2",
+      "coverage": "AOI intersecting tiles, z0–15; coarse tiles extend outside AOI",
+      "resolution": "vector tile pyramid",
+      "size": {
+        "archive_bytes": 27168768,
+        "tiles": 2716,
+        "range_data_transfer_bytes": 25693894,
+        "full_planet_bytes": 139134051681
+      },
+      "offline": true,
+      "effort": "done",
+      "archive": "basemap.mbtiles",
+      "upstream": "https://build.protomaps.com/20261024.pmtiles",
+      "range_only": "Yes: verified 206 reads of v3 header, gzip root/leaves and grouped data spans; standard-library SQLite MBTiles writer. No pmtiles CLI needed.",
+      "zoom_stats": [
+        {
+          "zoom": 0,
+          "tiles": 1,
+          "pbf_gzip_bytes": 66795
+        },
+        {
+          "zoom": 1,
+          "tiles": 1,
+          "pbf_gzip_bytes": 28060
+        },
+        {
+          "zoom": 2,
+          "tiles": 1,
+          "pbf_gzip_bytes": 43322
+        },
+        {
+          "zoom": 3,
+          "tiles": 1,
+          "pbf_gzip_bytes": 71783
+        },
+        {
+          "zoom": 4,
+          "tiles": 1,
+          "pbf_gzip_bytes": 55155
+        },
+        {
+          "zoom": 5,
+          "tiles": 1,
+          "pbf_gzip_bytes": 42327
+        },
+        {
+          "zoom": 6,
+          "tiles": 1,
+          "pbf_gzip_bytes": 32579
+        },
+        {
+          "zoom": 7,
+          "tiles": 1,
+          "pbf_gzip_bytes": 24506
+        },
+        {
+          "zoom": 8,
+          "tiles": 1,
+          "pbf_gzip_bytes": 29757
+        },
+        {
+          "zoom": 9,
+          "tiles": 2,
+          "pbf_gzip_bytes": 96545
+        },
+        {
+          "zoom": 10,
+          "tiles": 3,
+          "pbf_gzip_bytes": 159671
+        },
+        {
+          "zoom": 11,
+          "tiles": 10,
+          "pbf_gzip_bytes": 307605
+        },
+        {
+          "zoom": 12,
+          "tiles": 36,
+          "pbf_gzip_bytes": 914348
+        },
+        {
+          "zoom": 13,
+          "tiles": 136,
+          "pbf_gzip_bytes": 1777374
+        },
+        {
+          "zoom": 14,
+          "tiles": 510,
+          "pbf_gzip_bytes": 4835891
+        },
+        {
+          "zoom": 15,
+          "tiles": 2010,
+          "pbf_gzip_bytes": 17159343
+        }
+      ],
+      "fonts": {
+        "stacks": [
+          "Noto Sans Regular",
+          "Noto Sans Medium",
+          "Noto Sans Italic"
+        ],
+        "ranges": [
+          "0-255",
+          "256-511"
+        ],
+        "licence": "SIL-OFL-1.1",
+        "scope": "Portuguese / Latin; other script glyph ranges not bundled"
+      },
+      "sprites": {
+        "scale": [
+          1,
+          2
+        ],
+        "licence": "MIT (tangrams/icons)"
+      },
+      "pmtiles_protocol": {
+        "needed_for_shipped_mbtiles": false,
+        "needed_if_switching_to_pmtiles": true,
+        "version_verified": "4.5.0",
+        "licence_verified": "BSD-3-Clause",
+        "brief_correction": "Brief calls protocol MIT; fetched npm metadata and PMTiles LICENSE identify BSD-3-Clause."
+      }
+    },
+    {
+      "id": "openfreemap",
+      "name": "OpenFreeMap",
+      "url": "https://openfreemap.org/quick_start/",
+      "licence": "OSM ODbL + OpenMapTiles attribution",
+      "date": "2026-10-18_080001_pt TileJSON",
+      "coverage": "global including AOI",
+      "resolution": "OpenMapTiles z0–14",
+      "size": {
+        "offline_extract": "not acquired (Protomaps selected)"
+      },
+      "offline": true,
+      "effort": "online fallback ready",
+      "key_required": false,
+      "terms": "Public no-key service; offline downloads limited to 3000 tiles or 50 MB per download, at most 4 parallel requests and unique User-Agent. Use full-planet dumps for larger self-hosting.",
+      "tilejson": "https://tiles.openfreemap.org/planet/latest",
+      "style": "https://tiles.openfreemap.org/styles/liberty"
+    },
+    {
+      "id": "carto",
+      "name": "CARTO basemaps",
+      "url": "https://carto.com/legal/basemap-terms/index.html",
+      "licence": "CARTO service terms + OSM attribution",
+      "date": "terms 2026-09-29",
+      "coverage": "global; no AOI tile acquisition",
+      "resolution": "raster/vector service",
+      "size": {
+        "not_acquired": true
+      },
+      "offline": false,
+      "effort": "key/terms",
+      "key_required": true,
+      "terms": "Current free tier requires issued API key: non-commercial 5M tile requests/month, commercial 1M. Unauthenticated service may show watermark; not recommended as a no-key fallback. Older FAQ/licence pages conflict with current terms."
+    },
+    {
+      "id": "google3d",
+      "name": "Google Photorealistic 3D Tiles",
+      "url": "https://developers.google.com/maps/documentation/tile/policies",
+      "licence": "proprietary service; online only",
+      "date": "checked 2026-10-24; imagery dates vary",
+      "coverage": "Brazil 3D country availability confirmed; exact POA/core-zone mesh coverage not independently verified",
+      "resolution": "photogrammetric textured mesh; no universal resolution",
+      "size": {
+        "downloaded_tiles": 0
+      },
+      "offline": false,
+      "effort": "key + billing + alignment",
+      "key_required": true,
+      "terms": "No bulk prefetch/offline redistribution. Respect allowed HTTP cache controls. Independent 3D overlays allowed with distinct attribution, not derived from Google mesh. Promotional video limited to 30 seconds and required promotional marking. Google/third-party credits must remain visible.",
+      "pricing": {
+        "usd_per_1000_root_requests_first_paid_tier": 6,
+        "monthly_free_root_requests": 1000
+      },
+      "coverage_url": "https://developers.google.com/maps/coverage",
+      "pricing_url": "https://developers.google.com/maps/billing-and-pricing/pricing",
+      "vertical_alignment": "Do not equate orthometric SRTM heights with 3D Tiles geocentric/ellipsoidal placement; reconcile geoid and local datum before overlay."
+    },
+    {
+      "id": "cesium",
+      "name": "Cesium OSM Buildings / ion",
+      "url": "https://cesium.com/legal/terms-of-service/",
+      "licence": "ion service terms; source OSM ODbL",
+      "date": "checked 2026-10-24",
+      "coverage": "global OSM footprint coverage incl POA; detailed POA asset not fetched",
+      "resolution": "OSM extrusions, not photoreal imagery",
+      "size": {
+        "downloaded_tiles": 0
+      },
+      "offline": "not redistributed as ion bundle",
+      "effort": "ion token + renderer",
+      "key_required": true,
+      "terms": "General client/proxy performance caching allowed under terms; not authorization to bulk cache/redistribute curated ion assets. Own overlays possible; keep credits. Independent OSM source extract remains redistributable under ODbL.",
+      "pricing": {
+        "community_usd": 0,
+        "community_streaming_gb_per_month": 15,
+        "commercial_individual_usd_per_month": 149,
+        "commercial_team_usd_per_month": 524
+      },
+      "pricing_url": "https://cesium.com/platform/cesium-ion/pricing/",
+      "third_party_url": "https://cesium.com/legal/third-party-terms/"
+    },
+    {
+      "id": "emsn194",
+      "name": "Copernicus EMSN194 existing depth grids",
+      "url": "https://mapping.emergency.copernicus.eu/activations/EMSN194/",
+      "licence": "CEMS general full/open/free policy with attribution, subject to exceptions; inherited per-product XML constraint ambiguity unresolved",
+      "licence_url": "https://mapping.emergency.copernicus.eu/about/citation-guidelines/",
+      "date": [
+        "2024-05-06",
+        "2024-05-08"
+      ],
+      "publication": "retrospective June 2024 products; activation 2024-05-28",
+      "resolution": "20 m HAND-derived water depth",
+      "coverage": "existing raster footprint, valid inundation pixels only",
+      "offline": "local research samples produced; confirm per-product terms before public redistribution",
+      "acquisition": "Provided in existing out/DEPTH/grid2; not re-downloaded",
+      "vertical_reference": "relative depth; no absolute water-surface datum supplied",
+      "inherited_metadata": [
+        "conditionsUnknown",
+        "INSPIRE_Directive_Article13_1a"
+      ],
+      "metadata_paths": [
+        "../DEPTH/EMSN194_STD_AOI01_P04FLDEL01_WaterDepth_v01.xml",
+        "../DEPTH/EMSN194_STD_AOI01_P04FLDEL02_WaterDepth_v01.xml"
+      ]
+    }
+  ],
+  "evidence": "http_evidence.json, initial_http_evidence.json, source metadata and decoded samples. HTTP success does not itself confer a redistribution licence.",
+  "limitations": [
+    "Current map/footprint snapshots are not May 2024 ground truth.",
+    "No Overture AOI Parquet count/height percentage measured; approval-only extraction step documented.",
+    "Exact Porto Alegre Google 3D mesh coverage not verified; no 3D tiles requested.",
+    "Bare-earth ground/absolute flood-water levels remain unvalidated."
+  ]
+}

@@ -104,7 +104,7 @@ class Registry:
             previous = cases.get(cid)
             # A delivery is ingested once. A changed replay/analysis is a separate
             # versioned event, so an earlier-time replay never returns later evidence.
-            comparable = ('replay_time', 'mode', 'fields', 'errors', 'fleet', 'hazard_review')
+            comparable = ('replay_time', 'mode', 'fields', 'errors', 'fleet', 'hazard_review', 'route', 'result')
             reanalysis = provenance in seen and previous is not None and any(
                 previous.get(k) != case.get(k) for k in comparable)
             if provenance not in seen or reanalysis:
