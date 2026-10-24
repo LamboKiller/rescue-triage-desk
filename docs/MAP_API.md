@@ -1,5 +1,68 @@
 # Map API contract — V2-B
 
+The desk JSON endpoints are listed below. POST bodies require
+`Content-Type: application/json` and at most 256,000 bytes. All errors have
+the shape `{"error":"reason"}`. Browser POSTs must be same-origin.
+
+| Endpoint | Successful response / request contract |
+|---|---|
+| `GET /api/cases` | `200 {"cases":[Case]}`; current registry projections, descending numeric priority. Empty queue: `{"cases":[]}`. |
+| `GET /api/cases/<id>` | `200 Case` (same object as the list entry), or `404 {"error":"Caso não encontrado."}`. |
+| `GET /api/map?date=YYYY-MM-DD` | `200 {"date":string,"layers":Layers,"cases":[MapCase]}`; exact layer and map-case fields below. |
+| `GET /api/depth?date=YYYY-MM-DD&bbox=west,south,east,north` | `200` compact depth arrays; exact fields below. |
+| `POST /run` | Request and response below; validation errors `400`. |
+| `POST /api/cases/<id>/actions` | Request below; `200 Case`, `409` for conflicts/unsafe assets, `400` for invalid transitions/parameters, `404` for unknown case. |
+| `GET /api/health` | `200 {"SAMPLE_MODE":true,"mode":"sample_offline","Nightshift":"unavailable (offline)","Zetaris":"unavailable (offline)"}` in sample mode. Live: `SAMPLE_MODE:false`, `mode:"live"`; service values are `"reachable (TCP only; credentials not checked)"` or `"unreachable"`. |
+
+`Case` is the full registry object, including `case_id`, integer `version`,
+`status`, `location_confirmed`, message/analysis fields, `result`, `hazards`
+(object or null), `fleet` (all 20 entries), `fleet_summary`, `hazard_facts`,
+`hazard_critic`, `hazard_review`, `hazard_unsupported`, `facts` (analysis history)
+and `actions` (human event history). `hazard_critic` is the same validated
+review object or `"indisponível"` as `hazard_review`; successful reviews also
+appear in `agents.hazard_critic`. The review and fleet shapes are below.
+Legacy stored analyses can lack newer fields; rerunning creates a full analysis.
+`route`, if present in a stored case, is passed through unchanged by list/detail;
+the backend does not generate a safe route. The exact `result` keys are
+`decision`, numeric `priority`, `decision_reason`, `age_hours`,
+`conflicting_counts`, `location_confidence`, `people_derived`, and `questions`; neither
+fleet nor the advisory review changes it. Failed analyses retain the same fleet
+and review contract with unknown hazards and an unavailable review.
+
+`POST /run` request (optional message fields shown):
+
+```json
+{"replay_time":"2024-05-06T12:00:00-03:00","messages":[
+ {"message_id":"demo-1","text":"3 pessoas na Rodoviária de Porto Alegre",
+  "received_at":"2024-05-06T12:00:00-03:00","proposed_asset":"road_ambulance"}]}
+```
+
+There must be 1–15 messages; each text is 1–12,000 characters. Message IDs
+must be unique within the request; omitted IDs are derived from redacted text.
+`received_at` defaults to replay time; `proposed_asset` must be a catalogue ID.
+The exact response envelope is
+`{"run_id":string,"mode":string,"synthetic":true,"seconds":number,"partial":boolean,"cases":[Case]}`.
+`mode` is `sample_offline` in offline mode, otherwise `full` for the web request.
+
+Action request (the asset and acknowledgement apply to approval only):
+
+```json
+{"action":"approve_dispatch","asset":"irb","caution_acknowledged":true,
+ "expected_version":2,"actor":"operador"}
+```
+
+Actions are `confirm_location`, `approve_dispatch`, `dispatch`, `field_confirm`,
+`request_callback`, and `report_rescued`. Approval requires a proposed
+`SEND_CANDIDATE`, a confirmed location and a screened asset. Unsafe assets return
+`409 {"error":"Recurso inseguro: <matched Portuguese reasons>"}` without
+changing state. Caution requires literal JSON `true`; otherwise `409`.
+Successful approval sets `approved_asset` and records
+`caution_acknowledgement:{asset,reasons_pt,rule_ids,source_ids,acknowledged:true,actor}`
+for caution (null for suitable), in both the projection and action event.
+Every accepted action increments `version`; stale versions return `409`.
+Dispatch requires human approval; field confirmation requires dispatch.
+New analysis resets approval and its acknowledgement.
+
 `GET /api/map?date=YYYY-MM-DD` returns `200 application/json; charset=utf-8`.
 Exactly one valid ISO calendar date is required; missing, duplicate or invalid
 dates return `400 {"error":"..."}`. Dates outside May 2024 are accepted with

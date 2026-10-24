@@ -49,6 +49,14 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
 
         def do_GET(self):
             path = urllib.parse.urlsplit(self.path).path
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query, keep_blank_values=True)
+            try:
+                from app.web import routes_v2
+            except ImportError:
+                pass
+            else:
+                if routes_v2.handle_get(self, path, query):
+                    return
             if path == '/':
                 body = (ROOT/'app/web/index.html').read_bytes()
                 self.send_response(200)
@@ -72,7 +80,6 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                     self.send_json(400,{'error':str(exc)})
             elif path == '/api/map':
                 try:
-                    query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
                     dates = query.get('date', [])
                     if len(dates) != 1:
                         raise ValueError('Provide exactly one date=YYYY-MM-DD')

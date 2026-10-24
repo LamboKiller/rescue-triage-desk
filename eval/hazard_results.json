@@ -7,7 +7,7 @@
   "unsupported_rate": 0.0,
   "unsupported": 0,
   "unavailable": 0,
-  "seconds": 1.75,
+  "seconds": 1.547,
   "results": [
     {
       "message_id": "hazard-rodoviaria",
@@ -23,7 +23,7 @@
       "blocked": true,
       "unavailable": false,
       "unsupported": 0,
-      "seconds": 0.0
+      "seconds": 0.015
     },
     {
       "message_id": "hazard-farrapos_bedridden",

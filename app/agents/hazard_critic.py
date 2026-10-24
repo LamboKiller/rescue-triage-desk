@@ -84,4 +84,5 @@ def attach(case,client,deadline):
         case['hazard_review']='indisponível'
         case['hazard_unsupported']=0
         case.setdefault('agents',{})['hazard_critic']='indisponível'
+    case['hazard_critic']=case['hazard_review']
     return case

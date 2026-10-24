@@ -65,6 +65,27 @@ class PipelineTests(unittest.TestCase):
         self.assertNotIn('example.org', self.registry.path.read_text(encoding='utf-8'))
         self.assertEqual(c['status'], 'proposed')
 
+    def test_hazard_review_is_validated_advisory_after_location(self):
+        class HazardLLM(FakeLLM):
+            def call(self,role,system,payload,deadline):
+                if role!='hazard_critic':return super().call(role,system,payload,deadline)
+                self.roles.append(role)
+                data=json.loads(payload)
+                assert data['case_summary']['result']['decision']=='SEND_CANDIDATE'
+                assert data['facts'] and data['fleet_summary']['options']
+                assert data['proposed_asset']==data['fleet_summary']['options'][0]['asset']
+                fact='fleet:'+data['proposed_asset']
+                assert any(f['id']==fact for f in data['facts'])
+                return {'objections':[{'fact_ids':[fact],'text_pt':'Verifique as cautelas locais.',
+                                       'severity':'warn'}],'brief_pt':'Requer revisão humana.'},{'role':role}
+        llm=HazardLLM()
+        c=Pipeline(self.registry,source=FakeSource(),client=llm).run(self.request())['cases'][0]
+        self.assertEqual(llm.roles[-1],'hazard_critic')
+        self.assertEqual(c['hazard_critic'],c['hazard_review'])
+        self.assertEqual(c['hazard_review']['objections'][0]['severity'],'warn')
+        self.assertEqual(c['hazard_unsupported'],0)
+        self.assertEqual(c['result']['decision'],'SEND_CANDIDATE')
+
     def test_failed_critic_cannot_send(self):
         result = Pipeline(self.registry, source=FakeSource(), client=FakeLLM('critic')).run(self.request())
         self.assertFalse(result['partial'])

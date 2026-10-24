@@ -3,6 +3,7 @@ import http.client
 import json
 import threading
 import time
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -198,5 +199,37 @@ class GateAndApiTests(unittest.TestCase):
         self.assertTrue(all(len(c)==4 for c in data['cells']));self.assertEqual(data['observation_date'],'2024-05-08')
         conn.request('GET','/api/depth?date=2024-05-06&bbox=-52,-31,-50,-29')
         res=conn.getresponse();self.assertEqual(json.loads(res.read())['observation_date'],'2024-05-06')
+
+    def test_lazy_ui_hook_and_api_fallback(self):
+        seen=[]
+        def handle_get(handler,path,query):
+            seen.append((path,query))
+            if path!='/ui-probe': return False
+            handler.send_json(200,{'ui':True})
+            return True
+        fake=types.ModuleType('app.web.routes_v2');fake.handle_get=handle_get
+        server=create_server('127.0.0.1',0,sample=True,registry_path=self.registry.path)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        self.addCleanup(server.server_close);self.addCleanup(thread.join,2);self.addCleanup(server.shutdown)
+        conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=20);self.addCleanup(conn.close)
+        with patch('app.web.routes_v2',fake,create=True):
+            conn.request('GET','/ui-probe?date=2024-05-06&empty=')
+            res=conn.getresponse();self.assertEqual(res.status,200);self.assertEqual(json.loads(res.read()),{'ui':True})
+            self.assertEqual(seen[-1],('/ui-probe',{'date':['2024-05-06'],'empty':['']}))
+            conn.request('GET','/api/cases')
+            res=conn.getresponse();self.assertEqual(json.loads(res.read())['cases'][0]['case_id'],self.case['case_id'])
+            conn.request('GET','/api/cases/'+self.case['case_id'])
+            res=conn.getresponse();self.assertEqual(json.loads(res.read())['fleet'],self.case['fleet'])
+            conn.request('GET','/api/map?date=2024-05-08&date=')
+            res=conn.getresponse();self.assertEqual(res.status,400);res.read()
+
+    def test_failed_analysis_has_advisory_contract(self):
+        from app.pipeline import Pipeline
+        pipeline=Pipeline(self.registry,sample=True)
+        failed=pipeline.failed_case({'message_id':'failed','text':'socorro','received_at':'2024-05-08T12:00:00-03:00'},
+                                    '2024-05-08T12:00:00-03:00','test','global_deadline')
+        self.assertEqual(failed['hazard_critic'],'indisponível')
+        self.assertIsNone(failed['hazards']);self.assertEqual(len(failed['fleet']),20)
+        self.assertEqual(failed['result']['decision'],'CALLBACK')
 
 if __name__=='__main__':unittest.main()

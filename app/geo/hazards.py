@@ -223,5 +223,7 @@ def map_data(day,cases=()):
              'position_kind':position['position_kind'] if position else None,'hazards':summary,
              'fleet':screened['fleet'],'fleet_summary':screened['fleet_summary'],
              'fleet_replay_date':day,'hazard_review_replay_time':case.get('replay_time'),
-             'hazard_review':case.get('hazard_review'),'hazard_unsupported':case.get('hazard_unsupported',0)})
+             'hazard_review':case.get('hazard_review'),
+             'hazard_critic':case.get('hazard_critic',case.get('hazard_review','indisponível')),
+             'hazard_unsupported':case.get('hazard_unsupported',0)})
     return result

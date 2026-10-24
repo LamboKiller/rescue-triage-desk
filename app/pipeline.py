@@ -213,6 +213,7 @@ class Pipeline:
             attach(case)
             screen(case)
             case['hazard_review']='indisponível'
+            case['hazard_critic']='indisponível'
             case['hazard_unsupported']=0
             if not self.sample and ablation == 'full' and result['decision'] in ('SEND_CANDIDATE','REVIEW_REQUIRED'):
                 hazard_critic.attach(case,client,deadline)
@@ -256,10 +257,11 @@ class Pipeline:
 
     def failed_case(self, message, replay, run_id, error):
         location = lookup([], '', '', replay)
-        return {**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else 'full',
+        return screen({**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else 'full',
                 'fields': {}, 'unsupported': [], 'agents': {r: 'unavailable (failed)' for r in ('intake', 'critic', 'revision')},
                 'calls': [], 'checks': location, 'cross_street_check': None,
                 'position': None, 'hazards': None, 'hazards_reason': 'Location unavailable after failed analysis.',
+                'hazard_review': 'indisponível', 'hazard_critic': 'indisponível', 'hazard_unsupported': 0,
                 'result': decide({}, location, replay, message['received_at'], complete=False),
                 'errors': [error], 'complete': False, 'proposed_field_count': 0,
-                'call_count_complete': False, 'extraction_method': 'unavailable'}
+                'call_count_complete': False, 'extraction_method': 'unavailable'})
