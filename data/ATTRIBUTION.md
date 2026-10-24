@@ -1,6 +1,6 @@
 # Derived data attribution
 
-Only derived CSVs are distributed. Source packs D1–D3 were prepared 21–23 October 2026.
+Derived CSVs and simplified GeoJSON are distributed. Source packs D1–D3 were prepared 21–23 October 2026.
 The supplied backup contains no D1–D3 REPORT.md or manifest.json. Full manifest-based
 attribution could not be verified; do not describe it as complete. Available source
 research and inventories support the following credits:
@@ -74,3 +74,35 @@ May 8 coverage differs substantially; zero overlap never establishes recession.
 [out:json][timeout:180];(nwr["name"]["aeroway"~"^(aerodrome)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
 [out:json][timeout:180];(nwr["name"]["aeroway"~"^(terminal)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
 ```
+
+## Hazard layers V2-A
+
+`data/hazards/manifest.json` records SHA-256, input counts, output sizes and
+15 m Douglas-Peucker simplification for every read-only source used by
+`tools/prepare_hazards.py`. Coordinates use WGS84 longitude/latitude.
+
+* `D1/clean/flood_observed.geojson`: UFRGS/Possantti observed water, credited above.
+* `D1/clean/copernicus_flood_delineation.geojson`: Copernicus Emergency Management
+  Service EMSN194 flood delineation, European Union/Copernicus EMS;
+  https://mapping.emergency.copernicus.eu/ . Product filenames are retained as
+  source_layer. Exact licence/version lineage is not supplied in the backup.
+* `D1/clean/pump_stations.geojson`, `pump_status_daily.csv`, `levees.geojson`
+  and `shelters_timeseries.geojson`: supplied UFRGS/D1 crisis layers; original
+  pump source-layer identifiers retained in the daily status table. Original
+  per-layer licences and full publisher lineage were not supplied; they remain
+  unverified. The water-layer CC BY claim above does not verify these layers.
+  APURAR is unknown; shelter snapshots begin 8 May.
+* `D3/clean/infrastructure_events.geojson`, `road_closures.csv`: public DMAE,
+  Porto Alegre and DNIT bulletins; per-record source URLs, timestamps and
+  quality notes retained. Bulletin reuse terms were not supplied.
+* `D3/clean/transport_geometry_candidates.geojson`, `D1/clean/osm_roads.geojson`:
+  Copyright OpenStreetMap contributors, ODbL 1.0, https://www.openstreetmap.org/copyright .
+  Closure lines are unverified corridor candidates, never a routing constraint
+  or proof that an entire displayed road was closed. Street representative
+  vertices, derived street database and OSM line derivatives are under ODbL.
+* `D1/clean/census_tracts_2022.geojson`: IBGE municipal membership as above.
+
+Observation-date filtering prevents later observations appearing in earlier
+replays. Flood/pump/shelter publication times are unavailable: this is
+retrospective context, not proof of what dispatchers knew that day. Levees and
+OSM street positions are static reference geometry, not dated asset condition.

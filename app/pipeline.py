@@ -16,6 +16,7 @@ from app.config import ROOT, safe_error
 from app.data.source import LocalSource, ZetarisSource
 from app.decide import decide, timestamp
 from app.derive_count import CORRECTION, canonical_municipality, count_values, derive_people, written_total
+from app.geo.hazards import attach, get_data
 from app.geo.streets import lookup
 from app.geo.landmarks import match as match_landmark
 from app.llm.nightshift import Nightshift, TRACE_LOCK
@@ -61,6 +62,7 @@ class Pipeline:
         self.client = client
         self.budget_seconds = min(480, budget_seconds)
         self.run_lock = threading.Lock()
+        get_data()  # Build the shared local grid once, before per-case timing.
 
     def run(self, request, ablation='full'):
         replay, messages = validate_request(request)
@@ -201,6 +203,8 @@ class Pipeline:
                     'complete': complete, 'proposed_field_count': proposed,
                     'call_count_complete': 'global_deadline' not in errors,
                     'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}
+            attach(case)
+            case['seconds'] = round(time.monotonic()-message_started, 4)
             # Redact the entire model argument as well as input: models can emit PII.
             return json.loads(redact(json.dumps(case, ensure_ascii=False)))
         pool = concurrent.futures.ThreadPoolExecutor(max_workers=3)
@@ -241,6 +245,7 @@ class Pipeline:
         return {**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else 'full',
                 'fields': {}, 'unsupported': [], 'agents': {r: 'unavailable (failed)' for r in ('intake', 'critic', 'revision')},
                 'calls': [], 'checks': location, 'cross_street_check': None,
+                'position': None, 'hazards': None, 'hazards_reason': 'Location unavailable after failed analysis.',
                 'result': decide({}, location, replay, message['received_at'], complete=False),
                 'errors': [error], 'complete': False, 'proposed_field_count': 0,
                 'call_count_complete': False, 'extraction_method': 'unavailable'}

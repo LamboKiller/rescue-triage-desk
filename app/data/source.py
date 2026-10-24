@@ -17,9 +17,40 @@ def with_aliases(rows):
 class DataSource(Protocol):
     def streets(self, timeout=120): ...
     def landmarks(self, timeout=120): ...
+    def closures(self, timeout=120): ...
+    def pump_status_daily(self, timeout=120): ...
+    def pumps(self, timeout=120): ...
+    def events(self, timeout=120): ...
+    def shelters(self, timeout=120): ...
+    def street_points(self, timeout=120): ...
+
 
 
 class LocalSource:
+    def closures(self, timeout=120):
+        with (ROOT/'data/hazards/closures.csv').open(encoding='utf-8-sig', newline='') as file:
+            return list(csv.DictReader(file))
+
+    def pump_status_daily(self, timeout=120):
+        with (ROOT/'data/hazards/pump_status_daily.csv').open(encoding='utf-8-sig', newline='') as file:
+            return list(csv.DictReader(file))
+
+    def pumps(self, timeout=120):
+        with (ROOT/'data/hazards/pumps.csv').open(encoding='utf-8-sig', newline='') as file:
+            return list(csv.DictReader(file))
+
+    def events(self, timeout=120):
+        with (ROOT/'data/hazards/events.csv').open(encoding='utf-8-sig', newline='') as file:
+            return list(csv.DictReader(file))
+
+    def shelters(self, timeout=120):
+        with (ROOT/'data/hazards/shelters.csv').open(encoding='utf-8-sig', newline='') as file:
+            return list(csv.DictReader(file))
+
+    def street_points(self, timeout=120):
+        with (ROOT/'data/hazards/street_points.csv').open(encoding='utf-8-sig', newline='') as file:
+            return list(csv.DictReader(file))
+
     def landmarks(self, timeout=120):
         path = ROOT/'data/landmarks.csv'
         if not path.exists():
@@ -38,6 +69,24 @@ def as_csv_strings(rows):
 
 
 class ZetarisSource:
+    def closures(self, timeout=120):
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_CLOSURES_TABLE', 'closures_v4'), timeout=timeout))
+
+    def pump_status_daily(self, timeout=120):
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_PUMP_STATUS_DAILY_TABLE', 'pump_status_daily_v4'), timeout=timeout))
+
+    def pumps(self, timeout=120):
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_PUMPS_TABLE', 'pumps_v4'), timeout=timeout))
+
+    def events(self, timeout=120):
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_EVENTS_TABLE', 'events_v4'), timeout=timeout))
+
+    def shelters(self, timeout=120):
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_SHELTERS_TABLE', 'shelters_v4'), timeout=timeout))
+
+    def street_points(self, timeout=120):
+        return as_csv_strings(Zetaris().rows(setting('ZETARIS_STREET_POINTS_TABLE', 'street_points_v4'), timeout=timeout))
+
     def landmarks(self, timeout=120):
         return with_aliases(as_csv_strings(Zetaris().rows(setting('ZETARIS_LANDMARKS_TABLE', 'landmarks_v3'), timeout=timeout)))
 

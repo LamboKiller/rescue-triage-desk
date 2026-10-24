@@ -1,0 +1,141 @@
+{
+  "bbox": [
+    -51.75,
+    -30.35,
+    -50.85,
+    -29.55
+  ],
+  "simplification": {
+    "algorithm": "Douglas-Peucker; closed rings split; rectangular clipping",
+    "tolerance_m": 15,
+    "coordinate_decimals": 6,
+    "metric": "local equirectangular at 30 S"
+  },
+  "sources": {
+    "D1/clean/flood_observed.geojson": {
+      "source_file": "D1/clean/flood_observed.geojson",
+      "sha256": "23e38d699ec8546da0066d80bf5256fdea7b3373c21364e8ebebe1c478bdf62d",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 5918
+    },
+    "D1/clean/copernicus_flood_delineation.geojson": {
+      "source_file": "D1/clean/copernicus_flood_delineation.geojson",
+      "sha256": "de17229e0eb139be88281292af42d086e6cfd091606b9090c6ea0fea243a9b8b",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 1858
+    },
+    "D3/clean/road_closures.csv": {
+      "source_file": "D3/clean/road_closures.csv",
+      "sha256": "e75cb78806921fbf9f28057b2f4d1ef304f7bf8acd12dedd9ae3a092654fe16c",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 31
+    },
+    "D3/clean/transport_geometry_candidates.geojson": {
+      "source_file": "D3/clean/transport_geometry_candidates.geojson",
+      "sha256": "e984aa25d49df5b7708e258f8a840d7d7d42ea0aa8d1660205cdd1e7c9deb3f7",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 1359
+    },
+    "D1/clean/pump_stations.geojson": {
+      "source_file": "D1/clean/pump_stations.geojson",
+      "sha256": "4a3c43efed27b548a6bb20e4471021a417b8d1d67f576880df1613f349ef1587",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 38
+    },
+    "D1/clean/pump_status_daily.csv": {
+      "source_file": "D1/clean/pump_status_daily.csv",
+      "sha256": "dc96a5d6a8a4c72fe397ccd6626e84d844ba1e68b4c3f852a590fc37d5a73297",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 988
+    },
+    "D3/clean/infrastructure_events.geojson": {
+      "source_file": "D3/clean/infrastructure_events.geojson",
+      "sha256": "fdea9a18d02ef92c68eebfd36195ad9e212614dd4647ef4fb2dc633d633c594a",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 20
+    },
+    "D1/clean/shelters_timeseries.geojson": {
+      "source_file": "D1/clean/shelters_timeseries.geojson",
+      "sha256": "9129142428b9d89e74bc88d0568a319da56d4782ae0e6876a10e62a6b20d5919",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 7574
+    },
+    "D1/clean/levees.geojson": {
+      "source_file": "D1/clean/levees.geojson",
+      "sha256": "25321f7ee561c02b1bacca9d339123d8ce6def983ef0564377594416322f139f",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 52
+    },
+    "D1/clean/census_tracts_2022.geojson": {
+      "source_file": "D1/clean/census_tracts_2022.geojson",
+      "sha256": "9f0fe8245d0bf6f7c506125ee2e0ffccf5ab100e763b20c8c298b5a0049d9603",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 6518
+    },
+    "D1/clean/osm_roads.geojson": {
+      "source_file": "D1/clean/osm_roads.geojson",
+      "sha256": "92a2e486614a3fd50f81d8fd2af7cf9f69d24aad581f42183de97e547f86ab22",
+      "licence_pointer": "data/ATTRIBUTION.md#hazard-layers-v2-a",
+      "count": 107172
+    }
+  },
+  "outputs": {
+    "flood_2024-05-06.geojson": {
+      "count": 3196,
+      "bytes": 4499744
+    },
+    "flood_2024-05-08.geojson": {
+      "count": 4580,
+      "bytes": 3325171
+    },
+    "closures.geojson": {
+      "count": 31,
+      "bytes": 335852
+    },
+    "closures.csv": {
+      "count": 31,
+      "bytes": 324544
+    },
+    "pumps.geojson": {
+      "count": 38,
+      "bytes": 8856
+    },
+    "pumps.csv": {
+      "count": 38,
+      "bytes": 3587
+    },
+    "pump_status_daily.csv": {
+      "count": 988,
+      "bytes": 51555
+    },
+    "events.geojson": {
+      "count": 20,
+      "bytes": 16432
+    },
+    "events.csv": {
+      "count": 20,
+      "bytes": 9419
+    },
+    "shelters.geojson": {
+      "count": 7574,
+      "bytes": 2461469
+    },
+    "shelters.csv": {
+      "count": 7574,
+      "bytes": 800941
+    },
+    "levees.geojson": {
+      "count": 52,
+      "bytes": 17004
+    },
+    "street_points.csv": {
+      "count": 20623,
+      "bytes": 2743524
+    }
+  },
+  "notes": [
+    "Flood publication unknown: retrospective observations only.",
+    "Street position is a median source vertex; length includes full touched OSM ways.",
+    "Closure geometries are unverified corridor candidates; routing_safe is false."
+  ]
+}

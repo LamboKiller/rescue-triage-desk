@@ -33,6 +33,11 @@ def load(version='v3', seed=7):
         raise FileNotFoundError('Landmark snapshot required before registering tables')
     for path in sorted((ROOT/'data').glob('*.csv')):
         payloads.append((path.stem+'_'+version, path.read_bytes()))
+    if version == 'v4':
+        # Tabular context is registered; flood polygons and levees stay local.
+        for name in ('closures', 'pump_status_daily', 'pumps', 'events', 'shelters', 'street_points'):
+            path = ROOT/'data/hazards'/(name+'.csv')
+            payloads.append((name+'_'+version, path.read_bytes()))
     sample = ROOT/f'data/sample/messages_seed{seed}.jsonl'
     messages = [json.loads(line) for line in sample.read_text(encoding='utf-8').splitlines()]
     out = io.StringIO(newline='')

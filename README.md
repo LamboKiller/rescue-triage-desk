@@ -193,3 +193,33 @@ The dated declaration of work done before **21 October 2026, 21:00** is in
 Submission drafts: [checklist](docs/submission/GATE2_CHECKLIST.md),
 [demo script](docs/submission/DEMO_SCRIPT.md), [deck outline](docs/submission/DECK_OUTLINE.md),
 [sponsor explanation](docs/submission/SPONSOR_EXPLANATION.md).
+
+## V2-A hazard context and map data
+
+Prepare local data without network access (backup remains read-only):
+
+```powershell
+python tools/prepare_hazards.py --backup C:/path/to/data-backup
+# Or set RTD_BACKUP_DIR; default is ./data-backup.
+```
+
+The hazard engine attaches information after location resolution without changing
+triage decisions. Shared bbox grids are built once. Street positions use median
+OSM vertices; a house number is not geocoded. Flood polygons use the latest
+observation on or before the replay date; publication time is unknown. Pumps use
+that day's status (APURAR = unknown). Shelters use the latest snapshot that day
+or earlier; there are none before 8 May. Distances are straight-line, not routes.
+
+`GET /api/map?date=2024-05-08` returns local GeoJSON plus positioned cases; see
+[the exact map contract](docs/MAP_API.md). Gzip is negotiated with Accept-Encoding.
+The UI is unchanged. Depth remains pending. Static levees imply no operational
+condition; closure geometries are unverified corridor candidates.
+
+For a user-run connected upgrade, `python tools/load_zetaris.py --version v4`
+registers existing CSVs plus closures, pump_status_daily, pumps, events, shelters
+and street_points from data/hazards. Set the v4 table names in .env.example and
+run tools/smoke_live.py yourself. LocalSource and ZetarisSource expose these six
+tabular methods with the same string/empty-cell contract. The deterministic
+hazard engine and map use the prepared local snapshot in both modes, so polygons
+and levees remain local files; connected hazard tables are queryable context.
+No live loader or smoke test was run for V2-A.

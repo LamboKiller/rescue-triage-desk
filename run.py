@@ -1,4 +1,5 @@
 """CLI and trusted-operator demo web server (Python 3.12 standard library)."""
+import gzip
 import argparse
 import json
 import os
@@ -10,6 +11,7 @@ from pathlib import Path
 from app.config import ROOT, load_env, sample_mode, setting
 from app.engines.world_model.registry import Registry, Conflict
 from app.pipeline import Pipeline
+from app.geo.hazards import map_data
 
 
 def reachability(url):
@@ -29,10 +31,15 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
         def log_message(self, *args):
             pass  # Raw paths and requests can contain identifiers.
 
-        def send_json(self, code, data):
-            body = json.dumps(data, ensure_ascii=False).encode()
+        def send_json(self, code, data, compress=False):
+            body = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode()
+            if compress:
+                body = gzip.compress(body, mtime=0)
             self.send_response(code)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
+            if compress:
+                self.send_header('Content-Encoding', 'gzip')
+            self.send_header('Vary', 'Accept-Encoding')
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
@@ -54,6 +61,23 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                 self.send_json(200, {'SAMPLE_MODE': offline, 'mode': 'sample_offline' if offline else 'live',
                     'Nightshift': 'unavailable (offline)' if offline else reachability(setting('NIGHTSHIFT_BASE_URL', 'http://127.0.0.1:8088/v1')),
                     'Zetaris': 'unavailable (offline)' if offline else reachability(setting('ZETARIS_REST_URL', 'http://localhost:8888/api/v1.0'))})
+            elif path == '/api/map':
+                try:
+                    query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                    dates = query.get('date', [])
+                    if len(dates) != 1:
+                        raise ValueError('Provide exactly one date=YYYY-MM-DD')
+                    payload = map_data(dates[0], registry.read())
+                    encodings = {}
+                    for item in self.headers.get('Accept-Encoding', '').lower().split(','):
+                        parts = item.strip().split(';')
+                        try:
+                            encodings[parts[0]] = float(next((p.strip()[2:] for p in parts[1:] if p.strip().startswith('q=')), '1'))
+                        except ValueError:
+                            encodings[parts[0]] = 0
+                    self.send_json(200, payload, compress=encodings.get('gzip', encodings.get('*', 0)) > 0)
+                except ValueError as exc:
+                    self.send_json(400, {'error': str(exc)})
             elif path == '/api/cases':
                 self.send_json(200, {'cases': registry.read()})
             elif path.startswith('/api/cases/'):

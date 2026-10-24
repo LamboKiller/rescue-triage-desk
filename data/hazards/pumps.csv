@@ -1,0 +1,39 @@
+source_fid,name,municipality,source,lon,lat
+1,EBAP_SL_CB_Ginasio,São Leopoldo,D1/clean/pump_stations.geojson,-51.143852,-29.758328
+2,EBAP_SL_CB_Rodoviaria,São Leopoldo,D1/clean/pump_stations.geojson,-51.14926,-29.760166
+3,EBAP_SL_CB_Joao Correa,São Leopoldo,D1/clean/pump_stations.geojson,-51.169418,-29.764953
+4,EBAP_SL_CB_Campinas,São Leopoldo,D1/clean/pump_stations.geojson,-51.162024,-29.755089
+5,EBAP_SL_CB_Cerquinha,São Leopoldo,D1/clean/pump_stations.geojson,-51.169473,-29.746603
+6,EBAP_NH_CB_Santo Afonso,Novo Hamburgo,D1/clean/pump_stations.geojson,-51.12981,-29.74202
+7,EBAP_NH_CB_Pampas,Novo Hamburgo,D1/clean/pump_stations.geojson,-51.088575,-29.705452
+8,EBAP_CA_CB_Mathias Velho 1,Canoas,D1/clean/pump_stations.geojson,-51.236154,-29.895508
+9,EBAP_CA_CB_Fatima,Canoas,D1/clean/pump_stations.geojson,-51.196449,-29.937817
+10,EBAP_CA_CB_Rio Branco,Canoas,D1/clean/pump_stations.geojson,-51.190587,-29.966707
+11,EBAP_CA_CB_Niteroi_1,Canoas,D1/clean/pump_stations.geojson,-51.166379,-29.964988
+12,EBAP_CA_CB_Niteroi_2,Canoas,D1/clean/pump_stations.geojson,-51.16938,-29.965632
+13,EBAP_CA_CB_Mathias Velho 2,Canoas,D1/clean/pump_stations.geojson,-51.199822,-29.897495
+14,EBAP_PA_CB 01_Rodoviaria,Porto Alegre,D1/clean/pump_stations.geojson,-51.216012,-30.019291
+15,EBAP_PA_CB 02_Sao Joao,Porto Alegre,D1/clean/pump_stations.geojson,-51.214131,-30.015731
+16,EBAP_PA_CB 03_Sao Pedro,Porto Alegre,D1/clean/pump_stations.geojson,-51.210299,-30.008664
+17,EBAP_PA_CB 04_Paque Nautico,Porto Alegre,D1/clean/pump_stations.geojson,-51.20759,-30.001938
+18,EBAP_PA_CB 05_Adelino Machado Souza,Porto Alegre,D1/clean/pump_stations.geojson,-51.201126,-29.981905
+19,EBAP_PA_CB 06_Trevo,Porto Alegre,D1/clean/pump_stations.geojson,-51.175691,-29.969828
+20,EBAP_PA_CB_Silvio Brum,Porto Alegre,D1/clean/pump_stations.geojson,-51.172202,-30.002037
+21,EBAP_PA_CB_Vila Farrapos,Porto Alegre,D1/clean/pump_stations.geojson,-51.1975,-29.982631
+22,EBAP_PA_CB 09_Sarandi,Porto Alegre,D1/clean/pump_stations.geojson,-51.138543,-29.968056
+23,EBAP_PA_CB 10_Abilio Fernandes,Porto Alegre,D1/clean/pump_stations.geojson,-51.137659,-29.978158
+24,EBAP_PA_CB 11A_Coronel Claudino,Porto Alegre,D1/clean/pump_stations.geojson,-51.243344,-30.092813
+25,EBAP_PA_CB 11B_Icarai_II,Porto Alegre,D1/clean/pump_stations.geojson,-51.24279,-30.092197
+26,EBAP_PA_CB 12_Parque Gigante,Porto Alegre,D1/clean/pump_stations.geojson,-51.236031,-30.061432
+27,EBAP_PA_CB 13_Parque Marinha,Porto Alegre,D1/clean/pump_stations.geojson,-51.231951,-30.054607
+28,EBAP_PA_CB 14_Policia Federal,Porto Alegre,D1/clean/pump_stations.geojson,-51.215274,-30.048181
+29,EBAP_PA_CB 15_Erico Verissimo,Porto Alegre,D1/clean/pump_stations.geojson,-51.219433,-30.04784
+30,EBAP_PA_CB 16_Rotula Cuias,Porto Alegre,D1/clean/pump_stations.geojson,-51.232338,-30.04311
+31,EBAP_PA_CB 17_Mauá,Porto Alegre,D1/clean/pump_stations.geojson,-51.236758,-30.030347
+32,EBAP_PA_CB 18_Centro,Porto Alegre,D1/clean/pump_stations.geojson,-51.223324,-30.024479
+33,EBAP_PA_CB_Santa Terezinha,Porto Alegre,D1/clean/pump_stations.geojson,-51.20876,-30.044617
+34,EBAP_PA_CB_Vila Minuano,Porto Alegre,D1/clean/pump_stations.geojson,-51.139644,-29.990679
+35,EBAP_PA_CB_Asa Branca,Porto Alegre,D1/clean/pump_stations.geojson,-51.122458,-29.978118
+36,EBAP_PA_CB_Trincheira Ceara,Porto Alegre,D1/clean/pump_stations.geojson,-51.189529,-29.996225
+37,EBAP_CH_CB_Nilo Pecanha,Cachoeirinha,D1/clean/pump_stations.geojson,-51.105718,-29.964213
+38,EBAP_CH_CB_Joao Pessoa,Cachoeirinha,D1/clean/pump_stations.geojson,-51.101737,-29.963328
