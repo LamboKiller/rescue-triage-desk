@@ -12,7 +12,7 @@ Critic change outcomes count changed fields against truth, including removed fie
 
 | Method | Decision | Landmark* | Unsupported | Calls/msg | Mean s | p90 s | Failures |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| baseline | 1.0 | 1.0 | 0.0 | 0.0 | 0.7834 | 1.328 | 0 |
+| baseline | 1.0 | 1.0 | 0.0 | 0.0 | 0.6185 | 0.9664 | 0 |
 | intake | unavailable (offline) | - | - | - | - | - | - |
 | full | unavailable (offline) | - | - | - | - | - | - |
 
@@ -41,7 +41,7 @@ Landmark identity/status labels: 0; expected-decision proxies: 30.
 
 | Method | Decision | Landmark* | Unsupported | Calls/msg | Mean s | p90 s | Failures |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| baseline | 0.5 | 0.6 | 0.0 | 0.0 | 0.6258 | 1.203 | 0 |
+| baseline | 0.5 | 0.6 | 0.0 | 0.0 | 0.4706 | 0.905 | 0 |
 | intake | unavailable (offline) | - | - | - | - | - | - |
 | full | unavailable (offline) | - | - | - | - | - | - |
 

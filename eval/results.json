@@ -121,9 +121,9 @@
         "decision_accuracy": 1.0,
         "unsupported_claim_rate": 0.0,
         "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
-        "mean_seconds_per_message": 0.7834,
-        "p90_seconds_per_message": 1.328,
-        "amortized_wall_seconds_per_message": 0.3125,
+        "mean_seconds_per_message": 0.6185,
+        "p90_seconds_per_message": 0.9664,
+        "amortized_wall_seconds_per_message": 0.2542,
         "landmark_resolution_accuracy": 1.0,
         "landmark_identity_messages": 0,
         "landmark_decision_proxy_messages": 30,
@@ -147,15 +147,15 @@
             "correct": 2,
             "n": 2
           },
+          "2": {
+            "correct": 2,
+            "n": 2
+          },
           "1": {
             "correct": 2,
             "n": 2
           },
           "3": {
-            "correct": 2,
-            "n": 2
-          },
-          "2": {
             "correct": 2,
             "n": 2
           },
@@ -175,15 +175,15 @@
             "correct": 2,
             "n": 2
           },
+          "10": {
+            "correct": 2,
+            "n": 2
+          },
           "9": {
             "correct": 2,
             "n": 2
           },
           "11": {
-            "correct": 2,
-            "n": 2
-          },
-          "10": {
             "correct": 2,
             "n": 2
           },
@@ -195,11 +195,11 @@
             "correct": 2,
             "n": 2
           },
-          "14": {
+          "8": {
             "correct": 2,
             "n": 2
           },
-          "8": {
+          "14": {
             "correct": 2,
             "n": 2
           }
@@ -326,9 +326,9 @@
         "decision_accuracy": 0.5,
         "unsupported_claim_rate": 0.0,
         "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
-        "mean_seconds_per_message": 0.6258,
-        "p90_seconds_per_message": 1.203,
-        "amortized_wall_seconds_per_message": 0.2836,
+        "mean_seconds_per_message": 0.4706,
+        "p90_seconds_per_message": 0.905,
+        "amortized_wall_seconds_per_message": 0.2077,
         "landmark_resolution_accuracy": 0.6,
         "landmark_identity_messages": 15,
         "landmark_decision_proxy_messages": 25,

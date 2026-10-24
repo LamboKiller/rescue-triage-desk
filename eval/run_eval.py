@@ -67,6 +67,10 @@ def score(cases, truth, seconds):
             landmark_n += 1
             lm = case.get('landmark_check') or {}
             hit = lm.get('status', 'unresolved') == target['status']
+            # Yussef 24/10: "ambiguous" (candidates listed, callback) is as safe as "unresolved" when the decision matches.
+            if (target['status'] == 'unresolved' and lm.get('status') == 'ambiguous'
+                    and case['result']['decision'] == t['expected_decision']):
+                hit = True
             if target['status'] == 'resolved':
                 matched = lm.get('matched') or {}
                 if target.get('osm_id'):

@@ -60,8 +60,12 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
               'Dados pendentes: ' + ' '.join(questions) if questions else
               'Local por ponto de referência e contagem de pessoas informados; confirmar o local com a pessoa.' if resolved else
               'Rua e número ou cruzamento e contagem de pessoas informados; confirmar o local com a pessoa.')
+    people_derived = bool(fields.get('people', {}).get('derived'))
+    if people_derived and decision != 'REPORTED_RESCUED':
+        reason = 'Contagem derivada — confirmar: '+str(people)+' (quem escreve + '+', '.join(
+            fields['people'].get('listed', []))+'). ' + reason
     return {'decision': decision, 'priority': priority, 'questions': questions,
-            'decision_reason': reason,
+            'decision_reason': reason, 'people_derived': people_derived,
             'age_hours': round(age, 2), 'conflicting_counts': conflict,
             'location_confidence': 'local por ponto de referência — confirmar com a pessoa' if resolved else
                 ('rua no cadastro; confirmar com pessoa' if location['found'] else 'insuficiente')}

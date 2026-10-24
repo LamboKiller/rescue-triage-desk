@@ -15,6 +15,7 @@ from app.agents.spans import validate
 from app.config import ROOT, safe_error
 from app.data.source import LocalSource, ZetarisSource
 from app.decide import decide, timestamp
+from app.derive_count import derive_people
 from app.geo.streets import lookup
 from app.geo.landmarks import match as match_landmark
 from app.llm.nightshift import Nightshift, TRACE_LOCK
@@ -148,6 +149,11 @@ class Pipeline:
             counts = re.findall(r'\b(\d+)\s+(?:pessoas|pesssoas)\b', message['text'], re.I)
             if len(set(counts)) > 1 and not re.search(r'na verdade|corrigindo|corrijo', message['text'], re.I):
                 fields['conflicting_counts'] = {'value': True, 'quote': message['text']}
+            # Yussef 24/10: no written total -> count the sender + the people they list, in code; flagged for confirmation.
+            if not get('people'):
+                derived = derive_people(message['text'])
+                if derived:
+                    fields['people'] = derived
             location = lookup(rows, get('street'), get('municipality'), replay)
             cross = lookup(rows, get('cross_street'), get('municipality'), replay) if get('cross_street') else None
             landmark = None
