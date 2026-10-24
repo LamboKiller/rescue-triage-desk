@@ -1,8 +1,8 @@
 {
-  "run_id": "8226a6ae254d44c68ad7ad190a0901ff",
-  "mode": "sample_offline",
+  "run_id": "3181382f0e154465b82360352c297da7",
+  "mode": "full",
   "synthetic": true,
-  "seconds": 1.75,
+  "seconds": 13.218,
   "partial": false,
   "cases": [
     {
@@ -17,29 +17,83 @@
           "received_at": "2024-05-06T12:00:00-03:00",
           "synthetic": true,
           "replay_time": "2024-05-06T14:00:00-03:00",
-          "run_id": "8226a6ae254d44c68ad7ad190a0901ff",
-          "mode": "sample_offline",
+          "run_id": "3181382f0e154465b82360352c297da7",
+          "mode": "full",
           "fields": {
             "people": {
               "value": 2,
               "quote": "2 pessoas"
             },
-            "landmark": {
-              "value": "perto da escola sem nome, Canoas",
-              "quote": "perto da escola sem nome, Canoas"
-            },
             "municipality": {
               "value": "Canoas",
               "quote": "Canoas"
+            },
+            "landmark": {
+              "value": "escola sem nome",
+              "quote": "escola sem nome"
             }
           },
           "unsupported": [],
           "agents": {
-            "intake": "unavailable (offline)",
-            "critic": "unavailable (offline)",
-            "revision": "unavailable (offline)"
+            "intake": {
+              "fields": {
+                "people": {
+                  "value": 2,
+                  "quote": "2 pessoas"
+                },
+                "municipality": {
+                  "value": "Canoas",
+                  "quote": "Canoas"
+                },
+                "landmark": {
+                  "value": "escola sem nome",
+                  "quote": "escola sem nome"
+                }
+              },
+              "model_quotes": {
+                "people": "2 pessoas",
+                "children": "",
+                "elderly": "",
+                "disabled": "",
+                "pets": "",
+                "street": "",
+                "number": "",
+                "municipality": "Canoas",
+                "landmark": "escola sem nome",
+                "cross_street": "",
+                "risk": "",
+                "rescued": ""
+              }
+            },
+            "critic": {
+              "objections": []
+            },
+            "revision": null
           },
-          "calls": [],
+          "calls": [
+            {
+              "role": "intake",
+              "message_id": "example-1-2",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_zx4r3g5h",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 3.719
+            },
+            {
+              "role": "critic",
+              "message_id": "example-1-2",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_uo7t5pdy",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 2.515
+            }
+          ],
           "checks": {
             "found": false,
             "candidates": [],
@@ -65,7 +119,7 @@
           "complete": true,
           "proposed_field_count": 3,
           "call_count_complete": true,
-          "extraction_method": "regex_baseline"
+          "extraction_method": "nightshift"
         }
       ],
       "actions": [],
@@ -74,29 +128,83 @@
       "received_at": "2024-05-06T12:00:00-03:00",
       "synthetic": true,
       "replay_time": "2024-05-06T14:00:00-03:00",
-      "run_id": "8226a6ae254d44c68ad7ad190a0901ff",
-      "mode": "sample_offline",
+      "run_id": "3181382f0e154465b82360352c297da7",
+      "mode": "full",
       "fields": {
         "people": {
           "value": 2,
           "quote": "2 pessoas"
         },
-        "landmark": {
-          "value": "perto da escola sem nome, Canoas",
-          "quote": "perto da escola sem nome, Canoas"
-        },
         "municipality": {
           "value": "Canoas",
           "quote": "Canoas"
+        },
+        "landmark": {
+          "value": "escola sem nome",
+          "quote": "escola sem nome"
         }
       },
       "unsupported": [],
       "agents": {
-        "intake": "unavailable (offline)",
-        "critic": "unavailable (offline)",
-        "revision": "unavailable (offline)"
+        "intake": {
+          "fields": {
+            "people": {
+              "value": 2,
+              "quote": "2 pessoas"
+            },
+            "municipality": {
+              "value": "Canoas",
+              "quote": "Canoas"
+            },
+            "landmark": {
+              "value": "escola sem nome",
+              "quote": "escola sem nome"
+            }
+          },
+          "model_quotes": {
+            "people": "2 pessoas",
+            "children": "",
+            "elderly": "",
+            "disabled": "",
+            "pets": "",
+            "street": "",
+            "number": "",
+            "municipality": "Canoas",
+            "landmark": "escola sem nome",
+            "cross_street": "",
+            "risk": "",
+            "rescued": ""
+          }
+        },
+        "critic": {
+          "objections": []
+        },
+        "revision": null
       },
-      "calls": [],
+      "calls": [
+        {
+          "role": "intake",
+          "message_id": "example-1-2",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_zx4r3g5h",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 3.719
+        },
+        {
+          "role": "critic",
+          "message_id": "example-1-2",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_uo7t5pdy",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 2.515
+        }
+      ],
       "checks": {
         "found": false,
         "candidates": [],
@@ -122,7 +230,7 @@
       "complete": true,
       "proposed_field_count": 3,
       "call_count_complete": true,
-      "extraction_method": "regex_baseline"
+      "extraction_method": "nightshift"
     },
     {
       "case_id": "e89ef7b192f39473389a2567",
@@ -136,8 +244,8 @@
           "received_at": "2024-05-06T12:00:00-03:00",
           "synthetic": true,
           "replay_time": "2024-05-06T14:00:00-03:00",
-          "run_id": "8226a6ae254d44c68ad7ad190a0901ff",
-          "mode": "sample_offline",
+          "run_id": "3181382f0e154465b82360352c297da7",
+          "mode": "full",
           "fields": {
             "people": {
               "value": 3,
@@ -147,30 +255,96 @@
               "value": 1,
               "quote": "1 criança"
             },
+            "street": {
+              "value": "Avenida Farrapos",
+              "quote": "Avenida Farrapos"
+            },
             "number": {
               "value": "120",
-              "quote": "número 120"
-            },
-            "risk_words": {
-              "value": "água subindo",
-              "quote": "água subindo"
+              "quote": "120"
             },
             "municipality": {
               "value": "Porto Alegre",
               "quote": "Porto Alegre"
             },
-            "street": {
-              "value": "Avenida Farrapos",
-              "quote": "Avenida Farrapos"
+            "risk_words": {
+              "value": "A água subindo.",
+              "quote": "A água subindo."
             }
           },
           "unsupported": [],
           "agents": {
-            "intake": "unavailable (offline)",
-            "critic": "unavailable (offline)",
-            "revision": "unavailable (offline)"
+            "intake": {
+              "fields": {
+                "people": {
+                  "value": 3,
+                  "quote": "3 pessoas"
+                },
+                "children": {
+                  "value": 1,
+                  "quote": "1 criança"
+                },
+                "street": {
+                  "value": "Avenida Farrapos",
+                  "quote": "Avenida Farrapos"
+                },
+                "number": {
+                  "value": "120",
+                  "quote": "120"
+                },
+                "municipality": {
+                  "value": "Porto Alegre",
+                  "quote": "Porto Alegre"
+                },
+                "risk_words": {
+                  "value": "A água subindo.",
+                  "quote": "A água subindo."
+                }
+              },
+              "model_quotes": {
+                "people": "3 pessoas",
+                "children": "1 criança",
+                "elderly": "",
+                "disabled": "",
+                "pets": "",
+                "street": "Avenida Farrapos",
+                "number": "120",
+                "municipality": "Porto Alegre",
+                "landmark": "",
+                "cross_street": "",
+                "risk": "A água subindo.",
+                "rescued": ""
+              }
+            },
+            "critic": {
+              "objections": []
+            },
+            "revision": null
           },
-          "calls": [],
+          "calls": [
+            {
+              "role": "intake",
+              "message_id": "example-1-1",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_kwgaqv2t",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 5.438
+            },
+            {
+              "role": "critic",
+              "message_id": "example-1-1",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_xsqypy71",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 2.046
+            }
+          ],
           "checks": {
             "found": true,
             "candidates": [
@@ -195,7 +369,7 @@
           "complete": true,
           "proposed_field_count": 6,
           "call_count_complete": true,
-          "extraction_method": "regex_baseline"
+          "extraction_method": "nightshift"
         }
       ],
       "actions": [],
@@ -204,8 +378,8 @@
       "received_at": "2024-05-06T12:00:00-03:00",
       "synthetic": true,
       "replay_time": "2024-05-06T14:00:00-03:00",
-      "run_id": "8226a6ae254d44c68ad7ad190a0901ff",
-      "mode": "sample_offline",
+      "run_id": "3181382f0e154465b82360352c297da7",
+      "mode": "full",
       "fields": {
         "people": {
           "value": 3,
@@ -215,30 +389,96 @@
           "value": 1,
           "quote": "1 criança"
         },
+        "street": {
+          "value": "Avenida Farrapos",
+          "quote": "Avenida Farrapos"
+        },
         "number": {
           "value": "120",
-          "quote": "número 120"
-        },
-        "risk_words": {
-          "value": "água subindo",
-          "quote": "água subindo"
+          "quote": "120"
         },
         "municipality": {
           "value": "Porto Alegre",
           "quote": "Porto Alegre"
         },
-        "street": {
-          "value": "Avenida Farrapos",
-          "quote": "Avenida Farrapos"
+        "risk_words": {
+          "value": "A água subindo.",
+          "quote": "A água subindo."
         }
       },
       "unsupported": [],
       "agents": {
-        "intake": "unavailable (offline)",
-        "critic": "unavailable (offline)",
-        "revision": "unavailable (offline)"
+        "intake": {
+          "fields": {
+            "people": {
+              "value": 3,
+              "quote": "3 pessoas"
+            },
+            "children": {
+              "value": 1,
+              "quote": "1 criança"
+            },
+            "street": {
+              "value": "Avenida Farrapos",
+              "quote": "Avenida Farrapos"
+            },
+            "number": {
+              "value": "120",
+              "quote": "120"
+            },
+            "municipality": {
+              "value": "Porto Alegre",
+              "quote": "Porto Alegre"
+            },
+            "risk_words": {
+              "value": "A água subindo.",
+              "quote": "A água subindo."
+            }
+          },
+          "model_quotes": {
+            "people": "3 pessoas",
+            "children": "1 criança",
+            "elderly": "",
+            "disabled": "",
+            "pets": "",
+            "street": "Avenida Farrapos",
+            "number": "120",
+            "municipality": "Porto Alegre",
+            "landmark": "",
+            "cross_street": "",
+            "risk": "A água subindo.",
+            "rescued": ""
+          }
+        },
+        "critic": {
+          "objections": []
+        },
+        "revision": null
       },
-      "calls": [],
+      "calls": [
+        {
+          "role": "intake",
+          "message_id": "example-1-1",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_kwgaqv2t",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 5.438
+        },
+        {
+          "role": "critic",
+          "message_id": "example-1-1",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_xsqypy71",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 2.046
+        }
+      ],
       "checks": {
         "found": true,
         "candidates": [
@@ -263,7 +503,7 @@
       "complete": true,
       "proposed_field_count": 6,
       "call_count_complete": true,
-      "extraction_method": "regex_baseline"
+      "extraction_method": "nightshift"
     },
     {
       "case_id": "42da353b81cac4e258384ae3",
@@ -277,33 +517,91 @@
           "received_at": "2024-05-06T12:00:00-03:00",
           "synthetic": true,
           "replay_time": "2024-05-06T14:00:00-03:00",
-          "run_id": "8226a6ae254d44c68ad7ad190a0901ff",
-          "mode": "sample_offline",
+          "run_id": "3181382f0e154465b82360352c297da7",
+          "mode": "full",
           "fields": {
+            "street": {
+              "value": "Avenida Farrapos",
+              "quote": "Avenida Farrapos"
+            },
             "number": {
               "value": "120",
-              "quote": "número 120"
-            },
-            "already_rescued": {
-              "value": true,
-              "quote": "já fomos resgatados"
+              "quote": "120"
             },
             "municipality": {
               "value": "Porto Alegre",
               "quote": "Porto Alegre"
             },
-            "street": {
-              "value": "Avenida Farrapos",
-              "quote": "Avenida Farrapos"
+            "already_rescued": {
+              "value": true,
+              "quote": "já fomos resgatados"
             }
           },
           "unsupported": [],
           "agents": {
-            "intake": "unavailable (offline)",
-            "critic": "unavailable (offline)",
-            "revision": "unavailable (offline)"
+            "intake": {
+              "fields": {
+                "street": {
+                  "value": "Avenida Farrapos",
+                  "quote": "Avenida Farrapos"
+                },
+                "number": {
+                  "value": "120",
+                  "quote": "120"
+                },
+                "municipality": {
+                  "value": "Porto Alegre",
+                  "quote": "Porto Alegre"
+                },
+                "already_rescued": {
+                  "value": true,
+                  "quote": "já fomos resgatados"
+                }
+              },
+              "model_quotes": {
+                "people": "",
+                "children": "",
+                "elderly": "",
+                "disabled": "",
+                "pets": "",
+                "street": "Avenida Farrapos",
+                "number": "120",
+                "municipality": "Porto Alegre",
+                "landmark": "",
+                "cross_street": "",
+                "risk": "",
+                "rescued": "já fomos resgatados"
+              }
+            },
+            "critic": {
+              "objections": []
+            },
+            "revision": null
           },
-          "calls": [],
+          "calls": [
+            {
+              "role": "intake",
+              "message_id": "example-1-3",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_80qhapc7",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 4.985
+            },
+            {
+              "role": "critic",
+              "message_id": "example-1-3",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_jr2ukt9g",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 4.609
+            }
+          ],
           "checks": {
             "found": true,
             "candidates": [
@@ -331,7 +629,7 @@
           "complete": true,
           "proposed_field_count": 4,
           "call_count_complete": true,
-          "extraction_method": "regex_baseline"
+          "extraction_method": "nightshift"
         }
       ],
       "actions": [],
@@ -340,33 +638,91 @@
       "received_at": "2024-05-06T12:00:00-03:00",
       "synthetic": true,
       "replay_time": "2024-05-06T14:00:00-03:00",
-      "run_id": "8226a6ae254d44c68ad7ad190a0901ff",
-      "mode": "sample_offline",
+      "run_id": "3181382f0e154465b82360352c297da7",
+      "mode": "full",
       "fields": {
+        "street": {
+          "value": "Avenida Farrapos",
+          "quote": "Avenida Farrapos"
+        },
         "number": {
           "value": "120",
-          "quote": "número 120"
-        },
-        "already_rescued": {
-          "value": true,
-          "quote": "já fomos resgatados"
+          "quote": "120"
         },
         "municipality": {
           "value": "Porto Alegre",
           "quote": "Porto Alegre"
         },
-        "street": {
-          "value": "Avenida Farrapos",
-          "quote": "Avenida Farrapos"
+        "already_rescued": {
+          "value": true,
+          "quote": "já fomos resgatados"
         }
       },
       "unsupported": [],
       "agents": {
-        "intake": "unavailable (offline)",
-        "critic": "unavailable (offline)",
-        "revision": "unavailable (offline)"
+        "intake": {
+          "fields": {
+            "street": {
+              "value": "Avenida Farrapos",
+              "quote": "Avenida Farrapos"
+            },
+            "number": {
+              "value": "120",
+              "quote": "120"
+            },
+            "municipality": {
+              "value": "Porto Alegre",
+              "quote": "Porto Alegre"
+            },
+            "already_rescued": {
+              "value": true,
+              "quote": "já fomos resgatados"
+            }
+          },
+          "model_quotes": {
+            "people": "",
+            "children": "",
+            "elderly": "",
+            "disabled": "",
+            "pets": "",
+            "street": "Avenida Farrapos",
+            "number": "120",
+            "municipality": "Porto Alegre",
+            "landmark": "",
+            "cross_street": "",
+            "risk": "",
+            "rescued": "já fomos resgatados"
+          }
+        },
+        "critic": {
+          "objections": []
+        },
+        "revision": null
       },
-      "calls": [],
+      "calls": [
+        {
+          "role": "intake",
+          "message_id": "example-1-3",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_80qhapc7",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 4.985
+        },
+        {
+          "role": "critic",
+          "message_id": "example-1-3",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_jr2ukt9g",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 4.609
+        }
+      ],
       "checks": {
         "found": true,
         "candidates": [
@@ -394,7 +750,7 @@
       "complete": true,
       "proposed_field_count": 4,
       "call_count_complete": true,
-      "extraction_method": "regex_baseline"
+      "extraction_method": "nightshift"
     }
   ]
 }

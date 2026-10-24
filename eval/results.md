@@ -6,9 +6,9 @@ Tuning seed: 7 (families 0–7). Held-out seeds: [101, 202]; all 15 families, in
 
 | Method | Decision accuracy | Unsupported rate | Mean s/message | Calls/message |
 |---|---:|---:|---:|---:|
-| baseline | 1.0 | 0.0 | 0.2573 | 0.0 |
-| intake | unavailable (offline) | — | — | — |
-| full | unavailable (offline) | — | — | — |
+| baseline | 1.0 | 0.0 | 0.263 | 0.0 |
+| intake | 1.0 | 0.0 | 3.1328 | 1.0 |
+| full | 0.9333 | 0.0 | 9.7422 | 2.0667 |
 
 ## Regex baseline fields
 
