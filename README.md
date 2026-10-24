@@ -94,15 +94,15 @@ python run.py serve
 ```
 
 The loader uploads signed path-style S3 objects, reads the bytes back, registers
-`OAH_S3.streets_flood_v1`, `OAH_S3.road_closures_v1`,
-`OAH_S3.messages_seed7_v1`, then checks row counts. Use a **new version** after
+`OAH_S3.streets_flood_v2`, `OAH_S3.road_closures_v2`,
+`OAH_S3.messages_seed7_v2`, then checks row counts. Use a **new version** after
 changing data; update `ZETARIS_STREETS_TABLE` accordingly. Existing-table errors
 are tolerated, but reusing a name does not update its stored S3 path. Table counts
 are recorded in `data/zetaris_tables.json` for smoke checks. S3 defaults to
 `127.0.0.1:8333` on the host and `http://oah-s3:8333` as seen by Zetaris containers.
 
 The live smoke retrieves three synthetic requests from the Zetaris message table
-(`ZETARIS_MESSAGES_TABLE`, default `messages_seed7_v1`) before running the complete
+(`ZETARIS_MESSAGES_TABLE`, default `messages_seed7_v2`) before running the complete
 pipeline with the normal Zetaris street source. Both tables therefore participate
 in the user-run sponsor integration check.
 

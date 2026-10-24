@@ -49,7 +49,9 @@ def load(version='v1', seed=7):
         options = {'PATH': f's3a://{setting("S3_BUCKET", "oah-data")}/{key}',
                    's3Endpoint': setting('S3_ENDPOINT_INTERNAL', 'http://oah-s3:8333'),
                    'useS3PathStyleAccess': 'true', 'AWSACCESSKEYID': setting('S3_ACCESS_KEY'),
-                   'AWSSECRETACCESSKEY': setting('S3_SECRET_KEY'), 'header': 'true', 'inferSchema': 'true'}
+                   'AWSSECRETACCESSKEY': setting('S3_SECRET_KEY'), 'header': 'true',
+                   # Keep values exactly as written (timestamps keep -03:00; Spark type inference dropped the offset).
+                   'inferSchema': 'false'}
         sql = f'CREATE LIGHTNING FILESTORE TABLE {table} FROM OAH_S3 FORMAT CSV OPTIONS ('
         sql += ', '.join(k+' '+sql_string(v) for k, v in options.items())+')'
         client.query(sql, allow_exists=True)
