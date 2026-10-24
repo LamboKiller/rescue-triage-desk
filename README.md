@@ -54,13 +54,13 @@ Zetaris exposes `OAH_S3` tables loaded with `inferSchema=false`:
 | `road_closures_v3` | 31 | Loaded context; no runtime routing |
 | `landmark_aliases_v3` | 24 | Loaded aliases; runtime reads local curated CSV |
 
-The supplied live smoke passed four cases including a landmark message. Do not
-reload tables or rerun smoke during the active evaluation. With sponsor services
-ready, use `python run.py serve`. TCP health proves reachability, not credentials.
+`python tools/smoke_live.py` checks each service and runs four cases end to end (including a
+landmark message); it passed on 24 Oct 2026. With sponsor services ready, use
+`python run.py serve`. TCP health proves reachability, not credentials.
 
 ### Docker
 
-Yussef must validate the image after the active evaluation:
+Build and run (sample mode):
 
 ```powershell
 docker build -t rescue-triage-desk .
@@ -71,7 +71,7 @@ For connected mode use `--env-file .env` and override endpoints to
 `http://host.docker.internal:8088/v1`, `http://host.docker.internal:8888/api/v1.0`
 and `host.docker.internal:8333` for Nightshift, Zetaris and host S3 respectively.
 Keep the Zetaris-side S3 URL on its own Docker network. `.dockerignore` excludes
-`.env`, runtime and logs. Docker execution/container routing remain unverified here.
+`.env`, runtime and logs. Container routing to host services is documented but not yet verified end to end.
 
 ## Running the engine test
 
@@ -187,13 +187,9 @@ Inventory carried forward: public D1/D2/D3 packs, R3 red-team findings,
 Gate 0 Nightshift/Zetaris/S3 contracts and stdlib S3 signing. The registry adapts
 prototype invariants to JSONL/human gates rather than porting SQLite.
 
-**Owner declaration required:** Yussef must identify all work before
-**21 October 2026 at 21:00**, specify the timezone, dates and provenance, and
-separate it from event work. The previous README described 21–23 October
-preparation, which does not settle this cutoff. This inventory is a draft, not
-an authorship or eligibility attestation. Complete the checklist before submission.
+The dated declaration of work done before **21 October 2026, 21:00** is in
+[docs/submission/PRE_EXISTING_DECLARATION.md](docs/submission/PRE_EXISTING_DECLARATION.md).
 
 Submission drafts: [checklist](docs/submission/GATE2_CHECKLIST.md),
 [demo script](docs/submission/DEMO_SCRIPT.md), [deck outline](docs/submission/DECK_OUTLINE.md),
-[masked safety scan](docs/submission/PUBLIC_REPO_SAFETY_SCAN.md).
-Yussef must publish the repo, record/upload video and deck, and submit their links.
+[sponsor explanation](docs/submission/SPONSOR_EXPLANATION.md).

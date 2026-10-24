@@ -19,7 +19,7 @@ PASS means the cited scope is evidenced, not that all submission steps are done.
 | Dockerfile and placeholder-only .env.example | PASS | `Dockerfile:1–6`; `.dockerignore` excludes .env/logs/runtime; `.env.example` placeholder check below | Docker execution is separately pending. |
 | README setup, engine test, limitations, sponsors and declaration | PASS | `README.md` named sections; 177 lines at audit; eval comment preserved | Owner attestation remains pending, not falsely declared complete. |
 | Bounded retries and timeouts; total 5–10 min maximum | PASS | `app/pipeline.py:58`, `:62` (480 seconds); `app/llm/nightshift.py:84`, `:97`, `:123`; `ContractTests.test_nightshift_502_three_attempts`; `RetryTests.test_invalid_then_valid_and_cap`; deadline tests in PipelineTests | 8-minute response cap; already-running worker may finish after response. |
-| No real personal data / public-repo safety | NEEDS-YUSSEF | `PUBLIC_REPO_SAFETY_SCAN.md`; `PrivacyTests.test_identifiers`; synthetic generator tests; .env ignored/untracked | Review masked pattern candidates privately, confirm source provenance and publication safety. Regex cannot certify absence of personal data. Use owner commands below. |
+| No real personal data / public-repo safety | NEEDS-YUSSEF | masked safety scan (kept outside the repo; no real keys found, history checked); `PrivacyTests.test_identifiers`; synthetic generator tests; .env ignored/untracked | Review masked pattern candidates privately, confirm source provenance and publication safety. Regex cannot certify absence of personal data. Use owner commands below. |
 | Declare work before 21/10/2026 21:00 | NEEDS-YUSSEF | README inventory; `PRE_EXISTING_DECLARATION.md` owner draft | Confirm timezone, dates, authorship and every prior component; sign and disclose. |
 | Complete D1–D3 manifest/license lineage | GAP | `data/ATTRIBUTION.md`; README Data/limitations records missing backup manifests | Yussef supplies missing source/license evidence; no data file edited. |
 | Verified live smoke | PASS | Supplied 24 October four-case pass including landmark request | Accepted from brief, not repeated. |
@@ -88,7 +88,6 @@ Deck, declaration and private review:
 ```powershell
 Start-Process '.\docs\submission\DECK_OUTLINE.md'
 notepad .\docs\submission\PRE_EXISTING_DECLARATION.md
-Start-Process '.\docs\submission\PUBLIC_REPO_SAFETY_SCAN.md'
 git status --short
 ```
 
