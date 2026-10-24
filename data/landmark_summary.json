@@ -1,47 +1,25 @@
 {
-  "snapshot_utc": "2026-10-24T12:48:37.916512+00:00",
-  "rows": 4191,
-  "bytes": 640979,
+  "snapshot_utc": "2026-10-24T13:42:00.004221+00:00",
+  "rows": 10,
+  "bytes": 1740,
   "failed_categories": [],
   "municipality": {
-    "Porto Alegre": 2772,
-    "Eldorado do Sul": 68,
-    "São Leopoldo": 311,
-    "Novo Hamburgo": 285,
-    "Canoas": 589,
-    "Guaíba": 166
+    "Porto Alegre": 4,
+    "Canoas": 1,
+    "Eldorado do Sul": 3,
+    "Novo Hamburgo": 1,
+    "São Leopoldo": 1
   },
   "category": {
-    "amenity:fuel": 310,
-    "place:neighbourhood": 269,
-    "place:suburb": 192,
-    "amenity:pharmacy": 328,
-    "amenity:place_of_worship": 430,
-    "amenity:fire_station": 15,
-    "leisure:stadium": 8,
-    "amenity:hospital": 75,
-    "tourism:museum": 52,
-    "amenity:school": 694,
-    "shop:supermarket": 315,
-    "amenity:police": 61,
-    "amenity:bus_station": 35,
-    "amenity:clinic": 147,
-    "amenity:community_centre": 99,
-    "tourism:attraction": 24,
-    "amenity:university": 52,
-    "amenity:marketplace": 26,
-    "amenity:townhall": 5,
-    "public_transport:station": 28,
-    "shop:mall": 82,
-    "leisure:park": 934,
-    "place:square": 10
+    "aeroway:aerodrome": 8,
+    "aeroway:terminal": 2
   },
   "famous_present": {
-    "Rodoviária": true,
-    "Arena do Grêmio": true,
-    "Beira-Rio": true,
-    "Mercado Público": true,
+    "Rodoviária": false,
+    "Arena do Grêmio": false,
+    "Beira-Rio": false,
+    "Mercado Público": false,
     "Salgado Filho": true,
-    "Hospital de Clínicas": true
+    "Hospital de Clínicas": false
   }
 }

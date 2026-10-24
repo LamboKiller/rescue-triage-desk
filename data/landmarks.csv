@@ -4190,3 +4190,13 @@ way,1566565966,Atacarejo Compre Aqui,,shop:supermarket,Porto Alegre,Belém Novo,
 way,1566571843,São João,,amenity:pharmacy,Porto Alegre,,,,-30.0181356,-51.1198379,0,0,2026-10-24T12:48:37.916512+00:00
 way,1566597447,RISSUL,,shop:supermarket,Porto Alegre,Cavalhada,Rua Silvio Silveira Soares,2357,-30.1017851,-51.2354751,0,0,2026-10-24T12:48:37.916512+00:00
 way,1566615793,PEZZI,,shop:supermarket,Porto Alegre,Menino Deus,Rua José de Alencar,1238,-30.060259,-51.2193067,0,0,2026-10-24T12:48:37.916512+00:00
+relation,5320213,Aeroporto Internacional de Porto Alegre,Aeroporto Internacional de Porto Alegre,aeroway:aerodrome,Porto Alegre,,Avenida Severo Dullius,,-29.9953655,-51.1671514,1,0,2026-10-24T13:42:00.004221+00:00
+relation,7258291,Base Aérea de Canoas,BACO,aeroway:aerodrome,Canoas,,Rua Augusto Severo,1700,-29.9416836,-51.1449267,0,0,2026-10-24T13:42:00.004221+00:00
+relation,7332388,Aeródromo de Belém Novo,Aeroporto de Belém Novo,aeroway:aerodrome,Porto Alegre,,Avenida Juca Batista,8101,-30.1878696,-51.1819578,1,0,2026-10-24T13:42:00.004221+00:00
+way,87648958,Fazenda Jacuí,,aeroway:aerodrome,Eldorado do Sul,,,,-29.9834023,-51.3016437,1,0,2026-10-24T13:42:00.004221+00:00
+way,89383738,Terminal 1,Aeroporto Internacional Salgado Filho Terminal 1,aeroway:terminal,Porto Alegre,,,,-29.9902743,-51.1755754,1,0,2026-10-24T13:42:00.004221+00:00
+way,89529755,Antigo Terminal 2,Aeroporto Internacional Salgado Filho - Terminal 2,aeroway:terminal,Porto Alegre,,,,-29.9906793,-51.1818102,1,0,2026-10-24T13:42:00.004221+00:00
+way,222957334,Aeroclube de Eldorado do Sul,,aeroway:aerodrome,Eldorado do Sul,,BR-290,km 123,-30.0514357,-51.4435077,0,0,2026-10-24T13:42:00.004221+00:00
+way,290293720,Aeroporto de Novo Hamburgo,,aeroway:aerodrome,Novo Hamburgo,,,,-29.6968623,-51.0819992,0,0,2026-10-24T13:42:00.004221+00:00
+way,290462930,Aeródromo de Eldorado do Sul,,aeroway:aerodrome,Eldorado do Sul,,,,-30.0720209,-51.411451,0,0,2026-10-24T13:42:00.004221+00:00
+way,799532454,Berge Vile,,aeroway:aerodrome,São Leopoldo,,,,-29.7302866,-51.2089419,0,0,2026-10-24T13:42:00.004221+00:00

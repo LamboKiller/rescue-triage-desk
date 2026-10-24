@@ -36,7 +36,13 @@ def main():
         table_file = ROOT/'data/zetaris_tables.json'
         if not table_file.exists():
             raise RuntimeError('Run tools/load_zetaris.py first')
-        for table, expected in json.loads(table_file.read_text()).items():
+        tables = json.loads(table_file.read_text())
+        required = [setting('ZETARIS_LANDMARKS_TABLE', 'landmarks_v3'),
+                    setting('ZETARIS_STREETS_TABLE', 'streets_flood_v3'),
+                    setting('ZETARIS_MESSAGES_TABLE', 'messages_seed7_v3')]
+        if any(table not in tables or tables[table] <= 0 for table in required):
+            raise ValueError('Register all v3 tables, including landmarks, before smoke testing')
+        for table, expected in tables.items():
             actual = int(Zetaris().query('SELECT COUNT(*) AS n FROM OAH_S3.'+identifier(table))['data'][0][0])
             if actual != expected:
                 raise ValueError('Zetaris table count mismatch')

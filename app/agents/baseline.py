@@ -16,7 +16,7 @@ def extract(text, rows):
     match('people', r'\b(\d+)\s+(?:pessoas|pesssoas)\b', lambda m: int(m[1]))
     for key, noun in [('children', 'crianças?'), ('elderly', 'idos[oa]s?'),
                       ('disabled', 'acamad[oa]s?'), ('pets', 'cachorros?|gatos?|pets?')]:
-        match(key, rf'\b(\d+)\s+{noun}\b', lambda m: int(m[1]))
+        match(key, rf'\b(\d+)\s+(?:{noun})\b', lambda m: int(m[1]))
     match('number', r'(?:n[úu]mero|n[ºo.]|nro)\s*[:=]?\s*(\d+)\b', lambda m: m[1])
     match('landmark', r'(?:perto|próximo|ao lado) d[aeo]\s+[^.;\n]+', lambda m: m[0])
     match('risk_words', r'telhado|[áa]gua subindo|[áa]gua entrou', lambda m: m[0])

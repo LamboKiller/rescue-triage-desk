@@ -27,7 +27,7 @@ class ZetarisSource:
         return Zetaris().rows(setting('ZETARIS_LANDMARKS_TABLE', 'landmarks_v3'), timeout=timeout)
 
     def streets(self, timeout=120):
-        return Zetaris().rows(setting('ZETARIS_STREETS_TABLE', 'streets_flood_v2'), timeout=timeout)
+        return Zetaris().rows(setting('ZETARIS_STREETS_TABLE', 'streets_flood_v3'), timeout=timeout)
 
     def messages(self, timeout=120):
-        return Zetaris().rows(setting('ZETARIS_MESSAGES_TABLE', 'messages_seed7_v2'), timeout=timeout)
+        return Zetaris().rows(setting('ZETARIS_MESSAGES_TABLE', 'messages_seed7_v3'), timeout=timeout)

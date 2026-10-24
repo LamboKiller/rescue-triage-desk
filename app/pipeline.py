@@ -155,7 +155,7 @@ class Pipeline:
             if needs_location:
                 guess = {'place_name': get('landmark'), 'landmark_quote': get('landmark'),
                          'municipality': get('municipality'), 'neighbourhood': ''}
-                if not self.sample and ablation != 'baseline':
+                if not self.sample and ablation == 'full':
                     try:
                         guess, meta = location_agent.run(client, message['text'], get('municipality'), deadline)
                         if get('municipality'):
@@ -165,7 +165,8 @@ class Pipeline:
                     except Exception as exc:
                         stages['location'] = 'failed'
                         errors.append('location_failed:'+safe_error(exc))
-                landmark = match_landmark(landmark_rows, **guess, replay=replay)
+                landmark = match_landmark(landmark_rows, **guess, replay=replay,
+                                          message=message['text'], streets=rows)
                 landmark['requested'] = bool(get('landmark') or guess.get('landmark_quote'))
                 if landmark_error:
                     landmark['source_error'] = landmark_error
@@ -174,7 +175,8 @@ class Pipeline:
             result = decide(fields, location, replay, message['received_at'], complete=complete,
                             cross_location=cross, landmark_location=landmark)
             if review_degraded:
-                result.update(decision='REVIEW_REQUIRED', questions=[])
+                result.update(decision='REVIEW_REQUIRED', questions=[],
+                              decision_reason='A crítica falhou; leitura inicial preservada para revisão humana.')
             if isinstance(client, Nightshift):
                 calls = client.message_calls()
             proposed = sum(len(stage.get('fields', {})) for key, stage in stages.items()

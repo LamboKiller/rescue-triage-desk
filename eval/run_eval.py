@@ -1,6 +1,9 @@
 """Synthetic held-out evaluation. Provider results are unavailable offline."""
 import argparse
 import json
+import math
+import contextlib
+import io
 import statistics
 import sys
 import time
@@ -15,7 +18,7 @@ from app.pipeline import Pipeline
 from tools.generate_messages import generate
 
 FIELDS = ('people', 'children', 'elderly', 'disabled', 'pets', 'street', 'number',
-          'municipality', 'landmark', 'risk_words', 'already_rescued', 'conflicting_counts')
+          'municipality', 'landmark', 'cross_street', 'risk_words', 'already_rescued', 'conflicting_counts')
 
 
 def score(cases, truth, seconds):
@@ -23,22 +26,68 @@ def score(cases, truth, seconds):
     counts = {k: {'tp': 0, 'fp': 0, 'fn': 0} for k in FIELDS}
     correct, unsupported, predicted, calls = 0, 0, 0, 0
     families = {}
+    critic = dict(objections=0, messages_with_objections=0, revisions=0,
+                  revisions_changed_field=0, fields_changed=0, changes_correct=0,
+                  changes_wrong=0, changes_neutral=0, failed=0)
+    landmark_correct = landmark_n = 0
+    latencies = []
+    failure_messages = failure_events = 0
     for case in cases:
         t = truth_by_id[case['message_id']]
         correct += case['result']['decision'] == t['expected_decision']
         unsupported += len(case['unsupported'])
         predicted += case.get('proposed_field_count', len(case['fields'])+len(case['unsupported']))
         calls += len(case['calls'])
-        family = str(t['template_family'])
+        family = str(t.get('template_family', 'challenge'))
+        latencies.append(case.get('seconds', 0))
+        errors = case.get('errors', [])
+        failure_messages += bool(errors or not case.get('complete', True))
+        failure_events += len(errors)
+        agents = case.get('agents', {})
+        review = agents.get('critic')
+        critic['failed'] += review == 'failed'
+        objections = review.get('objections', []) if isinstance(review, dict) else []
+        critic['objections'] += len(objections)
+        critic['messages_with_objections'] += bool(objections)
+        if isinstance(agents.get('revision'), dict):
+            critic['revisions'] += 1
+            before = case.get('initial_fields', {})
+            changed = [k for k in set(before) | set(case['fields'])
+                       if before.get(k, {}).get('value') != case['fields'].get(k, {}).get('value')]
+            critic['revisions_changed_field'] += bool(changed)
+            critic['fields_changed'] += len(changed)
+            for key in changed:
+                expected = t['expected_fields'].get(key)
+                was = equal_value(before.get(key, {}).get('value'), expected)
+                now = equal_value(case['fields'].get(key, {}).get('value'), expected)
+                label = 'correct' if now and not was else 'wrong' if was and not now else 'neutral'
+                critic['changes_'+label] += 1
+        target = t.get('expected_landmark')
+        if target is not None:
+            landmark_n += 1
+            lm = case.get('landmark_check') or {}
+            hit = lm.get('status', 'unresolved') == target['status']
+            if target['status'] == 'resolved':
+                matched = lm.get('matched') or {}
+                if target.get('osm_id'):
+                    members = matched.get('osm_members', []) + [matched]
+                    hit = hit and any(str(r.get('osm_id')) == str(target['osm_id']) and
+                                      (not target.get('osm_type') or r.get('osm_type') == target['osm_type'])
+                                      for r in members)
+                elif target.get('name'):
+                    names = [matched.get('name', '')] + matched.get('alt_names', '').split('|')
+                    hit = hit and any(equal_value(name, target['name']) for name in names)
+            landmark_correct += hit
+        else:
+            # Decision proxy is explicitly labelled and never treated as place identity.
+            landmark_correct += case['result']['decision'] == t['expected_decision']
         f = families.setdefault(family, {'correct': 0, 'n': 0})
         f['n'] += 1
         f['correct'] += case['result']['decision'] == t['expected_decision']
         for key in FIELDS:
             actual = case['fields'].get(key, {}).get('value')
             expected = t['expected_fields'].get(key)
-            equal = actual == expected
-            if isinstance(actual, str) and isinstance(expected, str):
-                equal = normalize(actual) == normalize(expected)
+            equal = equal_value(actual, expected)
             counts[key]['tp'] += actual is not None and expected is not None and equal
             counts[key]['fp'] += actual is not None and (expected is None or not equal)
             counts[key]['fn'] += expected is not None and (actual is None or not equal)
@@ -47,12 +96,39 @@ def score(cases, truth, seconds):
         r = c['tp']/(c['tp']+c['fn']) if c['tp']+c['fn'] else 0
         c.update(precision=round(p, 4), recall=round(r, 4), f1=round(2*p*r/(p+r), 4) if p+r else 0)
     n = len(cases)
-    return {'n': n, 'fields': counts, 'decision_accuracy': round(correct/n, 4),
+    return {'n': n, 'fields': counts, 'decision_accuracy': round(correct/n, 4) if n else 0,
             'unsupported_claim_rate': round(unsupported/predicted, 4) if predicted else 0,
             'unsupported_definition': 'schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth',
-            'mean_seconds_per_message': round(seconds/n, 4),
-            'mean_calls_per_message': round(calls/n, 4) if all(c.get('call_count_complete', True) for c in cases) else None,
+            'mean_seconds_per_message': round(statistics.mean(latencies), 4) if n else 0,
+            'p90_seconds_per_message': round(sorted(latencies)[max(0, math.ceil(.9*n)-1)], 4) if n else 0,
+            'amortized_wall_seconds_per_message': round(seconds/n, 4) if n else 0,
+            'landmark_resolution_accuracy': round(landmark_correct/n, 4) if n else 0,
+            'landmark_identity_messages': landmark_n,
+            'landmark_decision_proxy_messages': n-landmark_n,
+            'landmark_definition': 'Identity/status on labelled landmarks; expected-decision proxy otherwise',
+            'critic': critic, 'failures': failure_messages, 'failure_events': failure_events,
+            'mean_calls_per_message': round(calls/n, 4) if n and all(c.get('call_count_complete', True) for c in cases) else None,
             'families': families}
+
+
+
+def equal_value(actual, expected):
+    if isinstance(actual, str) and isinstance(expected, str):
+        return normalize(actual) == normalize(expected)
+    return actual == expected
+
+
+def datasets(seeds, n, rows):
+    messages, labels = [], []
+    for seed in seeds:
+        generated, truth = generate(seed, n, rows)
+        messages.extend(generated)
+        labels.extend(truth)
+    challenge = [json.loads(line) for line in (ROOT/'eval/challenge_set.jsonl').read_text(encoding='utf-8').splitlines() if line.strip()]
+    truth = json.loads((ROOT/'eval/challenge_truth.json').read_text(encoding='utf-8'))
+    if {m['message_id'] for m in challenge} != {t['message_id'] for t in truth}:
+        raise ValueError('Challenge messages and labels differ')
+    return {'generated': (messages, labels), 'challenge': (challenge, truth)}
 
 
 def main():
@@ -65,55 +141,61 @@ def main():
     if not 1 <= args.n <= 15:
         parser.error('--n must be 1..15')
     seeds = [int(s) for s in args.seeds.split(',')]
-    if 7 in seeds:
-        parser.error('Seed 7 is tuning data; use held-out seeds')
-    rows = LocalSource().streets()
-    results = {'mode': 'offline' if args.offline else 'live', 'tuning_seeds': [7], 'test_seeds': seeds,
-               'held_out_template_families': [8, 9, 10, 11, 12, 13, 14],
-               'limitations': 'Synthetic text-supported truth only; real-message accuracy UNMEASURED. '
-                              'No claim that the critic improves accuracy without live ablations. '
-                              'Seeds vary counts, streets and vulnerabilities; request-rate assumptions are not validated.',
-               'ablations': {}}
-    for ablation in ('baseline', 'intake', 'full'):
-        if args.offline and ablation != 'baseline':
-            results['ablations'][ablation] = {'status': 'unavailable (offline)'}
-            continue
-        all_cases, all_truth, elapsed = [], [], 0
-        for seed in seeds:
-            messages, truth = generate(seed, args.n, rows)
-            reg = Registry(ROOT/'runtime'/('eval_'+uuid.uuid4().hex+'.jsonl'))
-            pipeline = Pipeline(reg, sample=(ablation == 'baseline'))
-            start = time.monotonic()
-            output = pipeline.run({'replay_time': '2024-05-06T14:00:00-03:00', 'messages': messages}, ablation=ablation)
-            elapsed += time.monotonic()-start
-            all_cases.extend(output['cases'])
-            all_truth.extend(truth)
-        result = score(all_cases, all_truth, elapsed)
-        result['status'] = 'measured'
-        result['partial_messages'] = sum(not c['complete'] for c in all_cases)
-        results['ablations'][ablation] = result
-    output = ROOT/'eval'
-    (output/'results.json').write_text(json.dumps(results, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')
-    lines = ['# V1 synthetic evaluation', '', results['limitations'], '',
-             f'Tuning seed: 7 (families 0–7). Held-out seeds: {seeds}; all 15 families, including held-out families 8–14.', '',
-             '| Method | Decision accuracy | Unsupported rate | Mean s/message | Calls/message |',
-             '|---|---:|---:|---:|---:|']
-    for method, result in results['ablations'].items():
-        if result['status'] != 'measured':
-            lines.append(f'| {method} | unavailable (offline) | — | — | — |')
-        else:
-            lines.append(f'| {method} | {result["decision_accuracy"]} | {result["unsupported_claim_rate"]} | {result["mean_seconds_per_message"]} | {result["mean_calls_per_message"]} |')
-    base = results['ablations']['baseline']
-    lines.extend(['', '## Regex baseline fields', '', '| Field | Precision | Recall | F1 |', '|---|---:|---:|---:|'])
-    for key, values in base['fields'].items():
-        lines.append(f'| {key} | {values["precision"]} | {values["recall"]} | {values["f1"]} |')
-    lines.extend(['', 'Unsupported rate counts span/schema/value rejections; semantic errors are reflected in field metrics.',
-                  'The offline baseline emits only literal spans, so a zero rejection rate is expected and does not imply correctness.',
-                  'Wall time/message is amortized run time, including deterministic tools and registry; provider retries are in traces.',
-                  'Detailed counts and per-template decision accuracy are in results.json.', ''])
-    (output/'results.md').write_text('\n'.join(lines), encoding='utf-8')
+    if 7 in seeds or len(set(seeds)) != len(seeds):
+        parser.error('Use distinct held-out seeds; seed 7 is tuning data')
+    results = {'mode':'offline' if args.offline else 'live', 'tuning_seeds':[7], 'test_seeds':seeds,
+               'limitations':'Author-written synthetic truth; native review pending. Real-message accuracy unmeasured. '
+                              'No evidence of critic benefit without live ablations. Landmark scores use a decision proxy '
+                              'when identity/status labels are absent. The supplied snapshot has no Salgado Filho airport.',
+               'sets':{}}
+    for name, (messages, truth) in datasets(seeds, args.n, LocalSource().streets()).items():
+        methods = results['sets'][name] = {}
+        for method in ('baseline', 'intake', 'full'):
+            if args.offline and method != 'baseline':
+                methods[method] = {'status':'unavailable (offline)'}
+                continue
+            cases, elapsed = [], 0
+            for offset in range(0, len(messages), 15):
+                registry = Registry(ROOT/'runtime'/('eval_'+uuid.uuid4().hex+'.jsonl'))
+                pipeline = Pipeline(registry, sample=(method == 'baseline'))
+                start = time.monotonic()
+                with contextlib.redirect_stdout(io.StringIO()):
+                    output = pipeline.run({'replay_time':'2024-05-06T14:00:00-03:00',
+                                           'messages':messages[offset:offset+15]}, ablation=method)
+                elapsed += time.monotonic()-start
+                cases.extend(output['cases'])
+            methods[method] = dict(score(cases, truth, elapsed), status='measured',
+                                   partial_messages=sum(not c['complete'] for c in cases))
+            print(name+' / '+method+': '+str(len(cases))+' messages measured')
+    (ROOT/'eval/results.json').write_text(json.dumps(results, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')
+    lines = ['# V1.2 synthetic evaluation', '', results['limitations'], '',
+             'Generated held-out seeds: '+str(seeds)+'. Challenge texts are unchanged.', '',
+             'Mean and nearest-rank p90 use per-message processing time; amortized batch wall time is separate.',
+             'Unsupported rate is rejected schema/span/value proposals divided by all proposals, not semantic truth.',
+             'Critic change outcomes count changed fields against truth, including removed fields.', '']
+    for name, methods in results['sets'].items():
+        lines.extend(['## '+name, '', '| Method | Decision | Landmark* | Unsupported | Calls/msg | Mean s | p90 s | Failures |',
+                      '|---|---:|---:|---:|---:|---:|---:|---:|'])
+        for method, result in methods.items():
+            if result['status'] != 'measured':
+                lines.append('| '+method+' | unavailable (offline) | - | - | - | - | - | - |')
+                continue
+            keys = ('decision_accuracy','landmark_resolution_accuracy','unsupported_claim_rate',
+                    'mean_calls_per_message','mean_seconds_per_message','p90_seconds_per_message','failures')
+            lines.append('| '+method+' | '+' | '.join(str(result[k]) for k in keys)+' |')
+        for method, result in methods.items():
+            if result['status'] != 'measured':
+                continue
+            lines.extend(['', '### '+method+' fields', '', '| Field | P | R | F1 |', '|---|---:|---:|---:|'])
+            for key, values in result['fields'].items():
+                lines.append('| '+key+' | '+' | '.join(str(values[k]) for k in ('precision','recall','f1'))+' |')
+            lines.extend(['', 'Critic: '+json.dumps(result['critic'], sort_keys=True)+'.',
+                          'Landmark identity/status labels: '+str(result['landmark_identity_messages'])+
+                          '; expected-decision proxies: '+str(result['landmark_decision_proxy_messages'])+'.', ''])
+    lines.extend(['*Landmark combines labelled identity/status accuracy with decision proxies, explicitly counted above.',
+                  'Detailed family metrics, failures, wall time and critic counts are in results.json.', ''])
+    (ROOT/'eval/results.md').write_text('\n'.join(lines), encoding='utf-8')
     print('Evaluation written: eval/results.md and eval/results.json')
-    print('baseline decision accuracy:', base['decision_accuracy'])
 
 
 if __name__ == '__main__':

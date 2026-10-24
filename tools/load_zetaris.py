@@ -1,7 +1,7 @@
 """Upload versioned CSVs to S3, register Zetaris tables and verify counts.
 
 Never print SQL, credentials or raw provider errors. Reuse a version only for
-identical bytes; choose --version v2 after changing a source file.
+identical bytes; choose a new version after changing a source file.
 """
 import argparse
 import csv
@@ -23,12 +23,14 @@ def sql_string(value):
     return '"'+value+'"'
 
 
-def load(version='v1', seed=7):
+def load(version='v3', seed=7):
     identifier(version)
     client, s3 = Zetaris(), S3()
     s3.request('PUT', create_bucket=True)
     client.query('CREATE LIGHTNING DATABASE OAH_S3 DESCRIBE BY "Rescue_Triage_Desk_V1"', allow_exists=True)
     payloads = []
+    if not (ROOT/'data/landmarks.csv').exists():
+        raise FileNotFoundError('Landmark snapshot required before registering tables')
     for path in sorted((ROOT/'data').glob('*.csv')):
         payloads.append((path.stem+'_'+version, path.read_bytes()))
     sample = ROOT/f'data/sample/messages_seed{seed}.jsonl'
@@ -69,7 +71,7 @@ def load(version='v1', seed=7):
 if __name__ == '__main__':
     load_env()
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', default='v1')
+    parser.add_argument('--version', default='v3')
     parser.add_argument('--seed', type=int, default=7)
     args = parser.parse_args()
     try:

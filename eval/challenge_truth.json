@@ -19,7 +19,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Estação Rodoviária de Porto Alegre"
+      "name": "Estação Rodoviária Central",
+      "osm_type": "way",
+      "osm_id": "236479491"
     }
   },
   {
@@ -41,7 +43,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Arena do Grêmio"
+      "name": "Arena do Grêmio",
+      "osm_type": "way",
+      "osm_id": "298169448"
     }
   },
   {
@@ -62,7 +66,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Mercado Público"
+      "name": "Mercado Público de Porto Alegre",
+      "osm_type": "way",
+      "osm_id": "69749641"
     }
   },
   {
@@ -84,7 +90,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Beira-Rio"
+      "name": "Estádio José Pinheiro Borda",
+      "osm_type": "relation",
+      "osm_id": "4587043"
     }
   },
   {
@@ -105,7 +113,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Hospital de Clínicas"
+      "name": "Hospital de Clínicas",
+      "osm_type": "way",
+      "osm_id": "126014206"
     }
   },
   {
@@ -127,7 +137,8 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Salgado Filho"
+      "name": "Salgado Filho",
+      "basis": "Text identifies Salgado Filho airport; absent from the supplied OSM snapshot. Keep resolved as the desired outcome, not school or railway station."
     }
   },
   {
@@ -149,7 +160,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "ParkShopping Canoas"
+      "name": "ParkShopping Canoas",
+      "osm_type": "way",
+      "osm_id": "473639921"
     }
   },
   {
@@ -438,7 +451,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Mercado Público"
+      "name": "Mercado Público de Porto Alegre",
+      "osm_type": "way",
+      "osm_id": "69749641"
     }
   },
   {
@@ -531,7 +546,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Beira-Rio"
+      "name": "Estádio José Pinheiro Borda",
+      "osm_type": "relation",
+      "osm_id": "4587043"
     }
   },
   {
@@ -572,7 +589,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "ParkShopping Canoas"
+      "name": "ParkShopping Canoas",
+      "osm_type": "way",
+      "osm_id": "473639921"
     }
   },
   {
@@ -705,7 +724,9 @@
     "basis": "Author-labelled text support. Omitted fields are unknown; explicit negations are zero/false.",
     "expected_landmark": {
       "status": "resolved",
-      "name": "Estação Rodoviária de Porto Alegre"
+      "name": "Estação Rodoviária Central",
+      "osm_type": "way",
+      "osm_id": "236479491"
     }
   },
   {

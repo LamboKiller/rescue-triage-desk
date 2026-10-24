@@ -55,7 +55,12 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     if v('already_rescued', False) and age >= 0:
         decision = 'REPORTED_RESCUED'
         questions.append('O resgate foi confirmado por uma equipe em campo?')
+    reason = ('Resgate relatado no texto; aguarda confirmação em campo.' if decision == 'REPORTED_RESCUED' else
+              'Dados pendentes: ' + ' '.join(questions) if questions else
+              'Local por ponto de referência e contagem de pessoas informados; confirmar o local com a pessoa.' if resolved else
+              'Rua e número ou cruzamento e contagem de pessoas informados; confirmar o local com a pessoa.')
     return {'decision': decision, 'priority': priority, 'questions': questions,
+            'decision_reason': reason,
             'age_hours': round(age, 2), 'conflicting_counts': conflict,
             'location_confidence': 'local por ponto de referência — confirmar com a pessoa' if resolved else
                 ('rua no cadastro; confirmar com pessoa' if location['found'] else 'insuficiente')}

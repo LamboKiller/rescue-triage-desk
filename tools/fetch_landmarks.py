@@ -16,7 +16,8 @@ from tools.prepare_data import CITIES, DATES, Index
 FILTERS = {
     'amenity': 'bus_station|hospital|clinic|school|university|place_of_worship|marketplace|fire_station|police|townhall|community_centre|pharmacy|fuel',
     'shop': 'supermarket|mall', 'public_transport': 'station', 'railway': 'station',
-    'leisure': 'stadium|park', 'place': 'square|neighbourhood|suburb', 'tourism': 'attraction|museum'}
+    'leisure': 'stadium|park', 'place': 'square|neighbourhood|suburb', 'tourism': 'attraction|museum',
+    'aeroway': 'aerodrome|terminal'}
 ENDPOINTS = ('https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter')
 COLUMNS = ['osm_type', 'osm_id', 'name', 'alt_names', 'category', 'municipality', 'neighbourhood',
            'street', 'housenumber', 'lat', 'lon'] + ['in_water_'+d for d in DATES] + ['snapshot_utc']

@@ -58,8 +58,8 @@ Edit `.env` locally with your keys and set `SAMPLE_MODE=false` (also remove any
 conflicting `$env:SAMPLE_MODE`). Gate 0 supplied these service contracts; no live
 call was possible in the build sandbox.
 
-* **Nightshift** is the primary and only AI provider. It uses exactly
-  `nvidia/nemotron-3.5-lightning-30b-a3b`, thinking ON, `max_tokens=2000`, one
+* **Nightshift** is the primary and only AI provider. The requested model is
+  `nvidia/nemotron-3.5-lightning-30b-a3b`, thinking ON, `max_tokens=6000`, one
   message per call, three concurrent workers, `meterless-app: rescue-triage-desk`
   and `meterless-scope: user`. Do not use `meterless/auto` or `/no_think`.
   Every attempt logs requested model, actual `meterless.routed_model`, receipt,
@@ -86,7 +86,7 @@ call was possible in the build sandbox.
 Run these after filling `.env` (the loader writes local S3 objects and tables):
 
 ```powershell
-python tools/load_zetaris.py --version v1 --seed 7
+python tools/load_zetaris.py --version v3 --seed 7
 python tools/smoke_live.py
 python tools/make_examples.py
 python eval/run_eval.py
@@ -94,15 +94,15 @@ python run.py serve
 ```
 
 The loader uploads signed path-style S3 objects, reads the bytes back, registers
-`OAH_S3.streets_flood_v2`, `OAH_S3.road_closures_v2`,
-`OAH_S3.messages_seed7_v2`, then checks row counts. Use a **new version** after
+`OAH_S3.streets_flood_v3`, `OAH_S3.road_closures_v3`,
+`OAH_S3.messages_seed7_v3`, and `OAH_S3.landmarks_v3`, then checks row counts. Use a **new version** after
 changing data; update `ZETARIS_STREETS_TABLE` accordingly. Existing-table errors
 are tolerated, but reusing a name does not update its stored S3 path. Table counts
 are recorded in `data/zetaris_tables.json` for smoke checks. S3 defaults to
 `127.0.0.1:8333` on the host and `http://oah-s3:8333` as seen by Zetaris containers.
 
 The live smoke retrieves three synthetic requests from the Zetaris message table
-(`ZETARIS_MESSAGES_TABLE`, default `messages_seed7_v2`) before running the complete
+(`ZETARIS_MESSAGES_TABLE`, default `messages_seed7_v3`) before running the complete
 pipeline with the normal Zetaris street source. Both tables therefore participate
 in the user-run sponsor integration check.
 
@@ -134,8 +134,8 @@ from contemporaneous priority** (`in_water_by_date=null`). The OSM snapshot is
 June 15, later than the replay: a name match is retrospective context, never
 proof of an address available to responders at the time. There is no permanent
 water mask, depth or route safety. May 8 has different coverage: no water match
-does not mean recession or safety. D1 POIs have no names; landmark-only input
-requires a callback. Shelter open status and local outages remain unknown.
+does not mean recession or safety. D1 POIs have no names; a separate named OSM
+landmark snapshot supports landmark-only input. Shelter open status and local outages remain unknown.
 
 See [attribution](data/ATTRIBUTION.md). The supplied backup lacks the promised
 D1–D3 manifests/reports. The surviving layer inventory does identify UFRGS source
@@ -212,12 +212,67 @@ separately and is never read by runtime extraction. Request rates and vulnerabil
 mix are assumptions; real street grounding does not validate those assumptions.
 
 `eval/results.md` and `.json` report per-field P/R/F1, decision accuracy,
-unsupported-claim rejection rate, mean wall seconds and calls/message, and family
+unsupported-claim rejection rate, mean/p90 seconds and calls/message, and family
 breakdowns. Offline measures **only regex baseline**; intake-only and full
-Intake/Critic/Revision are unavailable. Run without `--offline` for actual live
+Intake/Critic/Revision/Location are unavailable. Run without `--offline` for actual live
 ablations. Accuracy is on synthetic text-supported labels; **real-message
 accuracy is UNMEASURED**, and critic benefit is UNMEASURED until live evaluation.
 There is no claim of outcomes, responder benefit or real-world validity.
+
+## Named landmarks and review limits
+
+`data/landmarks.csv` contains 4,191 named OpenStreetMap features in six RS
+municipalities, fetched by the project owner via Overpass. OSM data is licensed
+under ODbL; query and snapshot timestamps are in [ATTRIBUTION](data/ATTRIBUTION.md).
+This October 2026 snapshot is retrospective relative to the May 2024 replay.
+No new landmark fetch was performed for V1.2. The supplied CSV lacks a Salgado
+Filho airport feature, despite the earlier brief's inventory; airport queries
+remain unresolved rather than being routed to the school with that name.
+
+LocalSource reads that CSV in sample mode; normal mode reads Zetaris
+`landmarks_v3`. Register all source CSVs together with `--version v3` and update
+existing `.env` table settings as shown in `.env.example`. The live smoke requires
+a nonempty landmark table and checks its registered row count.
+
+Matching requires a municipality. Equal normalized primary names within 400 m
+collapse into one place, preferring relation, then way, then node; distant places
+remain distinct. Scores rank full equality (100), all query tokens in a name (90),
+token-set similarity at least 0.8 (82+similarity), then partial matches (55).
+Street context uses address columns and the streets table; bairro names use the
+address column and named suburb/neighbourhood rows. Category hints and known
+short names distinguish hospitals, stadiums and public places from namesakes;
+sub-facilities are penalized unless named. A match needs at least 82 points and
+a 7-point lead. Generic names remain ambiguous, with up to three distinct places.
+Ambiguous or missing references trigger a place/bairro callback. Resolved public
+places need no house number, but still require human location confirmation.
+The detail view shows the location agent, place metadata, OSM link, candidates
+and decision reason. Name matching and proximity are heuristics: duplicate
+features with different names, missing addresses and multiple context hints can
+still require review. No household coordinates, safe route or live water depth
+are inferred.
+
+The [challenge set](eval/CHALLENGE_README.md) contains 40 author-written synthetic
+Portuguese requests, separate from generated held-out seeds 101 and 202. Native
+speaker review is pending; its texts were preserved in V1.2. Truth now includes
+canonical OSM identities where present; the missing airport remains an explicit
+expected resolved place, so its failure stays visible. Evaluation runs baseline,
+intake-only and full intake/critic/revision/location on both sets, in batches of
+at most 15. Every measured method reports field P/R/F1, decisions, landmark
+identity/status or an explicitly counted decision proxy, unsupported rate,
+critic objections and field change outcomes, calls, mean/p90 message latency
+and failures. Offline agents are unavailable. Generated templates are easy and
+challenge labels are synthetic; neither measures real rescue performance.
+
+Nightshift races Lightning 30B and Nemotron 3.5 Super VL 120B lanes. The receipt's
+`routed_model` identifies the winning lane, not necessarily the requested model.
+Streaming stays enabled to avoid the provider deadline. Short prompts ask models
+to copy evidence; deterministic code derives values. Empty or unparseable JSON
+is retried once within the overall retry/deadline cap; per-call timeout is
+`NIGHTSHIFT_CALL_TIMEOUT` (75 seconds by default). A failed critic preserves the
+intake fields, records `review_degraded`, and forces `REVIEW_REQUIRED`. It cannot
+be approved for dispatch until a fresh eligible case is produced. Provider
+failures and missing source data remain visible; no live measurements were made
+as part of the offline V1.2 verification.
 
 ## Docker and pre-existing work
 

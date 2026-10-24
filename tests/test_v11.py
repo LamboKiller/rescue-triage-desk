@@ -40,7 +40,8 @@ class LandmarkTests(unittest.TestCase):
         self.assertIsNone(match(rows, landmark_quote="rodoviaria", municipality="Porto Alegre", replay="2024-05-05")["observed_date"])
 
     def test_ambiguity_neighbourhood_and_city(self):
-        a, b = place("Escola Aurora", "1"), place("Escola Aurora", "2")
+        a = place("Escola Aurora", "1", category="amenity:school")
+        b = place("Escola Aurora", "2", category="amenity:school", lat="-30.02")
         b["neighbourhood"] = "Norte"
         self.assertEqual(match([a,b], "Escola Aurora", municipality="Porto Alegre")["status"], "ambiguous")
         self.assertEqual(match([a,b], "Escola Aurora", municipality="Porto Alegre", neighbourhood="Norte")["matched"]["osm_id"], "2")
@@ -48,7 +49,7 @@ class LandmarkTests(unittest.TestCase):
         self.assertEqual(match([a], "Escola Aurora")["status"], "unresolved")
 
     def test_token_set_and_top_three(self):
-        rows = [place("Escola Municipal Jardim das Flores", str(i)) for i in range(5)]
+        rows = [place("Escola Municipal Jardim das Flores", str(i), category="amenity:school", lat=str(-30-i*.02)) for i in range(5)]
         result = match(rows, "Escola Municipal Jardim Flores", municipality="Porto Alegre")
         self.assertEqual(result["status"], "ambiguous")
         self.assertEqual(len(result["candidates"]), 3)
@@ -61,7 +62,7 @@ class LandmarkTests(unittest.TestCase):
         self.assertEqual(result["decision"], "SEND_CANDIDATE")
         self.assertEqual(result["questions"], [])
         self.assertIn("ponto de referência", result["location_confidence"])
-        lm = match([place(),place(oid="2")], "Rodoviária de Porto Alegre", municipality="Porto Alegre")
+        lm = match([place(),place(oid="2", lat="-30.02")], "Rodoviária de Porto Alegre", municipality="Porto Alegre")
         result = decide(fields, location, TIME, TIME, landmark_location=lm)
         self.assertEqual(result["decision"], "CALLBACK")
         self.assertIn("Rodoviária", result["questions"][0])

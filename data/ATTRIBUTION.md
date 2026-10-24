@@ -65,3 +65,12 @@ May 8 coverage differs substantially; zero overlap never establishes recession.
 [out:json][timeout:180];(nwr["name"]["tourism"~"^(attraction)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
 [out:json][timeout:180];(nwr["name"]["tourism"~"^(museum)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
 ```
+
+## Named landmarks snapshot 2026-10-24T13:42:00.004221+00:00
+
+© OpenStreetMap contributors; ODbL 1.0 (https://www.openstreetmap.org/copyright). Current Overpass snapshot is retrospective relative to May 2024; names and geometry may have changed. Way/relation centers are representative points, not entrances. Membership uses the same census and observed-water layers and indexed point-in-polygon code as prepare_data (holes respected). Unknown publication times exclude water flags from contemporaneous priority. Features whose center is outside census coverage are excluded. Queries:
+
+```overpass
+[out:json][timeout:180];(nwr["name"]["aeroway"~"^(aerodrome)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+[out:json][timeout:180];(nwr["name"]["aeroway"~"^(terminal)$"](-30.35,-51.7,-29.55,-50.98););out tags center;
+```
