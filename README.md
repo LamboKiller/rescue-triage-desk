@@ -1,301 +1,199 @@
-# Rescue Triage Desk — V1
+# Rescue Triage Desk
 
-An explainable rescue-request queue for a dispatcher replaying the May 2024
-floods in Porto Alegre and five nearby municipalities. Messy Brazilian Portuguese
-messages become quoted facts, a visible critique, deterministic checks and a
-proposal for a human to review. **Every dispatch approval requires a human and a
-human-confirmed location.** The application records decisions; it sends no orders
-to external rescue teams.
+A Portuguese dispatcher desk for rescue-message replay from the May 2024 Rio
+Grande do Sul floods. It produces evidence-linked cases, checks places and counts
+with code, and requires human approval. This is a retrospective demonstration.
 
-All request texts are **synthetic**, including pasted demo inputs. No real rescue
-requests are included. The UI is Portuguese; code and documentation are English.
-V1 includes no deduplication, map routing, outage inference or shelter hand-off.
+Message → Intake → Critic → at most one Revision → Location agent → deterministic
+checks → World Model registry → dispatcher review. The LLM interprets language;
+code validates evidence, joins context, counts and ranks. No automatic real dispatch
+or safe-route solver exists.
 
-```text
-POST /run or CLI JSON (at most 15 synthetic messages)
-  → identifier redaction
-  → Intake: one message → quoted extraction
-  → code: schema, quote and literal value checks
-  → Critic: objections against extraction and text
-  → if objections: exactly one Intake revision → span checks again
-  → tools: Zetaris street lookup + as-of date gate + count checks
-  → deterministic priority and SEND_CANDIDATE / CALLBACK / REPORTED_RESCUED
-  → World Model append-only registry → Portuguese queue → human actions
-```
+## Setup
 
-Models extract and critique. They never calculate totals, perform geometry or
-joins, score priority, mutate state, or make final dispatch decisions. Untrusted
-message data is delimited in each prompt. Span checks and human gates remain
-necessary: delimiters alone do not guarantee model resistance to injection.
-
-## Windows setup (no packages to install)
-
-1. Install Python **3.12**, then open PowerShell in this repository. Check it:
-   `python --version`. No `pip install` is needed. The build sandbox only provided
-   Python 3.11.16; its test results do not establish Python 3.12 or Docker execution.
-2. Copy settings: `Copy-Item .env.example .env`. Keep `SAMPLE_MODE=true` initially.
-3. Run `python -m unittest discover -s tests -v`.
-4. Run `python run.py --sample --input examples/input_01.json`.
-5. Run `python run.py serve` and open http://localhost:8080. Paste a fictional
-   message, inspect its evidence, confirm its location and approve a candidate.
-   To use a different port: `$env:PORT='8090'` before starting the server.
-
-The optional `.env` parser supports `KEY=value`, surrounding quotes and comment
-lines; existing environment variables take precedence. Do not put secrets in
-commands, screenshots, tracked files or chat. `runtime/` holds registry events;
-`logs/` holds per-run JSONL. Both are gitignored. Restarting rebuilds the queue
-from `runtime/events.jsonl`; back up this file before resetting a demo.
-
-**SAMPLE_MODE** never contacts Nightshift, Zetaris or S3. It recomputes fields
-using the explicitly limited regex baseline over current input, and tools over
-the real derived CSV. Every agent role is `unavailable (offline)`; no LLM answers
-are cached or invented. Negations, word counts and indirect speech often exceed
-the baseline. Offline output demonstrates tooling, not working agents.
-
-## Connected mode and sponsor use
-
-Edit `.env` locally with your keys and set `SAMPLE_MODE=false` (also remove any
-conflicting `$env:SAMPLE_MODE`). Gate 0 supplied these service contracts; no live
-call was possible in the build sandbox.
-
-* **Nightshift** is the primary and only AI provider. The requested model is
-  `nvidia/nemotron-3.5-lightning-30b-a3b`, thinking ON, `max_tokens=6000`, one
-  message per call, three concurrent workers, `meterless-app: rescue-triage-desk`
-  and `meterless-scope: user`. Do not use `meterless/auto` or `/no_think`.
-  Every attempt logs requested model, actual `meterless.routed_model`, receipt,
-  route kind, seconds and status to JSONL and stdout. Hidden reasoning, input
-  texts, provider response bodies and credentials are not traced. The UI shows
-  successful stage metadata; failed attempt details are in the JSONL.
-* **Zetaris** is the normal-mode data layer. `ZetarisSource` queries the versioned
-  streets table through `/sql-editor/sqls/run`; it never silently falls back to
-  local CSV in normal mode. A failed source yields honest partial CALLBACK cases.
-  Seeded message tables and road closures are also registered and verified by SQL.
-  Road closures are context data, never evidence that a rescue route is passable.
-* **World Model** is our own Python behavioral implementation adapted from the
-  preparation prototype. The queue and human action API read it directly. It
-  serializes JSONL appends with thread and OS advisory locks, flushes/fsyncs,
-  enforces optimistic versions, retains conflicting/stale observations, and
-  rebuilds from its log. Idempotent delivery uses message ID + redacted text hash.
-  A changed replay or extraction is a separate analysis event; new text invalidates
-  prior location confirmation/approval. Human transitions are proposed →
-  human_approved → dispatched → field_confirmed; reported rescue stays unconfirmed.
-  Run `python -m unittest discover -s tests -p test_core.py -v` for engine evidence,
-  including ten concurrent writers, duplicate deliveries and zero lost updates.
-  This is behavioral evidence, not certified upstream conformance or crash recovery.
-
-Run these after filling `.env` (the loader writes local S3 objects and tables):
+Python 3.12 is the Docker target; only the standard library is used. No pip install
+is needed. Fresh local verification is in the [checklist](docs/submission/GATE2_CHECKLIST.md).
+In PowerShell at the repository root:
 
 ```powershell
-python tools/load_zetaris.py --version v3 --seed 7
-python tools/smoke_live.py
-python tools/make_examples.py
-python eval/run_eval.py
-python run.py serve
+Copy-Item .env.example .env
+python -m unittest discover -s tests
+python run.py --sample --input examples/input_01.json
+python run.py --sample serve
 ```
 
-The loader uploads signed path-style S3 objects, reads the bytes back, registers
-`OAH_S3.streets_flood_v3`, `OAH_S3.road_closures_v3`,
-`OAH_S3.messages_seed7_v3`, and `OAH_S3.landmarks_v3`, then checks row counts. Use a **new version** after
-changing data; update `ZETARIS_STREETS_TABLE` accordingly. Existing-table errors
-are tolerated, but reusing a name does not update its stored S3 path. Table counts
-are recorded in `data/zetaris_tables.json` for smoke checks. S3 defaults to
-`127.0.0.1:8333` on the host and `http://oah-s3:8333` as seen by Zetaris containers.
+Open http://localhost:8080, paste a fictional message, keep the replay timestamp
+with timezone and click **Analisar pedido**. Do not submit real personal data.
+The server binds `0.0.0.0:8080`; use a trusted local network.
 
-The live smoke retrieves three synthetic requests from the Zetaris message table
-(`ZETARIS_MESSAGES_TABLE`, default `messages_seed7_v3`) before running the complete
-pipeline with the normal Zetaris street source. Both tables therefore participate
-in the user-run sponsor integration check.
+`SAMPLE_MODE=true` or `--sample` uses local CSVs and recomputes fields from input.
+It needs no Nightshift, Zetaris or external network and never reads saved answers
+or truth labels. Agent panels say unavailable offline: this demonstrates the regex
+baseline and deterministic checks, not Nemotron. CLI/server writes registry state.
 
-Calls have a 180-second client timeout (clipped to remaining run budget), at
-most two retries on 502/timeout with bounded backoff, and an eight-minute run
-deadline. Deadline expiry returns partial cases rather than fabricated output.
-Late network workers cannot mutate the registry, and a shared semaphore caps
-active calls at three. One run is accepted per desk process at a time. A provider
-that dribbles bytes could outlive its socket timeout; the response deadline still
-returns without waiting for that worker. There is no background model auto-dispatch.
+### Connected setup
 
-## Data and no hindsight
+After the active evaluation ends, configure `.env` locally with credentials,
+the local Zetaris organization ID and `SAMPLE_MODE=false`. Never publish that file.
 
-Committed CSVs are derived from real public layers. Rebuild with
-`python tools/prepare_data.py`; override `--backup PATH` if the source pack moved.
-Only named OSM highways are used. Municipality membership samples all vertices
-and segment midpoints in IBGE census polygons; water membership uses only
-`surface=water` on May 6 and May 8. A bbox grid and indexed ray casting respect
-polygon holes. Very narrow crossings can be missed between sample points.
+| Service | Local endpoint |
+|---|---|
+| Meterless Nightshift (OpenAI-compatible) | `http://127.0.0.1:8088/v1` |
+| Zetaris REST | `http://localhost:8888/api/v1.0` |
+| SeaweedFS S3 on Docker host | `127.0.0.1:8333`, bucket `oah-s3` |
+| S3 as reached by Zetaris containers | `http://oah-s3:8333` |
 
-Porto Alegre yields **6,297** normalized streets, **1,351** touching sampled
-May 6 water. R3 counted 6,367 / 1,370 using a different intersecting-way method.
-Normalization merges road-type/particle/accent aliases, and point sampling may
-miss crossings. All municipality counts are in `data/preparation_summary.json`.
+Supplied verified live facts, 24 October 2026 (not remeasured by this audit):
+Zetaris exposes `OAH_S3` tables loaded with `inferSchema=false`:
 
-No observed layer later than replay date is selected. Publication times are
-unknown, so **all water matches are marked retrospective context and excluded
-from contemporaneous priority** (`in_water_by_date=null`). The OSM snapshot is
-June 15, later than the replay: a name match is retrospective context, never
-proof of an address available to responders at the time. There is no permanent
-water mask, depth or route safety. May 8 has different coverage: no water match
-does not mean recession or safety. D1 POIs have no names; a separate named OSM
-landmark snapshot supports landmark-only input. Shelter open status and local outages remain unknown.
+| Table | Rows | Role |
+|---|---:|---|
+| `streets_flood_v3` | 12586 | Runtime street/flood context |
+| `landmarks_v3` | 4201 | Runtime named OSM landmarks |
+| `messages_seed7_v3` | 15 | Synthetic live-smoke messages |
+| `road_closures_v3` | 31 | Loaded context; no runtime routing |
+| `landmark_aliases_v3` | 24 | Loaded aliases; runtime reads local curated CSV |
 
-See [attribution](data/ATTRIBUTION.md). The supplied backup lacks the promised
-D1–D3 manifests/reports. The surviving layer inventory does identify UFRGS source
-record 14617475 and collection 11164049; full manifest/license lineage remains a
-documented packaging gap. Street derivatives carry ODbL separately
-from MIT application code. No raw GeoJSON is copied into this repository.
+The supplied live smoke passed four cases including a landmark message. Do not
+reload tables or rerun smoke during the active evaluation. With sponsor services
+ready, use `python run.py serve`. TCP health proves reachability, not credentials.
 
-## Decisions, score and operator controls
+### Docker
 
-`SEND_CANDIDATE` requires a street found within its municipality, a house number
-or a second exact named street found in that municipality, and at least one
-explicitly reported person. The CSV cannot prove two streets intersect or locate
-a house; humans must confirm location. Missing address, unknown municipality,
-incompatible totals, future request time or failed stages require CALLBACK with
-specific PT-BR questions. Reported rescue produces REPORTED_RESCUED, never a
-field-confirmed closure. Counts for vulnerable categories can overlap; they are
-never summed into a total population.
-
-Integer priority (a demo policy, not an operational rescue standard):
-
-```text
-5 × min(10, max(children, elderly, disabled))
-+ 8 if any reported risk words
-+ 4 if contemporaneously usable mapped-water flag is true (currently never usable)
-+ min(24, max(0, whole hours since received_at at replay time))
-```
-
-No model changes these weights. Age uses the received timestamp, defaulting to
-replay time if absent. Pets are displayed, with no invented operational weight.
-Unsupported fields are dropped and logged; a matching quote does not guarantee
-semantic truth, so a critic and the human review remain essential.
-
-The web server binds `0.0.0.0` as required. This is a **trusted-operator demo**:
-`actor` is an audit label, not authentication. Same-origin browser checks prevent
-ordinary cross-site commands, but anyone with API/network access can assert a
-human action. Keep it on a trusted network; production needs authenticated roles,
-TLS, retention policy, durable audit backups and independent security review.
-
-## API and examples
-
-* `POST /run`: `{"replay_time":"2024-05-06T14:00:00-03:00","messages":[{"text":"fictional PT-BR request","message_id":"optional-id","received_at":"optional ISO timestamp with timezone"}]}`.
-  Returns run ID, mode, seconds, partial flag and persisted cases. More than 15
-  messages, malformed timestamps and repeated IDs within a batch return 400.
-* `GET /api/cases`, `GET /api/cases/{id}`: current queue/detail with event version.
-* `POST /api/cases/{id}/actions`:
-  `{"action":"confirm_location","expected_version":1,"actor":"operador-demo"}`.
-  Actions: `confirm_location`, `approve_dispatch`, `request_callback`,
-  `report_rescued`, `dispatch`, `field_confirm`. Stale version returns 409.
-* `GET /api/health`: mode and TCP reachability without secrets. Offline mode
-  performs no probes. TCP reachability does not establish successful SQL/model use.
-
-`examples/input_01.json` has three address/status situations; input 02 has
-contradictory counts and an out-of-area request; input 03 is judge-style free
-text with an injection line. `python tools/make_examples.py --sample` produces
-actual offline pipeline outputs; committed outputs are clearly `sample_offline`,
-**not live multi-agent evidence**. `logs/sample_trace.jsonl` is a real offline run
-summary, not a pretend provider receipt. Live outputs/receipts must be generated
-on the owner's machine before claiming the live submission gates pass.
-
-## Generator and evaluation
-
-```powershell
-python tools/generate_messages.py --seed 7 --n 15
-python tools/generate_messages.py --seed 101 --n 15
-python eval/run_eval.py --offline
-```
-
-The deterministic generator uses real street names (80% preference for streets
-in sampled May 6 water). Seed 7 is tuning data using families 0–7. Held-out seeds
-101 and 202 include 15 families, including missing numbers, unnamed landmarks,
-contradictory counts, out-of-area requests, injection and rescue updates. Fake
-identities use `Pessoa Fictícia` and non-dialable `FONE-TESTE-A`; truth is written
-separately and is never read by runtime extraction. Request rates and vulnerability
-mix are assumptions; real street grounding does not validate those assumptions.
-
-`eval/results.md` and `.json` report per-field P/R/F1, decision accuracy,
-unsupported-claim rejection rate, mean/p90 seconds and calls/message, and family
-breakdowns. Offline measures **only regex baseline**; intake-only and full
-Intake/Critic/Revision/Location are unavailable. Run without `--offline` for actual live
-ablations. Accuracy is on synthetic text-supported labels; **real-message
-accuracy is UNMEASURED**, and critic benefit is UNMEASURED until live evaluation.
-There is no claim of outcomes, responder benefit or real-world validity.
-
-## Named landmarks and review limits
-
-`data/landmarks.csv` contains 4,201 named OpenStreetMap features in six RS
-municipalities, fetched by the project owner via Overpass. OSM data is licensed
-under ODbL; query and snapshot timestamps are in [ATTRIBUTION](data/ATTRIBUTION.md).
-This October 2026 snapshot is retrospective relative to the May 2024 replay.
-The snapshot includes Porto Alegre airport and its terminal features.
-Curated aliases in `data/landmark_aliases.csv` cover popular names absent from OSM;
-this small, reviewed list has each target OSM id verified. LocalSource and
-ZetarisSource both load this local CSV in V1.3. School, Brique and station context
-override airport/park aliases; longer aliases win. Airport terminals within 3 km
-of an aerodrome resolve to that airport for dispatch, with terminal name and OSM
-link retained as `sub_place` in case detail. Bus terminals are unaffected.
-
-LocalSource reads that CSV in sample mode; normal mode reads Zetaris
-`landmarks_v3`. Register all source CSVs together with `--version v3` and update
-existing `.env` table settings as shown in `.env.example`. The live smoke requires
-a nonempty landmark table and checks its registered row count.
-
-Name matching requires a municipality; curated aliases also work when it is unknown. Equal normalized primary names within 400 m
-collapse into one place, preferring relation, then way, then node; distant places
-remain distinct. Scores rank full equality (100), all query tokens in a name (90),
-token-set similarity at least 0.8 (82+similarity), then partial matches (55).
-Street context uses address columns and the streets table; bairro names use the
-address column and named suburb/neighbourhood rows. Category hints and known
-short names distinguish hospitals, stadiums and public places from namesakes;
-sub-facilities are penalized unless named. A match needs at least 82 points and
-a 7-point lead. Generic names remain ambiguous, with up to three distinct places.
-Ambiguous or missing references trigger a place/bairro callback. Resolved public
-places need no house number, but still require human location confirmation.
-The detail view shows the location agent, place metadata, OSM link, candidates
-and decision reason. Name matching and proximity are heuristics: duplicate
-features with different names, missing addresses and multiple context hints can
-still require review. No household coordinates, safe route or live water depth
-are inferred.
-
-The [challenge set](eval/CHALLENGE_README.md) contains 40 author-written synthetic
-Portuguese requests, separate from generated held-out seeds 101 and 202. Native
-speaker review is pending; its texts were preserved in V1.2. Truth now includes
-canonical OSM identities, including the Salgado Filho airport dispatch target. Evaluation runs baseline,
-intake-only and full intake/critic/revision/location on both sets, in batches of
-at most 15. Every measured method reports field P/R/F1, decisions, landmark
-identity/status or an explicitly counted decision proxy, unsupported rate,
-critic objections and field change outcomes, calls, mean/p90 message latency
-and failures. Offline agents are unavailable. Generated templates are easy and
-challenge labels are synthetic; neither measures real rescue performance.
-
-Nightshift races Lightning 30B and Nemotron 3.5 Super VL 120B lanes. The receipt's
-`routed_model` identifies the winning lane, not necessarily the requested model.
-Streaming stays enabled to avoid the provider deadline. Short prompts ask models
-to copy evidence; deterministic code derives values. Empty or unparseable JSON
-is retried once within the overall retry/deadline cap; per-call timeout is
-`NIGHTSHIFT_CALL_TIMEOUT` (75 seconds by default). A failed critic preserves the
-intake fields, records `review_degraded`, and forces `REVIEW_REQUIRED`. It cannot
-be approved for dispatch until a fresh eligible case is produced. Provider
-failures and missing source data remain visible; no live measurements were made
-as part of the offline V1.2 verification.
-
-## Docker and pre-existing work
+Yussef must validate the image after the active evaluation:
 
 ```powershell
 docker build -t rescue-triage-desk .
-docker run --rm -p 8080:8080 --env-file .env rescue-triage-desk
+docker run --rm -p 8080:8080 -e SAMPLE_MODE=true rescue-triage-desk
 ```
 
-For host services from the app container set
-`NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1`,
-`ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0`, and
-`S3_ENDPOINT_HOST=host.docker.internal:8333`. Keep the Zetaris-side S3 endpoint
-reachable from Zetaris (`http://oah-s3:8333` on its Docker network). This Docker
-image and host/container routing have not been executed in the sandbox.
+For connected mode use `--env-file .env` and override endpoints to
+`http://host.docker.internal:8088/v1`, `http://host.docker.internal:8888/api/v1.0`
+and `host.docker.internal:8333` for Nightshift, Zetaris and host S3 respectively.
+Keep the Zetaris-side S3 URL on its own Docker network. `.dockerignore` excludes
+`.env`, runtime and logs. Docker execution/container routing remain unverified here.
 
-Declared pre-existing components: public data packs D1/D2/D3, R3 red-team findings
-and `gen_proto.py` / `engine_proto.py`, prepared 21–23 October during the event's
-preparation phase; Gate 0 Nightshift/Zetaris/S3 contracts and stdlib signing script.
-The generator takes the seeded-template approach from `gen_proto.py`; the registry
-adapts `engine_proto.py` invariants to JSONL and V1 human gates rather than porting
-its SQLite implementation. No other model provider or external dependency is used.
-This build does not assert public-repo publication, live sponsor proof, demo video,
-deck or hackathon submission. Git remotes/config are never changed and no push is run.
+## Running the engine test
+
+The Meterless World Model adaptation is an append-only Python registry at
+`app/engines/world_model/registry.py`: event replay, deduplication, retained stale
+and conflicting observations, expected versions and human-gated transitions.
+It is our behavioral adaptation, not an imported Meterless SDK.
+
+```powershell
+python -m unittest discover -s tests -p test_core.py -v
+python -m unittest discover -s tests -p test_pipeline.py -v
+```
+
+`RegistryTests.test_human_transition_gate_and_versions` proves human/version gates;
+`test_stale_retained_and_rebuild` checks event replay;
+`test_ten_concurrent_writers_zero_lost` checks concurrent append behavior.
+`PipelineTests.test_http_run_queue_action_and_stale_version` links the engine to
+the user-facing queue/actions. These are offline tests, not sponsor certification.
+
+## API, traces and examples
+
+`POST /run` accepts `application/json` with `replay_time` and 1–15 `messages`.
+Each message has a unique `message_id`, `text` and optional `received_at`.
+See `examples/input_01.json`. `GET /api/cases` reads registry state;
+`POST /api/cases/{case_id}/actions` takes action, actor and `expected_version`.
+Stale commands return 409.
+
+Three request files and three pipeline-produced connected output files are in
+`examples/`; see [provenance](examples/README.md). They are saved artifacts, not
+new live measurements or canned runtime answers.
+
+Nightshift attempts write JSONL to `logs/run_<id>.jsonl` and stdout: role, message
+ID, requested model, routed model, receipt, status and duration. Missing provider
+metadata remains null; a failed call does not invent a winner. The page shows
+**Modelo, comprovante e duração**. Inputs, credentials and hidden reasoning are
+not intentionally logged; review artifacts before sharing.
+
+The response budget is capped at 480 seconds (8 minutes), returning partial
+results on deadline. Calls default to 75 seconds, at most three attempts; invalid
+JSON gets at most one corrective retry within that cap. At most three messages
+run concurrently; one run per desk. An already-running worker may finish afterward.
+
+## Sponsor technology
+
+**Zetaris is the connected data layer:** REST SQL queries over versioned SeaweedFS
+CSV tables supply streets and landmarks. Offline mode deliberately uses local files.
+
+**Meterless Nightshift is the primary and only implemented AI provider.** No
+Claude/OpenAI fallback exists. Its OpenAI-compatible request uses `stream=true`
+and defaults to `nvidia/nemotron-3.5-lightning-30b-a3b`. The supplied live deployment
+races that lane against `nvidia/nemotron-3.5-super-vl-120b-a12b`; each receipt
+identifies the actual winner. The verify lane is `llama-3.3-nemotron-super-49b`;
+its existence does not prove it ran. Intake extracts quoted fields, Critic checks
+claims, conditional Revision repairs objections once, and Location proposes place
+evidence. Code verifies results; the LLM never counts/joins/routes.
+
+**World Model** provides case memory and human approval gates. See the
+[sponsor explanation](docs/submission/SPONSOR_EXPLANATION.md) for evidence.
+
+## Data, evaluation and limitations
+
+Public geographic data grounds fictional messages; see [attribution](data/ATTRIBUTION.md).
+The supplied backup lacks the promised full D1–D3 manifest/license lineage: this
+remains a packaging gap. Street ODbL obligations are separate from MIT code.
+
+Only water layers at/before replay date are selected. Publication times are unknown,
+so mapped water is retrospective context, excluded from contemporaneous priority
+(`in_water_by_date=null`). Later OSM snapshots and aliases are also retrospective,
+not proof of May 2024 availability. Sampling can miss narrow crossings. Absence of a water
+match does not imply safety; no depth, safe route, shelter status or responder availability
+is established. Street matches cannot prove a house number or intersection.
+
+Resolved landmarks can supply candidates; ambiguous places require review/callback.
+One explicit total wins; eligible sender-plus-listed counts are marked
+**Contagem derivada — confirmar**. Vulnerable categories overlap and are not summed.
+A valid quote does not prove semantic truth. Priority weights are a demo policy.
+
+Synthetic labels do not prove real-message accuracy or responder benefit. Offline
+evaluation measures the regex baseline only.
+
+### Live evaluation (24 Oct 2026, Nightshift + Zetaris, `eval/results_live.json`)
+
+| Set | Method | Decision accuracy | Mean s / msg | p90 s | Calls / msg |
+|---|---|---:|---:|---:|---:|
+| Generated (30, seeds 101/202) | rules baseline | 1.00 | 0.8 | 1.1 | 0 |
+| | intake agent | 0.97 | 11.7 | 23.2 | 1.0 |
+| | full loop | 1.00 | 19.6 | 31.0 | 2.4 |
+| Challenge (40, hand-written, native-rewritten) | rules baseline | 0.60 | 0.5 | 1.0 | 0 |
+| | intake agent | 0.975 | 15.5 | 27.8 | 1.0 |
+| | full loop | 0.975 | 53.5 | 98.9 | 3.2 |
+
+Field F1 on the challenge set, rules → full loop: children 0.25 → 0.96, elderly 0 → 0.89, disabled 0 → 0.86,
+pets 0.29 → 0.91, street 0.32 → 0.95, house number 0.36 → 1.00, municipality 0.58 → 0.97. Critic: 18 of 40
+messages got objections → 18 revisions → 22 field changes: 18 correct, 3 wrong, 1 neutral. No partial runs;
+4 location-agent calls returned an unusable quote and fell back to the code matcher.
+
+**Read with care.** Generated messages come from templates, so rules already score perfectly there. The challenge
+set is small (40), and after the first live run the text rules (POA → Porto Alegre, written totals, count
+conflicts, correction words) were adjusted while looking at these same messages. The challenge numbers are
+therefore optimistic; a fresh held-out set is the honest next measure. Agents and critic do not change the
+decision more than the intake agent alone here; their measured value is field accuracy (critic changes were
+right 18 of 22 times) at about 3.5× the latency. Remaining misses: a partial rescue read as "already rescued"
+(full loop) and a landmark message asked for a house number (intake only).
+
+This is a trusted-operator demo. Actor labels are not authentication; same-origin
+checks do not replace authenticated roles, TLS, retention controls and audit backups.
+Anyone with API access can assert a human action. No real dispatch is automated.
+
+## Pre-existing components/declaration
+
+Inventory carried forward: public D1/D2/D3 packs, R3 red-team findings,
+`gen_proto.py` / `engine_proto.py` ideas (seeded templates and registry invariants),
+Gate 0 Nightshift/Zetaris/S3 contracts and stdlib S3 signing. The registry adapts
+prototype invariants to JSONL/human gates rather than porting SQLite.
+
+**Owner declaration required:** Yussef must identify all work before
+**21 October 2026 at 21:00**, specify the timezone, dates and provenance, and
+separate it from event work. The previous README described 21–23 October
+preparation, which does not settle this cutoff. This inventory is a draft, not
+an authorship or eligibility attestation. Complete the checklist before submission.
+
+Submission drafts: [checklist](docs/submission/GATE2_CHECKLIST.md),
+[demo script](docs/submission/DEMO_SCRIPT.md), [deck outline](docs/submission/DECK_OUTLINE.md),
+[masked safety scan](docs/submission/PUBLIC_REPO_SAFETY_SCAN.md).
+Yussef must publish the repo, record/upload video and deck, and submit their links.

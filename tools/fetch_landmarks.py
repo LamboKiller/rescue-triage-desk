@@ -1,4 +1,5 @@
 """Fetch named OSM landmarks; at most six HTTP requests, no invented fallback."""
+import os
 import argparse
 import collections
 import csv
@@ -122,7 +123,8 @@ def fetch(backup):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--backup', type=Path, default=Path('C:/Users/yusse/Projects/open-agent-hackathon-2026/data-backup'))
+    parser.add_argument('--backup', type=Path, default=Path(os.environ.get('RTD_BACKUP_DIR', 'data-backup')),
+                        help='folder with the D1-D3 data backup (or set RTD_BACKUP_DIR)')
     try:
         fetch(parser.parse_args().backup)
     except Exception as exc:

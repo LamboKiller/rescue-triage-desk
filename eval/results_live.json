@@ -1,0 +1,1031 @@
+{
+  "mode": "live",
+  "tuning_seeds": [
+    7
+  ],
+  "test_seeds": [
+    101,
+    202
+  ],
+  "limitations": "Author-written synthetic truth; challenge texts reviewed by one native Porto Alegre speaker on 24/10/2026 and labels re-derived. Real-message accuracy unmeasured. No evidence of critic benefit without live ablations. Landmark scores use a decision proxy when identity/status labels are absent. Curated aliases and airport terminal dispatch use the local snapshot.",
+  "sets": {
+    "generated": {
+      "baseline": {
+        "n": 30,
+        "fields": {
+          "people": {
+            "tp": 26,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "children": {
+            "tp": 15,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "elderly": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "disabled": {
+            "tp": 18,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "pets": {
+            "tp": 12,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "street": {
+            "tp": 24,
+            "fp": 0,
+            "fn": 2,
+            "precision": 1.0,
+            "recall": 0.9231,
+            "f1": 0.96
+          },
+          "number": {
+            "tp": 24,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "municipality": {
+            "tp": 28,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "landmark": {
+            "tp": 0,
+            "fp": 2,
+            "fn": 2,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "cross_street": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "precision": 0,
+            "recall": 0,
+            "f1": 0
+          },
+          "risk_words": {
+            "tp": 6,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "already_rescued": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "conflicting_counts": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "decision_accuracy": 1.0,
+        "unsupported_claim_rate": 0.0,
+        "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
+        "mean_seconds_per_message": 0.7735,
+        "p90_seconds_per_message": 1.141,
+        "amortized_wall_seconds_per_message": 0.3109,
+        "landmark_resolution_accuracy": 1.0,
+        "landmark_identity_messages": 0,
+        "landmark_decision_proxy_messages": 30,
+        "landmark_definition": "Identity/status on labelled landmarks; expected-decision proxy otherwise",
+        "critic": {
+          "objections": 0,
+          "messages_with_objections": 0,
+          "revisions": 0,
+          "revisions_changed_field": 0,
+          "fields_changed": 0,
+          "changes_correct": 0,
+          "changes_wrong": 0,
+          "changes_neutral": 0,
+          "failed": 0
+        },
+        "failures": 0,
+        "failure_events": 0,
+        "mean_calls_per_message": 0.0,
+        "families": {
+          "0": {
+            "correct": 2,
+            "n": 2
+          },
+          "1": {
+            "correct": 2,
+            "n": 2
+          },
+          "2": {
+            "correct": 2,
+            "n": 2
+          },
+          "3": {
+            "correct": 2,
+            "n": 2
+          },
+          "4": {
+            "correct": 2,
+            "n": 2
+          },
+          "6": {
+            "correct": 2,
+            "n": 2
+          },
+          "5": {
+            "correct": 2,
+            "n": 2
+          },
+          "7": {
+            "correct": 2,
+            "n": 2
+          },
+          "9": {
+            "correct": 2,
+            "n": 2
+          },
+          "11": {
+            "correct": 2,
+            "n": 2
+          },
+          "10": {
+            "correct": 2,
+            "n": 2
+          },
+          "12": {
+            "correct": 2,
+            "n": 2
+          },
+          "14": {
+            "correct": 2,
+            "n": 2
+          },
+          "8": {
+            "correct": 2,
+            "n": 2
+          },
+          "13": {
+            "correct": 2,
+            "n": 2
+          }
+        },
+        "status": "measured",
+        "partial_messages": 0
+      },
+      "intake": {
+        "n": 30,
+        "fields": {
+          "people": {
+            "tp": 26,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "children": {
+            "tp": 15,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "elderly": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "disabled": {
+            "tp": 18,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "pets": {
+            "tp": 12,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "street": {
+            "tp": 26,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "number": {
+            "tp": 24,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "municipality": {
+            "tp": 27,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9643,
+            "f1": 0.9818
+          },
+          "landmark": {
+            "tp": 0,
+            "fp": 2,
+            "fn": 2,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "cross_street": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "precision": 0,
+            "recall": 0,
+            "f1": 0
+          },
+          "risk_words": {
+            "tp": 4,
+            "fp": 4,
+            "fn": 2,
+            "precision": 0.5,
+            "recall": 0.6667,
+            "f1": 0.5714
+          },
+          "already_rescued": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "conflicting_counts": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "decision_accuracy": 0.9667,
+        "unsupported_claim_rate": 0.0,
+        "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
+        "mean_seconds_per_message": 11.7344,
+        "p90_seconds_per_message": 23.203,
+        "amortized_wall_seconds_per_message": 6.1969,
+        "landmark_resolution_accuracy": 0.9667,
+        "landmark_identity_messages": 0,
+        "landmark_decision_proxy_messages": 30,
+        "landmark_definition": "Identity/status on labelled landmarks; expected-decision proxy otherwise",
+        "critic": {
+          "objections": 0,
+          "messages_with_objections": 0,
+          "revisions": 0,
+          "revisions_changed_field": 0,
+          "fields_changed": 0,
+          "changes_correct": 0,
+          "changes_wrong": 0,
+          "changes_neutral": 0,
+          "failed": 0
+        },
+        "failures": 0,
+        "failure_events": 0,
+        "mean_calls_per_message": 1.0333,
+        "families": {
+          "2": {
+            "correct": 2,
+            "n": 2
+          },
+          "1": {
+            "correct": 2,
+            "n": 2
+          },
+          "3": {
+            "correct": 1,
+            "n": 2
+          },
+          "4": {
+            "correct": 2,
+            "n": 2
+          },
+          "5": {
+            "correct": 2,
+            "n": 2
+          },
+          "6": {
+            "correct": 2,
+            "n": 2
+          },
+          "8": {
+            "correct": 2,
+            "n": 2
+          },
+          "9": {
+            "correct": 2,
+            "n": 2
+          },
+          "0": {
+            "correct": 2,
+            "n": 2
+          },
+          "7": {
+            "correct": 2,
+            "n": 2
+          },
+          "11": {
+            "correct": 2,
+            "n": 2
+          },
+          "13": {
+            "correct": 2,
+            "n": 2
+          },
+          "12": {
+            "correct": 2,
+            "n": 2
+          },
+          "14": {
+            "correct": 2,
+            "n": 2
+          },
+          "10": {
+            "correct": 2,
+            "n": 2
+          }
+        },
+        "status": "measured",
+        "partial_messages": 0
+      },
+      "full": {
+        "n": 30,
+        "fields": {
+          "people": {
+            "tp": 26,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "children": {
+            "tp": 15,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "elderly": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "disabled": {
+            "tp": 18,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "pets": {
+            "tp": 12,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "street": {
+            "tp": 26,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "number": {
+            "tp": 24,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "municipality": {
+            "tp": 28,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "landmark": {
+            "tp": 0,
+            "fp": 2,
+            "fn": 2,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "cross_street": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "precision": 0,
+            "recall": 0,
+            "f1": 0
+          },
+          "risk_words": {
+            "tp": 4,
+            "fp": 4,
+            "fn": 2,
+            "precision": 0.5,
+            "recall": 0.6667,
+            "f1": 0.5714
+          },
+          "already_rescued": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "conflicting_counts": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "decision_accuracy": 1.0,
+        "unsupported_claim_rate": 0.0,
+        "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
+        "mean_seconds_per_message": 19.6401,
+        "p90_seconds_per_message": 31.031,
+        "amortized_wall_seconds_per_message": 8.6062,
+        "landmark_resolution_accuracy": 1.0,
+        "landmark_identity_messages": 0,
+        "landmark_decision_proxy_messages": 30,
+        "landmark_definition": "Identity/status on labelled landmarks; expected-decision proxy otherwise",
+        "critic": {
+          "objections": 5,
+          "messages_with_objections": 5,
+          "revisions": 5,
+          "revisions_changed_field": 3,
+          "fields_changed": 3,
+          "changes_correct": 3,
+          "changes_wrong": 0,
+          "changes_neutral": 0,
+          "failed": 0
+        },
+        "failures": 2,
+        "failure_events": 2,
+        "mean_calls_per_message": 2.3667,
+        "families": {
+          "1": {
+            "correct": 2,
+            "n": 2
+          },
+          "0": {
+            "correct": 2,
+            "n": 2
+          },
+          "2": {
+            "correct": 2,
+            "n": 2
+          },
+          "3": {
+            "correct": 2,
+            "n": 2
+          },
+          "6": {
+            "correct": 2,
+            "n": 2
+          },
+          "7": {
+            "correct": 2,
+            "n": 2
+          },
+          "4": {
+            "correct": 2,
+            "n": 2
+          },
+          "5": {
+            "correct": 2,
+            "n": 2
+          },
+          "8": {
+            "correct": 2,
+            "n": 2
+          },
+          "11": {
+            "correct": 2,
+            "n": 2
+          },
+          "9": {
+            "correct": 2,
+            "n": 2
+          },
+          "13": {
+            "correct": 2,
+            "n": 2
+          },
+          "14": {
+            "correct": 2,
+            "n": 2
+          },
+          "12": {
+            "correct": 2,
+            "n": 2
+          },
+          "10": {
+            "correct": 2,
+            "n": 2
+          }
+        },
+        "status": "measured",
+        "partial_messages": 0
+      }
+    },
+    "challenge": {
+      "baseline": {
+        "n": 40,
+        "fields": {
+          "people": {
+            "tp": 30,
+            "fp": 6,
+            "fn": 5,
+            "precision": 0.8333,
+            "recall": 0.8571,
+            "f1": 0.8451
+          },
+          "children": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 12,
+            "precision": 1.0,
+            "recall": 0.1429,
+            "f1": 0.25
+          },
+          "elderly": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 5,
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "disabled": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 4,
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "pets": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 5,
+            "precision": 1.0,
+            "recall": 0.1667,
+            "f1": 0.2857
+          },
+          "street": {
+            "tp": 4,
+            "fp": 3,
+            "fn": 14,
+            "precision": 0.5714,
+            "recall": 0.2222,
+            "f1": 0.32
+          },
+          "number": {
+            "tp": 4,
+            "fp": 0,
+            "fn": 14,
+            "precision": 1.0,
+            "recall": 0.2222,
+            "f1": 0.3636
+          },
+          "municipality": {
+            "tp": 16,
+            "fp": 0,
+            "fn": 23,
+            "precision": 1.0,
+            "recall": 0.4103,
+            "f1": 0.5818
+          },
+          "landmark": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 15,
+            "precision": 0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "cross_street": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "precision": 0,
+            "recall": 0,
+            "f1": 0
+          },
+          "risk_words": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 2,
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6667
+          },
+          "already_rescued": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 5,
+            "precision": 1.0,
+            "recall": 0.1667,
+            "f1": 0.2857
+          },
+          "conflicting_counts": {
+            "tp": 3,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667
+          }
+        },
+        "decision_accuracy": 0.6,
+        "unsupported_claim_rate": 0.0,
+        "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
+        "mean_seconds_per_message": 0.4824,
+        "p90_seconds_per_message": 1.0,
+        "amortized_wall_seconds_per_message": 0.2149,
+        "landmark_resolution_accuracy": 0.6,
+        "landmark_identity_messages": 15,
+        "landmark_decision_proxy_messages": 25,
+        "landmark_definition": "Identity/status on labelled landmarks; expected-decision proxy otherwise",
+        "critic": {
+          "objections": 0,
+          "messages_with_objections": 0,
+          "revisions": 0,
+          "revisions_changed_field": 0,
+          "fields_changed": 0,
+          "changes_correct": 0,
+          "changes_wrong": 0,
+          "changes_neutral": 0,
+          "failed": 0
+        },
+        "failures": 0,
+        "failure_events": 0,
+        "mean_calls_per_message": 0.0,
+        "families": {
+          "challenge": {
+            "correct": 24,
+            "n": 40
+          }
+        },
+        "status": "measured",
+        "partial_messages": 0
+      },
+      "intake": {
+        "n": 40,
+        "fields": {
+          "people": {
+            "tp": 31,
+            "fp": 5,
+            "fn": 4,
+            "precision": 0.8611,
+            "recall": 0.8857,
+            "f1": 0.8732
+          },
+          "children": {
+            "tp": 12,
+            "fp": 0,
+            "fn": 2,
+            "precision": 1.0,
+            "recall": 0.8571,
+            "f1": 0.9231
+          },
+          "elderly": {
+            "tp": 4,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.8889
+          },
+          "disabled": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571
+          },
+          "pets": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.8333,
+            "f1": 0.9091
+          },
+          "street": {
+            "tp": 18,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.9474,
+            "recall": 1.0,
+            "f1": 0.973
+          },
+          "number": {
+            "tp": 18,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "municipality": {
+            "tp": 38,
+            "fp": 1,
+            "fn": 1,
+            "precision": 0.9744,
+            "recall": 0.9744,
+            "f1": 0.9744
+          },
+          "landmark": {
+            "tp": 11,
+            "fp": 3,
+            "fn": 4,
+            "precision": 0.7857,
+            "recall": 0.7333,
+            "f1": 0.7586
+          },
+          "cross_street": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "precision": 0,
+            "recall": 0,
+            "f1": 0
+          },
+          "risk_words": {
+            "tp": 0,
+            "fp": 14,
+            "fn": 4,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "already_rescued": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 5,
+            "precision": 1.0,
+            "recall": 0.1667,
+            "f1": 0.2857
+          },
+          "conflicting_counts": {
+            "tp": 3,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571
+          }
+        },
+        "decision_accuracy": 0.975,
+        "unsupported_claim_rate": 0.0061,
+        "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
+        "mean_seconds_per_message": 15.4918,
+        "p90_seconds_per_message": 27.765,
+        "amortized_wall_seconds_per_message": 6.459,
+        "landmark_resolution_accuracy": 0.975,
+        "landmark_identity_messages": 15,
+        "landmark_decision_proxy_messages": 25,
+        "landmark_definition": "Identity/status on labelled landmarks; expected-decision proxy otherwise",
+        "critic": {
+          "objections": 0,
+          "messages_with_objections": 0,
+          "revisions": 0,
+          "revisions_changed_field": 0,
+          "fields_changed": 0,
+          "changes_correct": 0,
+          "changes_wrong": 0,
+          "changes_neutral": 0,
+          "failed": 0
+        },
+        "failures": 0,
+        "failure_events": 0,
+        "mean_calls_per_message": 1.025,
+        "families": {
+          "challenge": {
+            "correct": 39,
+            "n": 40
+          }
+        },
+        "status": "measured",
+        "partial_messages": 0
+      },
+      "full": {
+        "n": 40,
+        "fields": {
+          "people": {
+            "tp": 31,
+            "fp": 6,
+            "fn": 4,
+            "precision": 0.8378,
+            "recall": 0.8857,
+            "f1": 0.8611
+          },
+          "children": {
+            "tp": 13,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9286,
+            "f1": 0.963
+          },
+          "elderly": {
+            "tp": 4,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.8889
+          },
+          "disabled": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571
+          },
+          "pets": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.8333,
+            "f1": 0.9091
+          },
+          "street": {
+            "tp": 18,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.9,
+            "recall": 1.0,
+            "f1": 0.9474
+          },
+          "number": {
+            "tp": 18,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "municipality": {
+            "tp": 38,
+            "fp": 1,
+            "fn": 1,
+            "precision": 0.9744,
+            "recall": 0.9744,
+            "f1": 0.9744
+          },
+          "landmark": {
+            "tp": 12,
+            "fp": 2,
+            "fn": 3,
+            "precision": 0.8571,
+            "recall": 0.8,
+            "f1": 0.8276
+          },
+          "cross_street": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "precision": 0,
+            "recall": 0,
+            "f1": 0
+          },
+          "risk_words": {
+            "tp": 0,
+            "fp": 15,
+            "fn": 4,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0
+          },
+          "already_rescued": {
+            "tp": 1,
+            "fp": 1,
+            "fn": 5,
+            "precision": 0.5,
+            "recall": 0.1667,
+            "f1": 0.25
+          },
+          "conflicting_counts": {
+            "tp": 3,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571
+          }
+        },
+        "decision_accuracy": 0.975,
+        "unsupported_claim_rate": 0.0086,
+        "unsupported_definition": "schema/span/value-rejected fields / all proposals across intake and revision; not semantic truth",
+        "mean_seconds_per_message": 53.4765,
+        "p90_seconds_per_message": 98.859,
+        "amortized_wall_seconds_per_message": 21.6438,
+        "landmark_resolution_accuracy": 0.975,
+        "landmark_identity_messages": 15,
+        "landmark_decision_proxy_messages": 25,
+        "landmark_definition": "Identity/status on labelled landmarks; expected-decision proxy otherwise",
+        "critic": {
+          "objections": 23,
+          "messages_with_objections": 18,
+          "revisions": 18,
+          "revisions_changed_field": 14,
+          "fields_changed": 22,
+          "changes_correct": 18,
+          "changes_wrong": 3,
+          "changes_neutral": 1,
+          "failed": 0
+        },
+        "failures": 2,
+        "failure_events": 2,
+        "mean_calls_per_message": 3.15,
+        "families": {
+          "challenge": {
+            "correct": 39,
+            "n": 40
+          }
+        },
+        "status": "measured",
+        "partial_messages": 0
+      }
+    }
+  }
+}

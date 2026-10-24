@@ -3,6 +3,7 @@
 Membership samples every road vertex and segment midpoint. This is not an exact
 line/polygon overlay: very narrow crossings between samples can be missed.
 """
+import os
 import argparse
 import collections
 import csv
@@ -187,5 +188,6 @@ May 8 coverage differs substantially; zero overlap never establishes recession.
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--backup', type=Path, default=Path('C:/Users/yusse/Projects/open-agent-hackathon-2026/data-backup'))
+    parser.add_argument('--backup', type=Path, default=Path(os.environ.get('RTD_BACKUP_DIR', 'data-backup')),
+                        help='folder with the D1-D3 data backup (or set RTD_BACKUP_DIR)')
     prepare(parser.parse_args().backup)

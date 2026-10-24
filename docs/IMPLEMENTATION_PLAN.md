@@ -2,7 +2,7 @@
 
 Goal: implement the supplied BRIEF_V1 and binding V1 design, in this repository, as one agent.
 Architecture: quoted Intake -> Critic -> at most one revision; Python tools validate, locate, score and append registry events; humans control dispatch. Python 3.12 standard library and one HTML/vanilla JS frontend.
-Spec: C:/Users/yusse/AppData/Local/hermes/cache/scratch/rtd-build/BRIEF_V1.md.
+Spec: the private V1 build brief (BRIEF_V1, kept outside the repo).
 
 User supplied execution method: implement and verify autonomously, one agent, local commits, no push. This overrides skill handoff/reviewer delegation requirements.
 
