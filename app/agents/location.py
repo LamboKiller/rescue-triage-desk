@@ -7,7 +7,7 @@ from app.agents import critic
 from app.agents.location_tools import LocationTools
 from app.derive_count import _plain
 from app.geo.incident import IncidentIndex, incident_text
-from app.geo.landmarks import distance, match as match_landmark
+from app.geo.landmarks import distance, distinct_places, exact_evidence, match as match_landmark
 from app.geo.streets import lookup, normalize
 from app.llm.nightshift import TRACE_LOCK
 from app.redact import redact
@@ -126,7 +126,7 @@ def _objections(answer, tools):
         rivals = [c for c in result['candidates'] if c['candidate_id'] != cid and c['city'] == candidate['city']
                   and c.get('score', 1) >= candidate.get('score', 1)-.06
                   and (not islands or any(distance(c, r) <= 2000 for r in islands))]
-        literal = _plain(candidate['name']) in scoped
+        literal = _plain(candidate['name']) in scoped or bool(_alias_support(candidate, quotes, tools))
         if rivals and (not literal or any(_plain(c['name']) in scoped for c in rivals)):
             objections.append({'field': 'location', 'reason': 'ambiguous_place'})
     allowed = {'street': {'street', 'approximate', 'area'}, 'landmark': {'approximate', 'area'},
@@ -140,15 +140,42 @@ def _objections(answer, tools):
     return objections
 
 
+def _alias_support(candidate, quotes, tools):
+    members = {(m['osm_type'], str(m['osm_id'])) for m in candidate.get('osm_members', [])}
+    members.add((candidate.get('osm_type'), str(candidate.get('osm_id'))))
+    streets = tools.index.hits(tools.scoped, tools.index.streets, tools.index.max_words)
+    cities = _incident_cities(tools.index, tools.scoped, streets)
+    supported = [h for h in exact_evidence(tools.landmarks, tools.scoped, cities)
+                 if h['alias_row'] and (h['row']['osm_type'], str(h['row']['osm_id'])) in members]
+    return [dict(quote=q, alias_row=h['alias_row']) for q in quotes
+            if tools.check_text(q)['incident'] for h in supported
+            if any(hit['alias_row'] == h['alias_row'] for hit in exact_evidence([h['row']], q, cities))]
+
+
 class _CandidateCritic:
     """Reuse the intake critic with the selected source record made explicit."""
-    def __init__(self, client, candidate):
+    def __init__(self, client, candidate, alias_support=()):
         self.client, self.candidate = client, candidate
+        self.alias_support = alias_support
+        self.raw_objections = []
 
     def call(self, role, system, payload, deadline):
-        return self.client.call(role, system+' Revise também o CANDIDATO: cidade errada, local do remetente '
+        output, meta = self.client.call(role, system+' Revise somente location do CANDIDATO: cidade errada, local do remetente '
             'em vez das vítimas, trecho incompatível e precisão exagerada são objeções de location.',
-            payload+'\nCANDIDATO DO CADASTRO:\n'+json.dumps(self.candidate, ensure_ascii=False), deadline)
+            payload+'\nCANDIDATO DO CADASTRO:\n'+json.dumps(self.candidate, ensure_ascii=False)
+            +'\nALIASES VALIDADOS (equivalentes ao nome oficial; apoiam o candidato):\n'
+            +json.dumps(self.alias_support, ensure_ascii=False), deadline)
+        if isinstance(output, dict) and isinstance(output.get('objections'), list):
+            self.raw_objections = output['objections']
+            # Code has already validated city, incident scope, candidate identity,
+            # quote/result binding and precision. Alias/name inequality alone
+            # cannot make this exact catalogue evidence unsupported.
+            if self.alias_support:
+                output = {**output, 'objections': [o for o in self.raw_objections if not (
+                    isinstance(o, dict) and o.get('field') == 'location' and o.get('reason') == 'unsupported'
+                    and any(_plain(o.get('quote', '')) in (_plain(s['quote']), _plain(s['alias_row']['alias']))
+                            for s in self.alias_support))]}
+        return output, meta
 
 
 def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
@@ -225,11 +252,15 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
             while answer.get('candidate_id') is not None:
                 candidate = tools.candidates[answer['candidate_id']]
                 begin = time.monotonic()
-                review, cmeta = critic.run(_CandidateCritic(client, candidate), text,
+                quotes = [e for e in answer['evidence'] if e not in tools.results]
+                reviewer = _CandidateCritic(client, candidate, _alias_support(candidate, quotes, tools))
+                review, cmeta = critic.run(reviewer, text,
                     {'location': {'quote': '\n'.join(e for e in answer['evidence'] if e not in tools.results)}}, deadline)
                 metas.append(cmeta)
                 result['critic'] = review
-                record('critic', {}, [candidate['candidate_id']], cmeta, time.monotonic()-begin)
+                record('critic', {}, [candidate['candidate_id']], cmeta, time.monotonic()-begin,
+                       objections=review['objections'], raw_objections=reviewer.raw_objections,
+                       alias_support=reviewer.alias_support)
                 objections = review['objections']
                 if not objections:
                     break
@@ -271,6 +302,32 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
     scoped = incident_text(text)
     hits = index.hits(scoped, index.streets, index.max_words)
     cities = _incident_cities(index, scoped, hits)
+    # Only an unambiguous, literal catalogue reference bypasses the policy.
+    exact = exact_evidence(landmark_rows, scoped, cities)
+    exact_rows = [h['row'] for h in exact]
+    places = distinct_places(exact_rows)
+    if len(places) == 1 and len(cities) <= 1 and not hits:
+        tools = LocationTools(rows, landmark_rows, text, replay, points=points, index=index)
+        candidate = tools._place(places[0])
+        evidence = max(exact, key=lambda h: (h['end']-h['start'], bool(h['alias_row'])))
+        quote = text[evidence['start']:evidence['end']]
+        tools.results['t1'] = dict(why_quote=quote, candidates=[candidate])
+        answer = dict(candidate_id=candidate['candidate_id'], precision='approximate', evidence=[quote, 't1'])
+        if not _objections(answer, tools):
+            source = dict(quote=quote, alias_row=evidence['alias_row'],
+                          osm_type=candidate['osm_type'], osm_id=candidate['osm_id'])
+            for k in ('street', 'cross_street', 'number', 'landmark'):
+                fields.pop(k, None)
+            for k, value in (('municipality', candidate['city']), ('landmark', candidate['name'])):
+                fields[k] = dict(value=value, quote=quote, derived=True, source='deterministic_alias')
+            landmark = dict(status='resolved', matched=candidate, candidates=[candidate], requested=True,
+                            reason='Exact catalogue evidence.', **tools._water(places[0], 'in_water_'))
+            output = dict(location_path='deterministic_alias', precision='approximate', candidate=candidate,
+                          evidence=source, answer=answer, steps=[], tool_steps=0, objections=[],
+                          revision=False, fallback=False, critic=None)
+            _record(dict(role='location_agent', tool='deterministic_alias', evidence=source,
+                         result_ids=[candidate['candidate_id']]), trace, emit)
+            return lookup([], '', '', replay), None, landmark, output, []
     city_ok = not cities or len(cities) == 1 and normalize(get('municipality')) == normalize(next(iter(cities)))
     if not city_ok:
         street = lookup([], '', '', replay)

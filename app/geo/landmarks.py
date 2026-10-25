@@ -24,6 +24,53 @@ GENERIC = {'mercado', 'hospital', 'escola', 'igreja', 'shopping', 'aeroporto', '
 MARGIN = 7.0
 
 
+def exact_evidence(rows, text, cities=()):
+    """Literal names/curated aliases only; retain the source row and exact quote.
+
+    Unlike fuzzy matching, normalization retains all words (including categories).
+    Caller clauses must already have been removed by incident_text.
+    """
+    from app.derive_count import _plain
+    from app.geo.incident import COVERED
+    plain = _plain(text)
+    text_words = set(re.findall(r'\w+', plain))
+    city_names = COVERED | {_plain(r['municipality']) for r in rows} | {'poa'}
+    hits = []
+    for row in rows:
+        if _plain(row['municipality']) not in COVERED:
+            continue
+        names = [(n, None) for n in [row['name']] + re.split(r'[|;]', row.get('alt_names', ''))]
+        names += [(a['alias'], a) for a in row.get('curated_aliases', [])]
+        for name, alias in names:
+            words = re.findall(r'\w+', _plain(name))
+            if not words or not set(words) <= text_words:
+                continue
+            # OSM stations can be named for the city. A municipality mention
+            # alone provides no evidence that the incident is at that station.
+            if ' '.join(words) in city_names:
+                continue
+            matches = list(re.finditer(r'\b' + r'[\W_]+'.join(map(re.escape, words)) + r'\b', plain))
+            if not matches:
+                continue
+            if alias:
+                if _plain(alias.get('municipality', row['municipality'])) != _plain(row['municipality']):
+                    continue
+                note = _plain(alias.get('note', ''))
+                if 'within ' in note and _plain(row['municipality']) not in {_plain(c) for c in cities}:
+                    continue
+                # Reuse the catalogue's category/context exceptions (school,
+                # Trensurb, Brique and blood-bank versus parent hospital).
+                checked = match([row], place_name=name, municipality=row['municipality'], message=text)
+                if checked['status'] != 'resolved' or not checked['reason'].startswith('alias:'):
+                    continue
+            for m in matches:
+                hits.append(dict(row=row, start=m.start(), end=m.end(), quote=text[m.start():m.end()],
+                                 alias_row=alias))
+    # Primary names and aliases may overlap; the most specific phrase wins.
+    return [h for h in hits if not any(o['start'] <= h['start'] and o['end'] >= h['end']
+            and o['end']-o['start'] > h['end']-h['start'] for o in hits)]
+
+
 def distance(a, b):
     try:
         lat1, lon1, lat2, lon2 = map(math.radians, (float(a['lat']), float(a['lon']), float(b['lat']), float(b['lon'])))
