@@ -374,3 +374,11 @@ class LocationLoopTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CategorySoftFilterTests(unittest.TestCase):
+    def test_wrong_category_guess_falls_back_to_name_search(self):
+        tools = LocationTools([], [place('Estação Rodoviária Central', city='Porto Alegre')],
+                              'Socorro na rodoviária de Porto Alegre.', REPLAY)
+        hits = tools.search_landmark('Estação Rodoviária Central', 'Porto Alegre', 'bus_station')
+        self.assertTrue(hits)

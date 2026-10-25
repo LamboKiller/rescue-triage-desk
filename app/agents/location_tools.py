@@ -124,6 +124,9 @@ class LocationTools:
             score = max((similarity(name, n, place_normalize) for n in names), default=0)
             if score >= .82:
                 hits.append((score, row))
+        if not hits and allowed and _plain(category or '') not in CATEGORY:
+            # Unknown category = model guess (e.g. 'bus_station' vs OSM tags): retry by name/city only. Known ones stay strict.
+            return self.search_landmark(name, city, None)
         best = max((s for s, _ in hits), default=0)
         return [self._place(r, s) for s, r in sorted(hits, key=lambda x: (-x[0], x[1]['municipality'], x[1]['name']))
                 if s >= best-.06][:12]
