@@ -3,9 +3,12 @@ import copy
 import math
 from app.decide import timestamp
 from app.config import setting
-from app.agents.needs import fallback, texts
+from app.agents.needs import fallback, texts, pick_vertical
 
 BANDS=('d_lt_0_15','d_0_15_to_0_3','d_0_3_to_0_6','d_0_6_to_1_2','d_1_2_to_2_5','d_gt_2_5')
+# P1S: where the people are matters, and more when the water is rising. Reposts never add points (not here, not anywhere).
+VERTICAL_POINTS={'roof':(20,'No telhado / laje'),'attic_forro':(20,'No forro / sotao'),'upper_floor':(8,'Andar superior'),'first_floor':(3,'Primeiro andar')}
+VERTICAL_WATER_BONUS={'roof':10,'attic_forro':10,'upper_floor':5}
 WEIGHTS={'medical_urgent':35,'structural_risk':35,'water_rising':25,'infant':20,'stretcher_or_bedridden':20,'wheelchair':15,'pregnant':15}
 
 
@@ -46,10 +49,14 @@ def score(case,now,depth_history=None):
     def add(label,points):
         if points: reasons.append({'reason_pt':label,'points':points})
     if timestamp(case['received_at'])>timestamp(now): return {'score':0,'reasons':[]}
-    needs={r['tag'] for r in fallback(texts(case)+[f['text'] for f in case.get('feedback',[]) if not f.get('conflicts')])['needs']}
+    context=fallback(texts(case)+[f['text'] for f in case.get('feedback',[]) if not f.get('conflicts')])
+    needs={r['tag'] for r in context['needs']}
     needs.update(r['tag'] for r in case.get('operational_needs',{}).get('needs',[]))
+    level=pick_vertical({'vertical':context['vertical']+list(case.get('operational_needs',{}).get('vertical',[]))})['level']
     for tag,weight in WEIGHTS.items():
         if tag in needs: add({'medical_urgent':'Urgencia medica','structural_risk':'Risco de desabamento','water_rising':'Agua subindo','infant':'Bebe','stretcher_or_bedridden':'Pessoa acamada / maca','wheelchair':'Cadeira de rodas','pregnant':'Gestante'}[tag],weight)
+    if level in VERTICAL_POINTS: add(VERTICAL_POINTS[level][1],VERTICAL_POINTS[level][0])
+    if 'water_rising' in needs and level in VERTICAL_WATER_BONUS: add('Agua subindo com pessoas em nivel alto',VERTICAL_WATER_BONUS[level])
     v=lambda k:case.get('fields',{}).get(k,{}).get('value',0)
     people=case.get('remaining_n',v('people'))
     add('Pessoas aguardando (limite 20)',min(20,max(0,people)) if type(people) is int else 0)

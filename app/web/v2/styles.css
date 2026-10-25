@@ -58,3 +58,5 @@
 .tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--amber);pointer-events:none}
 .tl-detail{border-left:3px solid var(--amber);padding-left:8px}.tl-log{list-style:none;padding:0;margin:8px 0}.tl-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;padding:4px 0;font-size:13px}
 
+
+.precision-EXACT{color:var(--green)}.precision-AMBIGUOUS{color:var(--red)}.precision-AREA{color:var(--amber)}.linked-reports{list-style:none;padding:0;margin:8px 0;font-size:12px}.linked-reports li{padding:4px 0;border-bottom:1px solid var(--border)}

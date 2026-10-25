@@ -31,10 +31,14 @@ class CallbackService:
             self.cache[key] = out
         return out
 
-    def view(self, case_id, refresh=False):
+    @staticmethod
+    def _role(case):
+        return ((case.get('incident_state') or {}).get('sender_role') or {}).get('value')
+
+    def view(self, case_id, refresh=False, expand=False):
         case = self._case(case_id)
         items = compute_items(case)
-        plan = self._plan(case, items, refresh)
+        plan = planner.narrow(self._plan(case, items, refresh), items, self._role(case), expand)
         records = simulator.load_records() if self.records is None else self.records
         return {'case_id': case['case_id'], 'version': case['version'], 'decision': case['result']['decision'],
                 'decision_reason': case['result'].get('decision_reason'), 'items': items, 'plan': plan,
@@ -50,10 +54,16 @@ class CallbackService:
         items_before = compute_items(previous)
         with self.lock:
             cached = self.cache.get((case_id, previous['version']))
+        # scope 'primary' = only what the desk showed by default (one question); 'all' keeps the full <=3 plan.
+        primary_only = request.get('scope') == 'primary'
+        if primary_only and cached:
+            cached = planner.narrow(cached, items_before, self._role(previous))
         asked_ids = {i for q in cached['questions'] for i in q['item_ids']} if cached else None
         simulated = request.get('simulated') is True
         if simulated:
             plan = self._plan(previous, items_before)
+            if primary_only:
+                plan = planner.narrow(plan, items_before, self._role(previous))
             asked = [i for q in plan['questions'] for i in q['item_ids']] or [i['id'] for i in items_before]
             asked_ids = set(asked)
             records = simulator.load_records() if self.records is None else self.records

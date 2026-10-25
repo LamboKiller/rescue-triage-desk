@@ -47,7 +47,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
             if path.startswith('/api/cases/') and path.endswith('/callback') and len(path.split('/'))==5:
                 try:
                     query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
-                    self.send_json(200,callback.view(path.split('/')[3],refresh='refresh' in query));return
+                    self.send_json(200,callback.view(path.split('/')[3],refresh='refresh' in query,expand='expand' in query));return
                 except KeyError: self.send_json(404,{'error':'Caso não encontrado.'});return
                 except Exception: self.send_json(500,{'error':'Falha ao montar o retorno.'});return
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'GET')

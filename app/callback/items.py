@@ -7,10 +7,14 @@ Blocking mirrors app/decide.py + app/routing.py; nothing here authorizes anythin
 # Order = what unblocks dispatch first (place before people before status).
 RANK = ['area.out_of_area', 'loc.municipality', 'loc.place', 'loc.number', 'dialogue.conflict', 'people.count',
         'people.conflict', 'stale.contact', 'rescue.unconfirmed', 'loc.approximate', 'people.derived',
-        'vuln.unknown', 'dup.suspected', 'review.injection', 'review.not_rescue', 'review.incomplete']
+        'vuln.unknown', 'people.remaining_conflict', 'source.original', 'dup.suspected', 'review.injection',
+        'review.not_rescue', 'review.incomplete']
+# Safety items outrank pure count refinements when nothing blocks (default one-question pick, see planner.primary_item).
+SAFETY = ('stale.contact', 'rescue.unconfirmed', 'vuln.unknown', 'source.original')
 GROUP = {'area.out_of_area': 'location', 'loc.municipality': 'location', 'loc.place': 'location', 'loc.number': 'location',
          'loc.approximate': 'location', 'dialogue.conflict': 'location', 'people.count': 'people',
          'people.conflict': 'people', 'people.derived': 'people', 'vuln.unknown': 'people',
+         'people.remaining_conflict': 'people', 'source.original': 'status',
          'stale.contact': 'status', 'rescue.unconfirmed': 'status', 'dup.suspected': 'status'}
 COUNT_FIELDS = ('people', 'children', 'elderly', 'disabled', 'pets', 'conflicting_counts')
 WHY = {
@@ -24,6 +28,8 @@ WHY = {
     'people.conflict': 'Contagens conflitantes de pessoas.',
     'people.derived': 'Total de pessoas derivado por código (quem escreve + citados); confirmar.',
     'vuln.unknown': 'Crianças, idosos e acamados não informados; muda prioridade e equipamento.',
+    'people.remaining_conflict': 'Pessoas resgatadas e restantes não fecham com o total inicial; confirmar com a equipe ou o contato.',
+    'source.original': 'Mensagem repassada: falta a pessoa que fez o pedido original (só ela confirma local e pessoas).',
     'stale.contact': 'Sem atualização há muito tempo; confirmar se ainda estão no local.',
     'rescue.unconfirmed': 'Resgate apenas relatado no texto; falta confirmação.',
     'dup.suspected': 'Possível pedido duplicado de outro caso; revisão humana decide a união.',
@@ -100,7 +106,7 @@ def compute_items(case):
         add('dialogue.conflict', True, ev)
     people = _val(case, 'people') or 0
     if not isinstance(people, int) or people < 1:
-        add('people.count', True, [_fact('fields.people', None)])
+        add('people.count', result.get('decision') != 'SEND_CANDIDATE', [_fact('fields.people', None)])
         people = 0
     if result.get('conflicting_counts') or count_conflicts:
         ev = [{'source': 'conflict', 'field': c['field'], 'previous': (c.get('previous') or {}).get('value'),
@@ -119,6 +125,12 @@ def compute_items(case):
         add('people.derived', False, [_quote(case, 'people'), _fact('fields.people.listed', f.get('listed'))])
     if people >= 1 and not any(k in (case.get('fields') or {}) for k in ('children', 'elderly', 'disabled')):
         add('vuln.unknown', False, [_fact('fields.children/elderly/disabled', None)])
+    state = case.get('incident_state') or {}
+    for conflict in state.get('open_items') or []:
+        add(conflict['id'], False, [{'source': 'incident_state', 'reasons': conflict.get('reasons_pt')}]+list(conflict.get('evidence') or []))
+    if (state.get('sender_role') or {}).get('value') == 'volunteer_repost':
+        add('source.original', False, [{'source': 'sender_role', 'quote': (state['sender_role'].get('provenance') or {}).get('quote'),
+                                         'value': 'volunteer_repost'}])
     dups = case.get('duplicates') or []
     if dups:
         add('dup.suspected', False, [{'source': 'duplicate', 'case_id': d.get('case_id'), 'score': d.get('score'),

@@ -60,9 +60,15 @@ class Registry:
                     continue
                 if event['kind'] in ('resource', 'supervisor'):  # supervisor ticks/decisions are journal-only, never case state
                     continue
-                if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission'):
+                if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission',
+                                     'repost_link', 'repost_unlink'):
                     for projection in event['projections']:
+                        earlier = cases.get(projection['case_id'])
                         cases[projection['case_id']] = projection
+                        if earlier and 'people_initial_n' in earlier:  # logs written before P1S carry no initial count
+                            projection.setdefault('people_initial_n', earlier['people_initial_n'])
+                    if event.get('provenance'):  # an unlinked repost is ingested exactly once
+                        seen.add(event['provenance'])
                     continue
                 cid = event['case_id']
                 if event['kind'] in ('ingest', 'analysis'):
@@ -70,6 +76,10 @@ class Registry:
                     case = cases.setdefault(cid, {'case_id': cid, 'version': 0, 'status': 'proposed',
                                                   'location_confirmed': False, 'facts': [], 'actions': []})
                     case['facts'].append(event['case'])
+                    if 'people_initial_n' not in case:  # first observation, frozen: facts alias live fields after later edits
+                        first = (event['case'].get('fields') or {}).get('people')
+                        case['people_initial_n'] = {'value': first.get('value'), 'quote': first.get('quote'), 'source': first.get('source'),
+                                                    'message_id': event['case'].get('message_id')} if isinstance(first, dict) else None
                     # Retain stale observations without rolling the current projection back.
                     if 'received_at' not in case or timestamp(event['case']['received_at']) >= timestamp(case['received_at']):
                         case.update(event['case'])
@@ -93,9 +103,33 @@ class Registry:
                         case['status'] = 'callback_requested'
                     elif action == 'report_rescued':
                         case['status'] = 'reported_rescued_unconfirmed'
+        self._project_incident_state(cases)
         return cases, seen
 
+    @staticmethod
+    def _project_incident_state(cases):
+        """P1S: canonical incident fields re-derived from events on every read; never stored, never silently absent."""
+        from app import incident_state
+        for case in cases.values():
+            try:
+                case['incident_state'] = incident_state.compute(case)
+            except Exception as exc:
+                case['incident_state'] = {'error': type(exc).__name__+': '+str(exc)[:120]}
+
+    @staticmethod
+    def _stored(case):
+        """Copy of a projection without derived fields (also inside merge_state.before) so the log holds facts, not views."""
+        out = {k: v for k, v in case.items() if k != 'incident_state'}
+        state = out.get('merge_state')
+        if isinstance(state, dict) and state.get('before'):
+            out['merge_state'] = {**state, 'before': [Registry._stored(c) for c in state['before']]}
+        return out
+
     def _append(self, event):
+        if 'projections' in event:
+            event = {**event, 'projections': [self._stored(p) for p in event['projections']]}
+        if isinstance(event.get('case'), dict):
+            event = {**event, 'case': self._stored(event['case'])}
         with self.path.open('a', encoding='utf-8', newline='\n') as out:
             out.write(json.dumps(event, ensure_ascii=False, separators=(',', ':'))+'\n')
             out.flush()
@@ -111,6 +145,13 @@ class Registry:
         with self.locked():
             cases, seen = self._read()
             previous = cases.get(cid)
+            linked = self._linked_primary(cases, provenance)
+            if linked is not None:  # this delivery is already attached to a case as a repost
+                return copy.deepcopy(linked)
+            if previous is None and provenance not in seen:
+                hit = self._try_repost(cases, cid, case, provenance)
+                if hit is not None:
+                    return hit
             if previous and previous.get('status','').startswith('ASSIGNED:'):
                 raise Conflict('Cancele a missão antes de reanalisar o caso atribuído.')
             if previous and (previous.get('merge_state') or previous.get('status','').startswith('MERGED_INTO:')):
@@ -132,6 +173,59 @@ class Registry:
                               'provenance': provenance, 'version': cases.get(cid, {}).get('version', 0)+1,
                               'case': case})
             return copy.deepcopy(self._read()[0][cid])
+
+    @staticmethod
+    def _linked_primary(cases, provenance):
+        for c in cases.values():
+            if any(l.get('provenance') == provenance and not l.get('unlinked') for l in c.get('linked_reports') or []):
+                return c
+        return None
+
+    def _try_repost(self, cases, cid, case, provenance):
+        """P1S: identical text + same place within 24 h attaches to the earlier case (no new case). Unlink is one human action."""
+        from app.duplicates import find_repost
+        from app.agents.needs import scan_context
+        from app.derive_count import INJECTION
+        hit = find_repost({**case, 'case_id': cid}, list(cases.values()))
+        if hit is None:
+            return None
+        primary, match = hit
+        sender = scan_context([case['text']])['sender']
+        updated = copy.deepcopy(primary)
+        updated.setdefault('linked_reports', []).append({
+            'message_id': case['message_id'], 'provenance': provenance, 'received_at': case['received_at'],
+            'text': case['text'], 'sender_role': sender['role'] if sender else 'unknown',
+            'prompt_injection_detected': bool(INJECTION.search(case['text'])),
+            'overlap': match['overlap'], 'hours': match['hours'], 'reason': match['reason'], 'unlinked': False,
+            'payload': self._stored(case)})
+        self._append({'schema_version': 1, 'kind': 'repost_link', 'case_id': primary['case_id'], 'actor': 'system',
+                      'projections': [updated]})
+        return copy.deepcopy(self._read()[0][primary['case_id']])
+
+    def _unlink(self, cases, case, actor, message_id):
+        """Human undo of an automatic repost link: the stored analysis becomes its own proposed case."""
+        if case.get('merge_state') or case['status'].startswith('MERGED_INTO:'):
+            raise Conflict('Desfaça a união antes de desvincular relatos.')
+        link = next((l for l in case.get('linked_reports') or [] if l['message_id'] == message_id and not l.get('unlinked')), None)
+        if link is None:
+            raise ValueError('Relato vinculado não encontrado.')
+        cid = hashlib.sha256(message_id.encode()).hexdigest()[:24]
+        if cid in cases:
+            raise Conflict('Relato já existe como caso próprio.')
+        updated = copy.deepcopy(case)
+        for l in updated['linked_reports']:
+            if l['message_id'] == message_id:
+                l.update(unlinked=True, unlinked_by=redact(actor.strip()))
+        payload = copy.deepcopy(link['payload'])
+        payload.pop('case_id', None)
+        first = (payload.get('fields') or {}).get('people')
+        fresh = {'people_initial_n': {'value': first.get('value'), 'quote': first.get('quote'), 'source': first.get('source'),
+                                      'message_id': message_id} if isinstance(first, dict) else None,
+                 'case_id': cid, 'version': 1, 'status': 'proposed', 'location_confirmed': False, 'facts': [payload],
+                 'actions': [], **payload, 'unlinked_from': case['case_id']}
+        self._append({'schema_version': 1, 'kind': 'repost_unlink', 'case_id': case['case_id'], 'actor': redact(actor.strip()),
+                      'provenance': link['provenance'], 'projections': [updated, fresh]})
+        return copy.deepcopy(self._read()[0][case['case_id']])
 
     def append_reply(self, case_id, expected_version, case):
         case = json.loads(redact(json.dumps(case, ensure_ascii=False)))
@@ -179,6 +273,8 @@ class Registry:
                              mission_id, expected_versions, caution_acknowledged)
             if case['status'].startswith('ASSIGNED:'):
                 raise Conflict('Caso em missão; cancele a missão antes de outra ação.')
+            if action == 'unlink_report':  # target_case_id carries the repost's message_id
+                return self._unlink(cases, case, actor, target_case_id)
             if action in ('merge', 'unmerge'):
                 return self._merge(cases, case, action, actor, target_case_id, target_expected_version)
             status = case['status']
@@ -258,6 +354,7 @@ class Registry:
             for c in (a,b):
                 c['version'] += 1
                 c['actions'].append({'action':'merge','actor':redact(actor.strip()),'version':c['version'],'target_case_id':target_id})
+            a['linked_reports'] = copy.deepcopy(a.get('linked_reports', [])) + copy.deepcopy(b.get('linked_reports', []))
             a['messages'] = []
             a['evidence_union'] = []
             for c in before:

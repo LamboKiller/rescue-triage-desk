@@ -6,7 +6,7 @@ Rejected or failed -> deterministic templates (visible: plan['source']='template
 """
 import re
 import time
-from app.callback.items import RANK
+from app.callback.items import RANK, SAFETY
 
 MAX_QUESTIONS = 3
 ROLE = 'callback_planner'
@@ -146,6 +146,8 @@ def _people(ids, by_id):
     if 'people.conflict' in ids:
         pair = _conflict_phrase(by_id['people.conflict'])
         parts.append((f'Você informou {pair[0]} e depois {pair[1]}. ' if pair else 'Os relatos deram totais diferentes. ') + 'Qual é o total correto de pessoas?')
+    elif 'people.remaining_conflict' in ids:
+        parts.append('Os números de resgatados e restantes não fecham. Quantas pessoas ainda aguardam resgate?')
     elif 'people.count' in ids:
         parts.append('Quantas pessoas precisam de resgate?')
     elif 'people.derived' in ids:
@@ -161,6 +163,8 @@ def _status(ids, by_id):
         parts.append('Vocês ainda estão no local?')
     if 'rescue.unconfirmed' in ids:
         parts.append('Vocês já foram resgatados por alguma equipe?')
+    if 'source.original' in ids:
+        parts.append('Quem fez o pedido original? Passe o contato direto dessa pessoa.')
     if 'dup.suspected' in ids:
         parts.append('Mais alguém já pediu ajuda por este endereço?')
     return ' '.join(parts)
@@ -188,6 +192,34 @@ def template_plan(items):
             questions.append({'text_pt': text, 'item_ids': sorted(ids, key=RANK.index)})
     questions.sort(key=lambda q: RANK.index(q['item_ids'][0]) if any(by_id[i]['blocking'] for i in q['item_ids']) else 99)
     return questions[:MAX_QUESTIONS], deferred
+
+
+# --- P1S: ONE question by default, addressed to whoever can actually answer. ---
+ADDRESS = {
+    'third_party_elsewhere': 'Você consegue falar com quem está no local? Peça que respondam: ',
+    'volunteer_repost': 'O pedido original foi repassado; se tiver o contato de quem pediu, peça que responda: ',
+}
+
+
+def primary_item(items):
+    """The open item that unblocks dispatch most: blocking first (RANK order = what unblocks dispatch most), then safety, then count/refinement."""
+    askable = [i for i in items if i['ask']]
+    if not askable:
+        return None
+    return min(askable, key=lambda i: (0 if i['blocking'] else 1, 0 if not i['blocking'] and i['id'] in SAFETY else 1, RANK.index(i['id'])))['id']
+
+
+def narrow(plan, items, role=None, expand=False):
+    """Return a copy of `plan` showing the single question that carries the primary item (all <=3 when `expand`).
+    The cached/validated plan is never mutated; addressing is a static prefix, so it cannot add facts."""
+    questions = plan.get('questions') or []
+    pid = primary_item(items)
+    shown = list(questions) if expand else ([next((q for q in questions if pid in q['item_ids']), questions[0])] if questions else [])
+    prefix = ADDRESS.get(role or '')
+    shown = [dict(q, base_text_pt=q['text_pt'], text_pt=(prefix+q['text_pt']) if prefix else q['text_pt'],
+                  addressed_to=role or 'unknown') for q in shown]
+    return {**plan, 'questions': shown, 'total_questions': len(questions), 'expanded': bool(expand),
+            'primary_item': pid, 'addressed_to': role or 'unknown'}
 
 
 def _payload(items):

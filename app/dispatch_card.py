@@ -15,8 +15,16 @@ def build_card(case):
     lines.append('Local: '+(place or 'não informado')+'. Posição: '+use('result.location_confidence')+'; '+use('position.position_kind')+'.')
     if case.get('result', {}).get('location_approximate'):
         use('result.location_approximate')
-        lines.append('Local aproximado: confirmar no local')
+        lines.append('Local aproximado (bairro inteiro): confirmar ponto' if case.get('result', {}).get('location_precision') == 'area'
+                     else 'Local aproximado: confirmar no local')
+    if case.get('result', {}).get('people') is None and not case.get('fields', {}).get('people', {}).get('value'):
+        lines.append('contagem desconhecida, confirmar')
     lines.append('Pessoas: '+use('fields.people.value')+'; '+ '; '.join(label+': '+use('fields.'+key+'.value') for key,label in [('children','crianças'),('elderly','idosos'),('disabled','deficiência / acamados'),('pets','pets')])+'.')
+    if isinstance(case.get('incident_state'), dict) and 'error' not in case['incident_state']:
+        lines.append('Estado do incidente: precisão do local '+use('incident_state.location_precision.value')+'; nível '
+                     +use('incident_state.vertical_level.value')+'; pessoas inicial '+use('incident_state.people_initial.value')
+                     +' / restantes '+use('incident_state.people_remaining.value')+'; relatos '+use('incident_state.report_count')
+                     +'; remetente '+use('incident_state.sender_role.value')+'.')
     lines.append('Profundidade (estimativa): faixa '+use('hazards.depth_band')+'; data '+use('hazards.depth_observed_date')+'.')
     chosen = case.get('approved_asset') or case.get('proposed_asset')
     fleet = case.get('fleet',[])

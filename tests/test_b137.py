@@ -199,7 +199,7 @@ class HttpTests(unittest.TestCase):
             conn.request(method,path,json.dumps(body) if body is not None else None,{'Content-Type':'application/json'})
             response=conn.getresponse();data=response.read();status=response.status;mime=response.getheader('Content-Type');conn.close()
             return status,mime,data
-        body={'async':True,'replay_time':TIME,'messages':[{'message_id':str(i),'text':'Socorro 3 pessoas Rua dos Andradas 120 Porto Alegre'} for i in range(2)]}
+        body={'async':True,'replay_time':TIME,'messages':[{'message_id':str(i),'text':'Socorro 3 pessoas Rua dos Andradas 120 Porto Alegre'+(', urgente, casa alagada subindo rapido' if i else '')} for i in range(2)]}
         with contextlib.redirect_stdout(io.StringIO()):
             status,_,data=request('POST','/run',body)
             self.assertEqual(status,202);rid=json.loads(data)['run_id']
