@@ -73,11 +73,13 @@ class Safe1(unittest.TestCase):
         self.assertEqual(corrected['result']['decision'], 'CALLBACK')
         self.assertTrue(corrected['fields']['people']['previous'])
         self.assertTrue(any('confirm' in q.lower() for q in corrected['result']['questions']))
-        for prose in ('Somos 2; dizem que são 5.', 'Uma família está presa.', 'Um monte de gente aguarda.'):
+        self.assertEqual(self.case(prefix+'Somos 2; dizem que são 5.')['result']['decision'], 'CALLBACK')
+        # SAFE2 decision B: an unknown count never blocks a usable location.
+        for prose in ('Uma família está presa.', 'Um monte de gente aguarda.'):
             case = self.case(prefix+prose)
-            self.assertEqual(case['result']['decision'], 'CALLBACK')
-            if 'Somos' not in prose:
-                self.assertIsNone(case['fields'].get('people', {}).get('value'))
+            self.assertEqual(case['result']['decision'], 'SEND_CANDIDATE')
+            self.assertIsNone(case['fields'].get('people', {}).get('value'))
+            self.assertIsNone(case['result']['people'])
 
     def test_outside_incident_wins_street_and_caller_does_not(self):
         for city in ('Rio Grande', 'Passo Fundo', 'Farroupilha', 'Torres', 'Três Coroas'):
