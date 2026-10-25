@@ -5,8 +5,10 @@ plural relations without a number ("meus filhos": count unknown -> keep asking).
 """
 import re
 import unicodedata
+from app.agents.counts import WORDS
 
-NUMBERS = {'um': 1, 'uma': 1, 'dois': 2, 'duas': 2, 'tres': 3, 'quatro': 4, 'cinco': 5, 'seis': 6}
+NUMBERS = dict(WORDS)
+COUNT_NUMBER = r'(?:\d+|'+'|'.join(sorted((w for w, n in NUMBERS.items() if n >= 2 and w != 'duzia'), key=len, reverse=True))+r'|três)'
 RELATIONS = (r'filh[oa]s?|beb[eê]s?|crian[cç]as?|guri[as]?s?|gurizad[ao]|m[aã]e|pai|v[oóô]|av[oóô]|irm[aã]o?s?|irm[aã]s|'
              r'esposa|esposo|marido|mulher|namorad[oa]|sobrinh[oa]s?|ti[oa]s?|prim[oa]s?|sogr[oa]|net[oa]s?|cunhad[oa]|vizinh[oa]s?|'
              r'vozinha|vovo|vov[oó]')
@@ -33,14 +35,23 @@ def canonical_municipality(value):
     return MUNICIPALITY_ALIASES.get(_plain(value).strip(' .,'), value)
 
 
-CORRECTION = re.compile(r'na verdade|na real|corrigind|corrijo|arrumando|atualizando|t[aá] errad|escrevi errad|botei', re.I)
-_N = r'(\d+|dois|duas|tr[eê]s|quatro|cinco|seis)'
+CORRECTION = re.compile(r'na verdade|na real|corrigindo|corrijo|arrumando|atualizando|t[aá] errad|escrevi errad|botei', re.I)
+_N = '('+COUNT_NUMBER+')'
 TOTAL_FORMS = re.compile(r'\b(?:somos|tamo|tamos|estamos|ficamos|ficaram|restam|s[aã]o)\s+(?:em\s+)?'+_N+r'\b'
                          r'|\b'+_N+r'\s+(?:pessoas|personas|no total|ao todo)\b'
                          # other count mentions: only used to detect a SECOND, different count
                          r'|\b(?:tem|t[aá]|falaram em|dizem|diz|conto|teima que tem)\s+'+_N+r'\b', re.I)
 # Instructions or "not a request" inside the text: code must never read a count out of these (the model ignores them too).
 INJECTION = re.compile(r'retorne|json|finja|ignore (?:as )?regras|\[sistema\]|approve_dispatch|\bsystem\s*:|\[/?(?:system|assistant)\]|```|role.?play|interprete (?:o papel|um)|base64|ignore (?:all|previous|todas|instru)|n[aã]o h[aá] pedido', re.I)
+# Role impersonation and commands remain untrusted even inside a real plea.
+INJECTION = re.compile(INJECTION.pattern +
+    r'|\b(?:sistema|system|assistant|assistente|admin|developer)\s*:'
+    r'|(?:\[|<|<\|)/?(?:sistema|system|assistant|admin|developer)(?:\]|>|\|>)'
+    r'|\b(?:ordem do comando|operador autorizado|orden del comando|authorized operator|command orders)\b'
+    r'|\b(?:ignore|ignora|ignorem|desconsidere|desconsidera|desconsiderem|disregard|bypass|override|skip)\b'
+    r'[^.;!\n]{0,80}\b(?:regras?|reglas?|rules?|instru[cç][oõ]es|instructions?|instrucciones|policy|policies|safety|checks?|tudo|previous|anteriores)\b'
+    r'|\b(?:aprove|aprovar|autorize|autorizar|approve|authorize|apruebe|autoriza|despache|dispatch|clasifique|classifique|classify)\b'
+    r'[^.;!\n]{0,80}\b(?:despacho|dispatch|resgate|rescue|send|barco|boat|pedido|request|urgente|urgencia|emergencia)\b', re.I)
 
 
 GROUP_N = r'(?:\d+|um|uma|un|una|dois|duas|dos|tres|quatro|cinco|seis|sete|oito|nove|dez)'
@@ -161,3 +172,82 @@ def derive_people(text):
     if not listed or first is None:
         return None
     return {'value': total, 'quote': first.group(0).strip(), 'derived': True, 'source': 'rule:sender_plus_listed_people', 'listed': listed}
+
+
+def reconcile_people(fields, text):
+    """Apply count evidence after extraction, equally for offline and model intake."""
+    if not text or INJECTION.search(text):
+        return
+    mentions = []
+    for m in TOTAL_FORMS.finditer(text):
+        if re.match(r'\s+(?:familias?|adultos?|idos[oa]s?|criancas?|bebes?|cachorros?|gatos?|pets?)\b', _plain(text[m.end():])):
+            continue
+        raw = next(g for g in m.groups() if g)
+        n = int(raw) if raw.isdigit() else NUMBERS.get(_plain(raw))
+        if n:
+            mentions.append((m, n))
+    cues = list(CORRECTION.finditer(text))
+    corrected = [(m, n) for m, n in mentions if cues and m.start() >= cues[-1].end()]
+    distinct = {n for _, n in mentions}
+    if len(distinct) > 1 and corrected and len({n for _, n in corrected}) == 1:
+        m, n = corrected[-1]
+        fields['people'] = dict(value=n, quote=m[0], source='rule:corrected_people', derived=True,
+            previous=[dict(value=v, quote=old[0]) for old, v in mentions if old.start() < cues[-1].start()],
+            listed=[m[0]], confirm=True)
+        fields.pop('conflicting_counts', None)
+    elif len(distinct) > 1 and not derive_grouped(text):
+        fields['conflicting_counts'] = dict(value=True, quote=text, source='rule:count_conflict',
+                                          alternatives=[dict(value=n, quote=m[0]) for m, n in mentions])
+    elif len(distinct) == 1 and not derive_grouped(text):
+        m, n = mentions[-1]
+        fields['people'] = {**fields.get('people', {}), 'value': n, 'quote': m[0], 'source': 'text_total'}
+    else:
+        grouped = derive_grouped(text)
+        unknown = bool(re.search(r'\b(?:familias?|um monte de gente|muita gente|varias pessoas)\b', _plain(text)))
+        if (grouped and grouped.get('minimum')) or (unknown and not grouped):
+            fields.pop('people', None)
+            fields['count_unknown'] = dict(value=True, quote=text, source='rule:unknown_group')
+        elif not grouped:
+            from app.geo.incident import incident_text
+            scoped = incident_text(text)
+            remote = bool(FIRST_PERSON.search(text) and not FIRST_PERSON.search(scoped))
+            derived = None if remote else derive_people(text)
+            if derived:
+                fields['people'] = derived
+            # An explicitly remote reporter contributes zero people. Count only
+            # quantified relatives in the incident clause, retaining each quote.
+            elif re.search(r'\b(?:ligo|ligando|telefonando|repassando|estou em)\b', _plain(text)):
+                members = list(PHRASE.finditer(scoped))
+                if members and not unknown:
+                    total, listed = 0, []
+                    for member in members:
+                        raw, noun = member.groups()
+                        n = int(raw) if raw and raw.isdigit() else NUMBERS.get(_plain(raw)) if raw else None
+                        if n is None and noun.endswith('s'):
+                            break
+                        total += n if n is not None else 1
+                        listed.append(text[member.start():member.end()].strip())
+                    else:
+                        fields['people'] = dict(value=total, quote=text[members[0].start():members[-1].end()],
+                            derived=True, source='rule:remote_reporter_relations', listed=listed)
+
+
+RESCUE_COMPLETE = re.compile(
+    r'\b(?:ja (?:foram|estao|estamos|fomos) (?:tod[oa]s? )?(?:resgatad[oa]s?|retirad[oa]s?|tirad[oa]s?|no abrigo)|'
+    r'(?:consegui|conseguimos|conseguiram) sair|(?:um |uma |o |a )?vizinh[oa][^.;!\n]{0,45}me tirou)\b')
+REMAINING = re.compile(
+    r'\b(?:ainda|continua[m]?|segue[m]?)\s+(?:(?:esta[o]?|tem|ha|ficou|ficaram)\s+)?'
+    r'[^.;!\n]{0,45}\b(?:pres[oa]s?|ilhad[oa]s?|para tras|pra tras|precisa[m]? de (?:resgate|ajuda))\b'
+    r'|\b(?:mas|porem)\b[^.;!\n]{0,55}\b(?:ficou|ficaram|resta|restam)\b[^.;!\n]{0,25}(?:la|no local|na casa|no telhado)\b')
+
+
+def completed_rescue_quote(text):
+    """Positive completed-rescue evidence, never a negation or a partial rescue."""
+    from app.rescue_state import state
+    plain = _plain(text)
+    if state(text)['partial'] or REMAINING.search(plain):
+        return None
+    for match in RESCUE_COMPLETE.finditer(plain):
+        if not re.search(r'\b(?:nao|nunca|not|no)\s+(?:\w+\s+){0,2}$', plain[max(0, match.start()-35):match.start()]):
+            return text[match.start():match.end()]
+    return None

@@ -5,8 +5,8 @@ import re
 import time
 from app.agents import critic
 from app.agents.location_tools import LocationTools
-from app.derive_count import _plain
-from app.geo.incident import IncidentIndex, incident_text
+from app.derive_count import _plain, reconcile_people
+from app.geo.incident import IncidentIndex, incident_text, municipality_mentions
 from app.geo.landmarks import distance, distinct_places, exact_evidence, match as match_landmark
 from app.geo.streets import lookup, normalize
 from app.llm.nightshift import TRACE_LOCK
@@ -56,7 +56,8 @@ def _best_fallback(tools, history):
 def _incident_cities(index, scoped, streets):
     cities = {**{_plain(c): c for c in ('Porto Alegre', 'Canoas', 'São Leopoldo', 'Eldorado do Sul', 'Guaíba', 'Novo Hamburgo')},
               **index.cities, 'poa': 'Porto Alegre'}
-    return {display for city, display in cities.items()
+    name_spans = streets + index.hits(scoped, index.bairros)
+    return {h[2] for h in municipality_mentions(scoped, name_spans)} | {display for city, display in cities.items()
             for m in re.finditer(r'\b'+re.escape(city)+r'\b', scoped)
             if not any(a <= m.start() and b >= m.end() for a, b, _ in streets)}
 
@@ -138,6 +139,15 @@ def _objections(answer, tools):
             any(c['candidate_id'] == anchor for c in r['candidates']) for r in tools.results.values())
             for anchor in candidate['anchors']):
         objections.append({'field': 'location', 'reason': 'unseen_anchor'})
+    if candidate.get('category', '') in ('place:city', 'place:town', 'place:village', 'place:municipality',
+                                        'place:suburb', 'place:neighbourhood', 'boundary:administrative') and answer['precision'] != 'area':
+        objections.append({'field': 'location', 'reason': 'area_only'})
+    if candidate['kind'] == 'street' and not explicit and not bairro_cities:
+        matched_cities = {r['municipality'] for _, _, rs in streets for r in rs}
+        anchors = tools.index.hits(scoped, tools.index.landmarks)
+        anchor_cities = set().union(*(cs for _, _, cs in anchors)) if anchors else set()
+        if len(matched_cities) > 1 and len(anchor_cities & matched_cities) != 1:
+            objections.append({'field': 'location', 'reason': 'ambiguous_city'})
     return objections
 
 
@@ -321,6 +331,7 @@ def _street_context(rows, fields, scoped, street, points):
 
 def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index=None, points=(), trace=None, emit=None, memory=None):
     """Pipeline adapter; preserve existing lookup/landmark result contracts."""
+    reconcile_people(fields, text)
     get = lambda k: fields.get(k, {}).get('value', '')
     index = index or IncidentIndex(rows, landmark_rows)
     street = lookup(rows, get('street'), get('municipality'), replay)
@@ -329,6 +340,9 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
     points = tuple(points)
     context = _street_context(landmark_rows, fields, scoped, street, points) if street['found'] else None
     hits = index.hits(scoped, index.streets, index.max_words)
+    if street['found'] and not hits and normalize(get('street')) == normalize(get('municipality')):
+        street = lookup([], '', '', replay)
+        fields.pop('street', None)
     cities = _incident_cities(index, scoped, hits)
     # Only an unambiguous, literal catalogue reference bypasses the policy.
     exact = exact_evidence(landmark_rows, scoped, cities)

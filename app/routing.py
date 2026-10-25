@@ -1,11 +1,12 @@
 """Deterministic, auditable routing; untrusted instructions never authorize SEND."""
 import re
-from app.derive_count import INJECTION, _plain
-from app.geo.incident import incident_text
+from app.derive_count import INJECTION, _plain, completed_rescue_quote, REMAINING
+from app.geo.incident import incident_text, rs_municipalities, municipality_mentions
 from app.rescue_state import state
 
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
-OUTSIDE = re.compile(r'\b(recife|curitiba|sao paulo|rio de janeiro|belo horizonte|florianopolis|pernambuco|parana|santa catarina|bahia|ceara|maranhao|piaui|estado do para|amazonas|acre|amapa|roraima|rondonia|tocantins|goias|mato grosso(?: do sul)?|espirito santo|sergipe|alagoas|paraiba|rio grande do norte|distrito federal|pelotas|santa maria|caxias do sul|rio grande|passo fundo)\b|(?:/|\bestado (?:de|do) )\s*(?:sp|pr|pe|sc|rj|mg|ba|ce|ma|pi|pa|am|ac|ap|rr|ro|to|go|mt|ms|es|se|al|pb|rn|df)\b')
+OUTSIDE = re.compile(r'\b(?:'+'|'.join(map(re.escape, sorted(set(rs_municipalities()) - COVERED, key=len, reverse=True)))+
+    r'|recife|curitiba|sao paulo|rio de janeiro|belo horizonte|florianopolis|pernambuco|parana|santa catarina|bahia|ceara|maranhao|piaui|estado do para|amazonas|acre|amapa|roraima|rondonia|tocantins|goias|mato grosso(?: do sul)?|espirito santo|sergipe|alagoas|paraiba|rio grande do norte|distrito federal)\b|(?:/|\bestado (?:de|do) )\s*(?:sp|pr|pe|sc|rj|mg|ba|ce|ma|pi|pa|am|ac|ap|rr|ro|to|go|mt|ms|es|se|al|pb|rn|df)\b')
 REQUEST = re.compile(r'precisamos|preciso|socorro|nos resgat|nos ajudar|estamos (?:presos|ilhados)|agua (?:entrou|subindo)|need (?:rescue|help)|necesitamos|evacuar|resgat(?:e|ar) (?:meu|nosso|a gente)')
 LABELS = {'street':'Rua identificada', 'landmark':'Ponto de referência', 'ambiguous_place':'Local ambíguo',
           'not_a_rescue':'Sem pessoas para resgatar — revisão humana',
@@ -18,31 +19,47 @@ def apply_route(case, rows):
     city = _plain(fields.get('municipality', {}).get('value', ''))
     lm = case.get('landmark_check') or {}
     injection = bool(INJECTION.search(case['text']))
-    resolved_city = _plain((lm.get('matched') or {}).get('municipality') or
-                           (case.get('checks') or {}).get('municipality') or '')
     outside_text = case.get('incident_outside_text', incident_text(case['text']))
     outside_match = OUTSIDE.search(outside_text)
     # Outside text must assert an incident location, not just mention a city.
     outside_cue = bool(outside_match and re.search(
         r'\b(?:em|no|na|municipio|cidade|estado|pedido|resgate|socorro)\b[^.;!\n]{0,70}$|/\s*$',
         outside_text[:outside_match.start()]))
-    outside = resolved_city not in COVERED and bool((city and city not in COVERED) or outside_cue)
+    outside = bool((city and city not in COVERED) or outside_cue or
+                   any(_plain(h[2]) not in COVERED for h in municipality_mentions(outside_text)))
     # A direct assertion about the incident's state contradicts a city match;
     # a street catalogue hit alone cannot reconcile that conflicting address.
     if outside_match and re.search(r'\b(?:endereco|local|pedido|resgate)\b[^.;!\n]{0,30}\bestado\b',
                                    outside_text[:outside_match.start()]):
         outside = True
     rescue = state(case['text'])
+    rescue_quote = completed_rescue_quote(case['text'])
+    remaining = rescue['partial'] or bool(REMAINING.search(text))
+    if rescue_quote and not remaining and result.get('age_hours', 0) >= 0:
+        fields['already_rescued'] = dict(value=True, quote=rescue_quote, source='rule:completed_rescue')
+        result.update(decision='REPORTED_RESCUED', decision_reason='Resgate relatado no texto; aguarda confirmação em campo.',
+                      questions=['O resgate foi confirmado por uma equipe em campo?'])
+    elif remaining:
+        fields.pop('already_rescued', None)
+        if result['decision'] == 'REPORTED_RESCUED':
+            result.update(decision='CALLBACK', decision_reason='Há pessoas ainda no local; confirmar quem precisa de resgate.',
+                          questions=['Quem ainda precisa de resgate e em qual local?'])
+    for key in ('street', 'number', 'municipality'):
+        field = fields.get(key, {})
+        if field.get('confirm'):
+            conflicts = case.setdefault('contradictions', [])
+            for old in field.get('previous', []):
+                conflicts.append(dict(field=key, previous=old, reply=field, quote=field['quote']))
     failure = not case.get('complete', False) or case.get('review_degraded') or any(
         e.startswith(('agent_step_failed', 'location_failed', 'global_deadline', 'message_deadline')) for e in case.get('errors', []))
     route = 'street'
-    if failure:
-        route = 'agent_failure'
-        result.update(decision='REVIEW_REQUIRED', decision_reason='Falha na análise automática; revisão humana obrigatória.')
-    elif injection:
+    if injection:
         route = 'not_a_request_or_injection'
         result.update(decision='REVIEW_REQUIRED',
                       decision_reason='Instrução suspeita no texto; revisão humana obrigatória.')
+    elif failure:
+        route = 'agent_failure'
+        result.update(decision='REVIEW_REQUIRED', decision_reason='Falha na análise automática; revisão humana obrigatória.')
     elif rescue['not_a_rescue']:
         route = 'not_a_rescue'
         result.update(decision='REVIEW_REQUIRED',
@@ -52,14 +69,19 @@ def apply_route(case, rows):
         result.update(decision='CALLBACK', decision_reason='Município ou estado fora dos seis municípios atendidos; confirmar encaminhamento.')
     elif result['decision'] == 'REPORTED_RESCUED':
         route = 'already_rescued'
+    elif fields.get('ambiguous_place', {}).get('value'):
+        route = 'ambiguous_place'
+        result.update(decision='CALLBACK', decision_reason='Rua presente em mais de um município; confirmar o local.',
+                      questions=['Qual é o município, bairro ou referência da rua?'])
     elif ((len(re.findall(r'\b(?:rua|avenida|travessa|estrada)\b', text)) > 1 or
            sum(bool(re.search(r'\b'+re.escape(c)+r'\b', text)) for c in COVERED) > 1)
-          and (re.search(r'\bou\b|pedido (?:um|dois)|nao sei qual', text))):
+          and (re.search(r'\bou\b|pedido (?:um|dois)|nao sei qual|(?:dois|ambos (?:os )?)\s*(?:lugares|locais|enderecos)|duas casas', text))):
         route = 'ambiguous_place'
         result.update(decision='CALLBACK', decision_reason='Há mais de um local ou pedido; confirmar cada local separadamente.',
                       questions=['Qual local corresponde a cada grupo de pessoas?'])
     elif lm.get('status') == 'ambiguous':
         route = 'ambiguous_place'
+        result.update(decision='CALLBACK')
     elif result['decision'] == 'CALLBACK':
         route = 'incomplete' if fields else 'not_a_request_or_injection'
     elif lm.get('status') == 'resolved' and not lm.get('context_only'):

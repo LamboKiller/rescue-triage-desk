@@ -19,7 +19,10 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     def v(key, default=None):
         return fields.get(key, {}).get('value', default)
     questions = []
-    people = v('people', 0)
+    people = v('people', 0) or 0
+    for key, label in (('people', 'total de pessoas'), ('street', 'rua'), ('number', 'número'), ('municipality', 'município')):
+        if fields.get(key, {}).get('confirm'):
+            questions.append('Pode confirmar a correção de '+label+'?')
     # A vulnerable-group count can only contradict a total that was actually given (no total -> ask the count, not a conflict).
     conflict = v('conflicting_counts', False) or (people >= 1 and any(v(k, 0) > people for k in ('children', 'elderly', 'disabled')))
     lm = landmark_location or {}
