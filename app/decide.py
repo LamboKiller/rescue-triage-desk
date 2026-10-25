@@ -23,12 +23,15 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     # A vulnerable-group count can only contradict a total that was actually given (no total -> ask the count, not a conflict).
     conflict = v('conflicting_counts', False) or (people >= 1 and any(v(k, 0) > people for k in ('children', 'elderly', 'disabled')))
     lm = landmark_location or {}
-    resolved = lm.get('status') == 'resolved'
+    resolved = lm.get('status') == 'resolved' and not lm.get('context_only')
     landmark_request = bool(v('landmark') or lm.get('requested'))
+    context_only = bool(location['found'] and v('number') and lm.get('context_only'))
     approximate = bool(not v('number') and (resolved or life_safety and location['found']))
     if not v('municipality') and not resolved:
         questions.append('Em qual município está o pedido?')
-    if landmark_request and not resolved and not (approximate and location['found'] and lm.get('status') != 'ambiguous'):
+    if lm.get('status') == 'conflict':
+        questions.append('A referência contradiz o endereço; qual é o local correto?')
+    elif landmark_request and not resolved and not context_only and not (approximate and location['found'] and lm.get('status') != 'ambiguous'):
         if lm.get('status') == 'ambiguous':
             names = [r['name'] + (' ('+r['neighbourhood']+')' if r.get('neighbourhood') else '') for r in lm['candidates']]
             questions.append('É '+ ' ou '.join(names) +'?')
@@ -68,7 +71,8 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
               'Rua e número ou cruzamento e contagem de pessoas informados; confirmar o local com a pessoa.')
     people_derived = bool(fields.get('people', {}).get('derived'))
     if people_derived and decision != 'REPORTED_RESCUED':
-        reason = 'Contagem derivada — confirmar: '+str(people)+' (quem escreve + '+', '.join(
+        grouped = fields['people'].get('source') == 'rule:grouped_people'
+        reason = 'Contagem derivada — confirmar: '+('mínimo ' if fields['people'].get('minimum') else '')+str(people)+' ('+('grupos: ' if grouped else 'quem escreve + ')+', '.join(
             fields['people'].get('listed', []))+'). ' + reason
     return {'decision': decision, 'priority': priority, 'questions': questions,
             'decision_reason': reason, 'people_derived': people_derived,

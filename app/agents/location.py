@@ -294,6 +294,31 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
     return result, metas
 
 
+def _street_context(rows, fields, scoped, street, points):
+    """Retain optional place evidence without making unknown context mandatory."""
+    field = fields.get('landmark', {})
+    quote = field.get('quote') or field.get('value', '')
+    if not quote or _plain(quote) not in scoped:
+        return None
+    hits = exact_evidence(rows, _plain(quote), set())
+    city = normalize(street['municipality'])
+    local = [h['row'] for h in hits if normalize(h['row']['municipality']) == city]
+    point = next((p for p in points if normalize(p['municipality']) == city and
+                  normalize(p['display_name']) == normalize(street['display_name'])), None)
+    conflict = bool(hits and not local)
+    # Missing coordinates are unknown, never evidence of a contradiction.
+    distances = [distance(point, r) for r in local] if point else []
+    if distances and all(5000 < d < float('inf') for d in distances):
+        conflict = True
+    status = 'conflict' if conflict else 'resolved' if len(distinct_places(local)) == 1 else 'unresolved'
+    return dict(status=status, context_only=True, requested=True, quote=quote,
+                matched=None,  # Corroboration must not replace the street hazard position.
+                candidates=[h['row'] for h in hits],
+                reason='Reference contradicts the verified street.' if conflict else
+                       'Supplementary reference evidence.' if status == 'resolved' else
+                       'Unresolved supplementary reference; street address retained.')
+
+
 def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index=None, points=(), trace=None, emit=None):
     """Pipeline adapter; preserve existing lookup/landmark result contracts."""
     get = lambda k: fields.get(k, {}).get('value', '')
@@ -301,6 +326,8 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
     street = lookup(rows, get('street'), get('municipality'), replay)
     cross = lookup(rows, get('cross_street'), get('municipality'), replay) if get('cross_street') else None
     scoped = incident_text(text)
+    points = tuple(points)
+    context = _street_context(landmark_rows, fields, scoped, street, points) if street['found'] else None
     hits = index.hits(scoped, index.streets, index.max_words)
     cities = _incident_cities(index, scoped, hits)
     # Only an unambiguous, literal catalogue reference bypasses the policy.
@@ -338,6 +365,11 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
     # Extracted fields may still refer to the caller; an outage must not restore them.
     if not street_quote or _plain(street_quote) not in scoped:
         street = lookup([], '', '', replay)
+    if street['found'] and context and context['status'] == 'conflict':
+        output = dict(location_path='deterministic_context', precision='street',
+                      steps=[], tool_steps=0, objections=[dict(field='location', reason='context_conflict')],
+                      revision=False, fallback=False)
+        return street, cross, context, output, []
     cross_quote = fields.get('cross_street', {}).get('quote', '')
     if cross and (not cross_quote or _plain(cross_quote) not in scoped):
         cross = None
@@ -371,7 +403,7 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
             if len(identities) == 1 and not get('cross_street'):
                 _record(dict(role='location_agent', **protected['steps'][0]), trace, emit)
                 # A nearby generic landmark is supplementary to this verified street.
-                return street, cross, None, protected, []
+                return street, cross, context, protected, []
     incident_landmark = get('landmark') if get('landmark') and _plain(get('landmark')) in scoped else ''
     fallback = match_landmark(landmark_rows, place_name=incident_landmark, landmark_quote=incident_landmark,
         municipality=get('municipality'), replay=replay, message=scoped, streets=rows)
@@ -416,7 +448,7 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
         # abstention or an unsupported policy objection cannot erase it.
         output.update(retained_deterministic=protected, policy_answer=output['answer'],
                       answer=protected['answer'], candidate=protected['candidate'], precision=protected['precision'])
-        return street, cross, None, output, metas
+        return street, cross, context, output, metas
     candidate = output['candidate']
     output['precision'] = output['answer']['precision']
     if candidate:

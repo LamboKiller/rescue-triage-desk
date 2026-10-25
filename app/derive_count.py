@@ -43,8 +43,65 @@ TOTAL_FORMS = re.compile(r'\b(?:somos|tamo|tamos|estamos|ficamos|ficaram|restam|
 INJECTION = re.compile(r'retorne|json|finja|ignore (?:as )?regras|\[sistema\]|approve_dispatch|\bsystem\s*:|\[/?(?:system|assistant)\]|```|role.?play|interprete (?:o papel|um)|base64|ignore (?:all|previous|todas|instru)|n[aã]o h[aá] pedido', re.I)
 
 
+GROUP_N = r'(?:\d+|um|uma|un|una|dois|duas|dos|tres|quatro|cinco|seis|sete|oito|nove|dez)'
+GROUP_GLOBAL = re.compile(r'\b(?:somos|estamos em|ao todo|no total|total de)\s+'+GROUP_N+r'\b(?!\s+familias?\b)|\b'+GROUP_N+r'\s+(?:no total|ao todo)\b')
+GROUP_PLACE = re.compile(r'\b(?:casa|fundos|frente|andar|cima|baixo|anexo|puxadinho|parte|sobrado)\b')
+GROUP_MEMBER = re.compile(r'\b(?:(?P<n>'+GROUP_N+r')\s+)?(?P<kind>pessoas?|personas?|adult[oa]s?|idos[oa]s?|criancas?|bebes?|abuel[oa]s?|avos?|casais|casal|gemeos?|familias?)\b')
+
+
+def derive_grouped(text):
+    """Explicit members in separate spatial groups; unknown families give a minimum.
+
+    A local total owns its immediately following parenthetical breakdown. No
+    sender is added to third-party groups. Ambiguous prose is left for callback.
+    """
+    if not text or INJECTION.search(text):
+        return None
+    plain = _plain(text)
+    if GROUP_GLOBAL.search(plain) or CORRECTION.search(text):
+        return None
+    # Mask only breakdowns attached to a stated people total.
+    scoped = re.sub(r'\b'+GROUP_N+r'\s+(?:pessoas?|personas?)\s*\([^)]*\)',
+                    lambda m: m[0][:m[0].index('(')]+' '*(len(m[0])-m[0].index('(')), plain)
+    matches = list(GROUP_MEMBER.finditer(scoped))
+    first_place = GROUP_PLACE.search(scoped)
+    if first_place and len(GROUP_PLACE.findall(scoped)) >= 2:
+        # A family heading followed by spatial member lists describes the
+        # same people; it is neither an extra group nor an explicit total.
+        matches = [m for m in matches if not (m['kind'].startswith('familia') and
+                                             m.end() < first_place.start())]
+    family = any(m['kind'].startswith('familia') for m in matches)
+    if family and len(matches) > 1 and len(GROUP_PLACE.findall(scoped)) < 2:
+        return None  # "2 families, 8 people" supplies a total, not 10 people.
+    if not matches or not (any(m['kind'].startswith('familia') for m in matches) or
+                           len(GROUP_PLACE.findall(scoped)) >= 2 and len(matches) >= 2):
+        return None
+    # A total followed by a prose breakdown is not safely additive.
+    if re.search(r'\b(?:sendo|incluindo|entre el[ae]s|dest[ae]s|dos quais|dizem|disseram|falaram)\b', scoped):
+        return None
+    numbers = {**NUMBERS, 'un': 1, 'una': 1, 'dos': 2, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10}
+    total, minimum, listed = 0, False, []
+    for m in matches:
+        raw, kind = m['n'], m['kind']
+        if raw:
+            n = int(raw) if raw.isdigit() else numbers[raw]
+        elif kind in ('casal', 'gemeos'):
+            n = 1
+        else:
+            return None  # Unquantified groups must not silently disappear.
+        total += n * (2 if kind in ('casal', 'casais', 'gemeos') else 1)
+        minimum |= kind.startswith('familia')
+        listed.append(text[m.start():m.end()])
+    if total < 1:
+        return None
+    return dict(value=total, quote=text[matches[0].start():matches[-1].end()], derived=True,
+                source='rule:grouped_people', listed=listed, minimum=minimum)
+
+
 def count_values(text):
     """Distinct people counts mentioned in the text (for disagreement detection)."""
+    if derive_grouped(text):
+        return set()  # Local group totals are not conflicting incident totals.
     values = set()
     for m in TOTAL_FORMS.finditer(text or ''):
         # A category/group count is not another total ("tem 2 famílias,
@@ -61,10 +118,13 @@ def count_values(text):
 
 def written_total(text):
     """The one total written in the text ("somos em 6", "4 no total"), or None when absent, several differ, or injected."""
-    if not text or INJECTION.search(text):
+    if not text or INJECTION.search(text) or derive_grouped(text):
         return None
     values, first = set(), None
     for m in TOTAL_FORMS.finditer(text):
+        if re.match(r'\s+(?:familias?|adultos?|idos[oa]s?|criancas?|bebes?|cachorros?|gatos?|pets?)\b',
+                    _plain(text[m.end():])):
+            continue
         raw = next(g for g in m.groups() if g)
         n = int(raw) if raw.isdigit() else NUMBERS.get(_plain(raw))
         if n:
@@ -77,6 +137,9 @@ def written_total(text):
 
 def derive_people(text):
     """Return {'value': total, 'quote': first listed phrase, 'derived': True, 'listed': [...]} or None."""
+    grouped = derive_grouped(text)
+    if grouped:
+        return grouped
     if not text or INJECTION.search(text) or RELAYED.search(text) or TOTAL_WRITTEN.search(text) or not FIRST_PERSON.search(text):
         return None
     listed, total, first = [], 1, None  # 1 = the sender

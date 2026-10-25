@@ -62,7 +62,7 @@ def apply_route(case, rows):
         route = 'ambiguous_place'
     elif result['decision'] == 'CALLBACK':
         route = 'incomplete' if fields else 'not_a_request_or_injection'
-    elif lm.get('status') == 'resolved':
+    elif lm.get('status') == 'resolved' and not lm.get('context_only'):
         route = 'landmark'
     if route in ('out_of_area', 'not_a_request_or_injection', 'not_a_rescue'):
         result['questions'] = ['Pode confirmar o pedido e o município para encaminhamento humano?']

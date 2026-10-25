@@ -216,6 +216,14 @@ class Pipeline:
             # This textual contradiction check does not depend on model compliance.
             counts = set(re.findall(r'\b(\d+)\s+(?:pessoas|pesssoas)\b', message['text'], re.I)) | {
                 str(n) for n in count_values(message['text'])}
+            # Spatial group counts are computed by code even if extraction
+            # copied one local subtotal. Keep the source phrases for review.
+            from app.derive_count import derive_grouped
+            grouped = derive_grouped(message['text'])
+            if grouped:
+                fields['people'] = grouped
+                fields.pop('conflicting_counts', None)
+                counts = set()
             if previous is None and len(counts) > 1 and not CORRECTION.search(message['text']):
                 fields['conflicting_counts'] = {'value': True, 'quote': message['text']}
             if get('municipality'):
