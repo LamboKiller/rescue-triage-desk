@@ -34,7 +34,7 @@ def apply_route(case, rows):
         outside = True
     rescue = state(case['text'])
     failure = not case.get('complete', False) or case.get('review_degraded') or any(
-        e.startswith(('agent_step_failed', 'location_failed', 'global_deadline')) for e in case.get('errors', []))
+        e.startswith(('agent_step_failed', 'location_failed', 'global_deadline', 'message_deadline')) for e in case.get('errors', []))
     route = 'street'
     if failure:
         route = 'agent_failure'

@@ -23,7 +23,8 @@ def _plain(text):
 
 
 # Popular municipality short names (the model copies "POA" exactly; lookups need the official name).
-MUNICIPALITY_ALIASES = {'poa': 'Porto Alegre', 'porto alegre rs': 'Porto Alegre', 'porto alegre/rs': 'Porto Alegre'}
+MUNICIPALITY_ALIASES = {'poa': 'Porto Alegre', 'sl': 'São Leopoldo', 'nh': 'Novo Hamburgo',
+                        'porto alegre rs': 'Porto Alegre', 'porto alegre/rs': 'Porto Alegre'}
 
 
 def canonical_municipality(value):

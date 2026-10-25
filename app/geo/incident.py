@@ -4,13 +4,13 @@ Bairros come from OSM place:suburb/place:neighbourhood names and address
 neighbourhood columns. Only names belonging to exactly one city imply a city.
 """
 import re
-from app.derive_count import _plain, canonical_municipality
+from app.derive_count import _plain, canonical_municipality, MUNICIPALITY_ALIASES
 from app.geo.streets import normalize as street_normalize
 
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
 PREFIX = dict.fromkeys(('av', 'avenida', 'r', 'rua', 'tv', 'travessa', 'est', 'estrada'), 'via')
 STOP = {'de', 'da', 'do', 'das', 'dos'}
-CALLER = re.compile(r'\b(?:(?:estou|to|tou)\s+)?(?:ligando|telefonando|falando|escrevendo|ligo|moro|sou)\s+(?:aqui\s+)?(?:perto\s+(?:de|do|da)|ao\s+lado\s+(?:de|do|da)|de|em|no|na)\s+[^.;!\n]+', re.I)
+CALLER = re.compile(r'\b(?:(?:estou|to|tou)\s+)?(?:ligando|telefonando|falando|escrevendo|ligo|moro|sou)\s+(?:aqui\s+)?(?:perto\s+(?:de|do|da)|ao\s+lado\s+(?:de|do|da)|de|do|da|em|no|na)\s+[^.;!\n]+', re.I)
 INCIDENT = re.compile(r'\b(?:mas|porem|enquanto|o pedido|o resgate|ela mora|ele mora|eles estao|elas estao|minha irma|meu irmao)\b')
 
 
@@ -55,6 +55,9 @@ class IncidentIndex:
                 if name.strip():
                     self.bairros.setdefault(key(name), set()).add(city)
         self.max_words = max(map(len, self.streets), default=0)
+        for alias, city in MUNICIPALITY_ALIASES.items():
+            if _plain(city) in self.cities:
+                self.cities[alias] = city
 
     def hits(self, text, index, max_words=None):
         ts = tokens(text)
@@ -93,6 +96,10 @@ class IncidentIndex:
             implied = set().union(*(cs for _, _, cs in bairro_hits)) if bairro_hits else set()
             if len(implied) == 1:
                 city = next(iter(implied))
+            elif implied and street_hits:
+                compatible = implied & {r['municipality'] for _, _, rs in street_hits for r in rs}
+                if len(compatible) == 1:
+                    city = next(iter(compatible))
         landmark_hits = self.hits(scoped, self.landmarks) if not city else []
         if not city and landmark_hits:
             implied = set().union(*(cs for _, _, cs in landmark_hits))
@@ -105,14 +112,15 @@ class IncidentIndex:
             a, b, row = candidates[0]
             city = row['municipality']
             old_street = fields.get('street', {})
-            if street_normalize(old_street.get('value', '')) != street_normalize(row['display_name']):
-                fields['street'] = {**old_street, 'value': row['display_name'], 'quote': text[a:b],
+            name = (old_street['value'] if street_normalize(old_street.get('value', '')) ==
+                    street_normalize(row['display_name']) else row['display_name'])
+            if old_street.get('value') != name or old_street.get('quote') != text[a:b]:
+                fields['street'] = {**old_street, 'value': name, 'quote': text[a:b],
                                     'derived': True, 'source': 'rule:street_catalogue'}
-            if not value('number'):
-                number = re.match(r'\s*[,\-]?\s*(?:(?:n[uú]mero|n[ºo.]|nro)\s*[:=]?\s*)?(\d+[a-z]?)\b', scoped[b:])
-                if number:
-                    fields['number'] = {'value': number[1], 'quote': text[b+number.start(1):b+number.end(1)],
-                                        'source': 'rule:address_number'}
+            number = re.match(r'\s*[,\-]?\s*(?:(?:numero|nro|n[º°o.]?)\s*[:=]?\s*)?(\d+[a-z]?)\b', scoped[b:])
+            if number:
+                fields['number'] = {'value': number[1], 'quote': text[b+number.start(1):b+number.end(1)],
+                                    'source': 'rule:address_number'}
         if city and (city != value('municipality')):
             quote = fields.get('municipality', {}).get('quote') or (
                 text[explicit[0][1].start():explicit[0][1].end()] if explicit else

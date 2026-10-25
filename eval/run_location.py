@@ -45,6 +45,20 @@ class ScriptedPolicy:
 
     def choose(self, payload):
         text = payload['message']
+        # L2 sends only the last compact result. Keep fixture history locally;
+        # production prompts must not grow back to the full tool transcript.
+        if 'results' not in payload:
+            if not payload.get('result_id'):
+                self.history = []
+            elif not any(r['result_id'] == payload['result_id'] for r in getattr(self, 'history', [])):
+                candidates = []
+                for line in payload.get('candidates', []):
+                    cid, name, city, kind = line.split(' | ')
+                    candidates.append(dict(candidate_id=cid, name=name, city=city, kind=kind,
+                        precision='street' if kind == 'street' else 'area' if kind == 'bairro' else 'approximate'))
+                self.history = getattr(self, 'history', []) + [dict(result_id=payload['result_id'],
+                    why_quote=payload.get('why_quote', ''), candidates=candidates)]
+            payload = {**payload, 'results': getattr(self, 'history', [])}
         scoped = incident_text(text)
         results = [r for r in payload['results'] if 'result_id' in r]
         if payload['objections']:

@@ -76,13 +76,13 @@ class Pipeline:
         self.run_lock = threading.Lock()
         get_data()  # Build the shared local grid once, before per-case timing.
 
-    def run(self, request, ablation='full'):
+    def run(self, request, ablation='full', *, event_sink=None, case_sink=None):
         replay, messages = validate_request(request)
         # Provider slots default to two globally (NIGHTSHIFT_MAX_CONCURRENCY).
         if not self.run_lock.acquire(blocking=False):
             raise ValueError('Já existe uma execução ativa nesta mesa. Aguarde sua conclusão.')
         try:
-            return self._run(replay, messages, ablation)
+            return self._run(replay, messages, ablation, event_sink=event_sink, case_sink=case_sink)
         finally:
             self.run_lock.release()
 
@@ -105,7 +105,7 @@ class Pipeline:
         finally:
             self.run_lock.release()
 
-    def _run(self, replay, messages, ablation, previous=None, event_sink=None, run_id=None):
+    def _run(self, replay, messages, ablation, previous=None, event_sink=None, run_id=None, case_sink=None):
         started = time.monotonic()
         deadline = started+self.budget_seconds
         run_id = run_id or uuid.uuid4().hex
@@ -131,6 +131,8 @@ class Pipeline:
         finally:
             source_pool.shutdown(wait=False, cancel_futures=True)
         incident_index = IncidentIndex(rows, landmark_rows)
+        message_deadlines = {}
+        deadline_lock = threading.Lock()
         def process(message):
             from app.runs import EventClient
             cid = previous['case_id'] if previous else hashlib.sha256(message['message_id'].encode()).hexdigest()[:24]
@@ -139,6 +141,10 @@ class Pipeline:
                     event_sink(stage, case_id=cid, **data)
             agent_client = EventClient(client, emit)
             message_started = time.monotonic()
+            deadline = message_started + self.budget_seconds
+            with deadline_lock:
+                message_deadlines[message['message_id']] = (deadline, message_started)
+            emit('message_started', budget_seconds=self.budget_seconds)
             fields, unsupported, calls, errors = {}, [], [], []
             review_degraded = False
             initial_fields = {}
@@ -176,7 +182,7 @@ class Pipeline:
                         if meta is not None:
                             calls.append(meta)
                             stages['critic'] = review
-                        objections = review['objections'] + [{'field': r['field'], 'reason': r['reason']} for r in rejected]
+                        objections = review['objections']
                         if objections and not review_degraded:
                             revised, meta = intake.run(agent_client, message['text'], deadline, objections)
                             calls.append(meta)
@@ -190,7 +196,7 @@ class Pipeline:
                     errors.append('agent_step_failed:'+safe_error(exc))
             if time.monotonic() >= deadline:
                 complete = False
-                errors.append('global_deadline')
+                errors.append('message_deadline')
             dialogue_data = {}
             if previous is not None:
                 from app.dialogue import merge
@@ -264,7 +270,7 @@ class Pipeline:
                     'result': result, 'errors': errors, 'review_degraded': review_degraded,
                     'initial_fields': initial_fields, 'seconds': round(time.monotonic()-message_started, 4),
                     'complete': complete, 'proposed_field_count': proposed,
-                    'call_count_complete': 'global_deadline' not in errors,
+                    'call_count_complete': 'message_deadline' not in errors,
                     'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}
             case['incident_outside_text'] = outside_text
             case.update(dialogue_data)
@@ -293,8 +299,8 @@ class Pipeline:
         results = []
         try:
             pending = set(futures)
-            while pending and time.monotonic() < deadline:
-                done, pending = concurrent.futures.wait(pending, timeout=max(0, deadline-time.monotonic()),
+            while pending:
+                done, pending = concurrent.futures.wait(pending, timeout=.02,
                                                        return_when=concurrent.futures.FIRST_COMPLETED)
                 for future in done:
                     try:
@@ -302,10 +308,21 @@ class Pipeline:
                     except Exception as exc:
                         if event_sink: event_sink('error',case_id=hashlib.sha256(futures[future]['message_id'].encode()).hexdigest()[:24])
                         results.append(self.failed_case(futures[future], replay, run_id, safe_error(exc)))
-            for future in pending:
-                future.cancel()
-                if event_sink: event_sink('error',case_id=hashlib.sha256(futures[future]['message_id'].encode()).hexdigest()[:24])
-                results.append(self.failed_case(futures[future], replay, run_id, 'global_deadline'))
+                    if case_sink:
+                        case_sink(copy.deepcopy(results[-1]))
+                # Queued messages have no deadline until a worker starts them.
+                with deadline_lock:
+                    expired = [(f, message_deadlines.get(futures[f]['message_id'])) for f in pending]
+                for future, timing in expired:
+                    if timing and time.monotonic() >= timing[0]:
+                        pending.remove(future)
+                        future.cancel()
+                        if event_sink: event_sink('error',case_id=hashlib.sha256(futures[future]['message_id'].encode()).hexdigest()[:24])
+                        failure = self.failed_case(futures[future], replay, run_id, 'message_deadline')
+                        failure['seconds'] = round(time.monotonic()-timing[1], 4)
+                        results.append(failure)
+                        if case_sink:
+                            case_sink(copy.deepcopy(failure))
         finally:
             # Workers have bounded network timeouts and may not mutate the registry.
             pool.shutdown(wait=False, cancel_futures=True)
@@ -316,6 +333,7 @@ class Pipeline:
             peers = existing + [{**c,'case_id':hashlib.sha256(c['message_id'].encode()).hexdigest()[:24]} for c in results]
             reviewed = {}
             for case in results:
+                deadline = message_deadlines.get(case['message_id'], (0, 0))[0]
                 cid = hashlib.sha256(case['message_id'].encode()).hexdigest()[:24]
                 suggestions = candidates({**case,'case_id':cid},peers)
                 case['duplicates'] = []
