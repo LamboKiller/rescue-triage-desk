@@ -53,7 +53,7 @@ def ordered(cases):
 def eligible_cases(cases,day,extractor=None,deadline=None):
     day_value(day);out=[];extractor=extractor or NeedsExtractor()
     for current in cases:
-        if current.get('status','proposed') not in ('proposed','human_approved'): continue
+        if current.get('status','proposed') not in ('proposed','PARTIAL','human_approved'): continue
         # A historical proposal cannot approve a later current message version.
         if any(current.get(k,'9999')[:10]>day for k in ('received_at','replay_time')): continue
         case=copy.deepcopy(current)

@@ -56,7 +56,9 @@ class Registry:
         if self.path.exists():
             for line in self.path.read_text(encoding='utf-8').splitlines():
                 event = json.loads(line)  # Fail closed on damaged log; never silently skip.
-                if event['kind'] in ('merge', 'unmerge', 'approve_mission', 'cancel_mission'):
+                if event['kind'] == 'resource':
+                    continue
+                if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission'):
                     for projection in event['projections']:
                         cases[projection['case_id']] = projection
                     continue
@@ -141,7 +143,9 @@ class Registry:
                 raise Conflict('Desfaça a união antes de responder.')
             if cases[case_id]['version'] != expected_version:
                 raise Conflict('Versão alterada. Recarregue e revise o caso.')
-            case.update(status='proposed', location_confirmed=False, approved_asset=None,
+            case.update(last_update_at=case['received_at'], stale=False,
+                        open_items=[i for i in case.get('open_items',[]) if i.get('reason')!='stale'],
+                        status='proposed', location_confirmed=False, approved_asset=None,
                         caution_acknowledgement=None, parent_version=expected_version)
             self._append({'schema_version':1, 'kind':'analysis', 'case_id':case_id,
                 'provenance':case['message_id']+':reply:'+str(expected_version),
@@ -183,7 +187,7 @@ class Registry:
                 raise ValueError('Ação desconhecida.')
             if status == 'field_confirmed':
                 raise ValueError('Caso confirmado em campo; nova observação exige nova revisão.')
-            if action == 'approve_dispatch' and (not case['location_confirmed'] or status != 'proposed'
+            if action == 'approve_dispatch' and (not case['location_confirmed'] or status not in ('proposed','PARTIAL')
                                                   or case['result']['decision'] != 'SEND_CANDIDATE'):
                 raise ValueError('Confirme a localização de um candidato proposto antes de aprovar.')
             acknowledgement = None
@@ -205,7 +209,7 @@ class Registry:
                 raise ValueError('Aprovação humana necessária antes do despacho.')
             if action == 'field_confirm' and status != 'dispatched':
                 raise ValueError('Confirmação de campo exige despacho anterior.')
-            if action == 'confirm_location' and status != 'proposed':
+            if action == 'confirm_location' and status not in ('proposed','PARTIAL'):
                 raise ValueError('Localização só pode ser confirmada durante a proposta.')
             self._append({'schema_version': 1, 'kind': 'action', 'case_id': case_id,
                           'version': case['version']+1, 'action': action, 'actor': redact(actor.strip()),
@@ -289,3 +293,39 @@ class Registry:
         self._append({'schema_version':1,'kind':action,'case_id':case['case_id'],
                       'actor':redact(actor.strip()),'projections':projections})
         return copy.deepcopy(self._read()[0][case['case_id']])
+
+    def record_feedback(self, case_id, expected_version, report, actor, received_at, source, mission_id=None):
+        from app.feedback import apply
+        with self.locked():
+            cases, _ = self._read()
+            if case_id not in cases: raise KeyError(case_id)
+            case = cases[case_id]
+            if case['version'] != expected_version: raise Conflict('Versao alterada; revise o retorno.')
+            if case.get('merge_state') or case.get('status','').startswith('MERGED_INTO:'):
+                raise Conflict('Desfaca a uniao antes do retorno de campo.')
+            if case.get('status') in ('RESCUED','field_confirmed'):
+                raise Conflict('Caso encerrado; nova observacao exige revisao humana.')
+            if mission_id and (case.get('mission_id') != mission_id or case.get('mission_stop_done')):
+                raise Conflict('Parada nao pertence a esta missao ativa.')
+            projection = apply(case, report, actor, received_at, source)
+            self._append({'schema_version':1,'kind':'field_feedback','case_id':case_id,
+                          'projections':[projection]})
+            return copy.deepcopy(projection)
+
+    def detect_stale(self, now=None, hours=None):
+        from app.priority import stale_info
+        with self.locked():
+            cases, _ = self._read(); changed=[]
+            for case in cases.values():
+                clock=now or case['replay_time']
+                info=stale_info(case,clock,hours)
+                if not info['stale'] or any(i.get('reason')=='stale' for i in case.get('open_items',[])): continue
+                c=copy.deepcopy(case)
+                c.setdefault('open_items',[]).append({'field':'contact','reason':'stale',
+                    'question':'Ainda estao no local?', 'created_at':clock,
+                    'last_update_at':c.get('last_update_at',c['received_at'])})
+                c['stale']=True;c['version']+=1
+                c.setdefault('actions',[]).append({'action':'stale_callback','version':c['version'],'received_at':clock})
+                changed.append(c)
+            if changed: self._append({'schema_version':1,'kind':'stale_callback','projections':changed})
+            return len(changed)

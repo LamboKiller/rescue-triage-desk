@@ -217,7 +217,7 @@
     "message_id": "synthetic-seed101-014",
     "template_family": 14,
     "expected_fields": {},
-    "expected_decision": "CALLBACK",
+    "expected_decision": "REVIEW_REQUIRED",
     "synthetic": true,
     "basis": "text-supported labels; no actual people or household coordinates"
   }

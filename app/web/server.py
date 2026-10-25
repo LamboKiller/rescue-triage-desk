@@ -19,14 +19,30 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     pipeline=pipeline or Pipeline(registry,sample=offline)
     from app.missions.client import MissionClient
     service=MissionService(registry,inventory,None if offline else pipeline.client or MissionClient(ROOT/'runtime/mission_trace.jsonl'),radius_m)
+    from app.feedback import FeedbackService
+    feedback=FeedbackService(registry,None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/feedback_trace.jsonl'))
     server=original_server(host,port,sample=offline,pipeline=pipeline)
     BaseHandler=server.RequestHandlerClass
 
     class Handler(BaseHandler):
         def do_GET(self):
             path=urlsplit(self.path).path
-            if not path.startswith('/api/missions'): return super().do_GET()
+            if path not in ('/api/resources','/api/cases') and not path.startswith('/api/missions'): return super().do_GET()
             try:
+                if path=='/api/resources':
+                    from app.resources import read
+                    from app.fleet import document
+                    self.send_json(200,{'resources':read(registry),'types':{k:v.get('label_pt',k) for k,v in document()['assets'].items()}});return
+                if path=='/api/cases':
+                    from app.priority import queue
+                    from app.decide import timestamp
+                    query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
+                    clock=None
+                    if 'replay_time' in query:
+                        if len(query['replay_time'])!=1: raise ValueError('Informe um horario.')
+                        clock=query['replay_time'][0];timestamp(clock)
+                    registry.detect_stale(clock)
+                    self.send_json(200,{'cases':queue(registry.read(),clock)});return
                 if path=='/api/missions/proposals':
                     query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
                     if len(query.get('date',[]))!=1: raise ValueError('Informe exatamente uma data.')
@@ -42,7 +58,8 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
         def do_POST(self):
             path=urlsplit(self.path).path
             case_action=path.startswith('/api/cases/') and path.endswith('/actions')
-            if not path.startswith('/api/missions') and not case_action: return super().do_POST()
+            case_feedback=path.startswith('/api/cases/') and path.endswith('/feedback') and len(path.split('/'))==5
+            if path!='/api/resources' and not path.startswith('/api/missions') and not case_action and not case_feedback: return super().do_POST()
             try:
                 origin=self.headers.get('Origin')
                 if origin and urlsplit(origin).netloc!=self.headers.get('Host'):
@@ -54,7 +71,14 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                 self.connection.settimeout(10)
                 request=json.loads(self.rfile.read(length).decode('utf-8'))
                 if not isinstance(request,dict): raise ValueError('Envie um objeto JSON.')
-                if path=='/api/missions':
+                if path=='/api/resources':
+                    from app.resources import register
+                    result=register(registry,request)
+                elif case_feedback:
+                    result=feedback.submit(path.split('/')[3],request)
+                elif path.startswith('/api/missions/') and path.endswith('/feedback') and len(path.split('/'))==5:
+                    result=service.feedback(path.split('/')[3],request,feedback)
+                elif path=='/api/missions':
                     result=service.approve(request)
                 elif path.startswith('/api/missions/') and path.endswith('/cancel') and len(path.split('/'))==5:
                     result=service.cancel(path.split('/')[3],request)
@@ -75,6 +99,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
             except Exception: self.send_json(500,{'error':'Falha interna no planejamento.'})
     server.RequestHandlerClass=Handler
     server.missions=service
+    server.feedback=feedback
     return server
 
 

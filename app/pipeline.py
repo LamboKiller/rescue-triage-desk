@@ -224,39 +224,20 @@ class Pipeline:
                 if derived:
                     fields['people'] = derived
             emit('location_started', role='location')
-            location = lookup(rows, get('street'), get('municipality'), replay)
-            cross = lookup(rows, get('cross_street'), get('municipality'), replay) if get('cross_street') else None
-            landmark = None
-            needs_location = bool(get('landmark') or not (get('street') and get('number')))
-            if needs_location:
-                guess = {'place_name': get('landmark'), 'landmark_quote': get('landmark'),
-                         'municipality': get('municipality'), 'neighbourhood': ''}
-                # Try verified source names first; avoid a serial model naming
-                # call when the street or landmark already identifies the place.
-                landmark = match_landmark(landmark_rows, **guess, replay=replay,
-                                          message=message['text'], streets=rows)
-                if (not self.sample and ablation == 'full' and
-                        landmark['status'] != 'resolved' and not location['found']):
-                    try:
-                        guess, meta = location_agent.run(agent_client, message['text'], get('municipality'), deadline)
-                        if get('municipality'):
-                            guess['municipality'] = get('municipality')
-                        stages['location'] = guess
-                        calls.append(meta)
-                        landmark = match_landmark(landmark_rows, **guess, replay=replay,
-                                                  message=message['text'], streets=rows)
-                    except Exception as exc:
-                        stages['location'] = 'failed'
-                        errors.append('location_failed:'+safe_error(exc))
-                landmark['requested'] = bool(get('landmark') or guess.get('landmark_quote'))
-                if landmark.get('status') == 'resolved' and not get('municipality'):
-                    fields['municipality'] = {'value': landmark['matched']['municipality'],
-                        'quote': get('landmark') or landmark['matched']['name'],
-                        'derived': True, 'source': 'rule:landmark_catalogue'}
-                if landmark_error:
-                    landmark['source_error'] = landmark_error
-                if time.monotonic() >= deadline:
-                    complete = False
+            location, cross, landmark, location_stage, location_calls = location_agent.locate(
+                rows, landmark_rows, fields, message['text'], replay,
+                agent_client if not self.sample and ablation == 'full' else None, deadline,
+                index=incident_index, trace=trace, emit=emit)
+            stages['location'] = location_stage
+            calls.extend(location_calls)
+            if landmark and landmark.get('status') == 'resolved' and not get('municipality'):
+                fields['municipality'] = {'value': landmark['matched']['municipality'],
+                    'quote': get('landmark') or landmark['matched']['name'],
+                    'derived': True, 'source': 'rule:landmark_catalogue'}
+            if landmark and landmark_error:
+                landmark['source_error'] = landmark_error
+            if time.monotonic() >= deadline:
+                complete = False
             emit('location_done', role='location')
             result = decide(fields, location, replay, message['received_at'], complete=complete,
                             cross_location=cross, landmark_location=landmark,
@@ -279,6 +260,7 @@ class Pipeline:
             case = {**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else ablation,
                     'fields': fields, 'unsupported': unsupported, 'agents': stages, 'calls': calls,
                     'checks': location, 'cross_street_check': cross, 'landmark_check': landmark,
+                    'location_path': location_stage['location_path'], 'location_precision': location_stage['precision'],
                     'result': result, 'errors': errors, 'review_degraded': review_degraded,
                     'initial_fields': initial_fields, 'seconds': round(time.monotonic()-message_started, 4),
                     'complete': complete, 'proposed_field_count': proposed,

@@ -1,0 +1,30 @@
+{"id":"l01","synthetic":true,"text":"socorro gnt, 3 pessoas na Rua Brasil 140, Canoas. água entrando!","truth":{"street":"Rua Brasil","city":"Canoas","precision":"exact"}}
+{"id":"l02","synthetic":true,"text":"somos 2 na Av. Brasil 210 em Porto Alegre, precisa barco","truth":{"street":"Avenida Brasil","city":"Porto Alegre","precision":"exact"}}
+{"id":"l03","synthetic":true,"text":"resgata minha vó e meu tio, 2 pessoas Rua Flores da Cunha 85, São Leopoldo","truth":{"street":"Rua Flores da Cunha","city":"São Leopoldo","precision":"exact"}}
+{"id":"l04","synthetic":true,"text":"4 pessoas ilhadas na Voluntários da Pátria, Porto Alegre. n sei o numero","truth":{"street":"Rua Voluntários da Pátria","city":"Porto Alegre","precision":"street"}}
+{"id":"l05","synthetic":true,"text":"na Rua Voluntarios da Patrai em Porto Alegre, 2 idosos presos aqui","truth":{"street":"Rua Voluntários da Pátria","city":"Porto Alegre","precision":"street"}}
+{"id":"l06","synthetic":true,"text":"tamo 3 na Av Getulio Vargs, Canoas, agua no peito e sem numero","truth":{"street":"Avenida Getúlio Vargas","city":"Canoas","precision":"street"}}
+{"id":"l07","synthetic":true,"text":"2 pessoas na Rua Brasil, socorro. nao sei a cidade","truth":{"unresolvable":true,"precision":"area"}}
+{"id":"l08","synthetic":true,"text":"na Rua Brasil em São Leopoldo, 5 pessoas no telhado. urgente","truth":{"street":"Rua Brasil","city":"São Leopoldo","precision":"street"}}
+{"id":"l09","synthetic":true,"text":"Estou ligando de Recife. Mas o resgate é pra 2 pessoas na Rua Brasil 99 em Canoas.","truth":{"street":"Rua Brasil","city":"Canoas","precision":"exact"}}
+{"id":"l10","synthetic":true,"text":"Moro em Canoas. Mas minha irmã tá com 2 pessoas na Avenida Brasil 44, Porto Alegre.","truth":{"street":"Avenida Brasil","city":"Porto Alegre","precision":"exact"}}
+{"id":"l11","synthetic":true,"text":"repassando: 3 pessoas Rua Brasil, Canoas ou São Leopoldo, nao sei qual municipio","truth":{"unresolvable":true,"precision":"area"}}
+{"id":"l12","synthetic":true,"text":"socorro, 4 pessoas na Rua Brasil ou na Rua Presidente Vargas em Canoas, n consegui ouvir","truth":{"unresolvable":true,"precision":"area"}}
+{"id":"l13","synthetic":true,"text":"no bairro Mathias Velho, 3 pessoas esperando resgate. ainda sem rua","truth":{"bairro":"Mathias Velho","city":"Canoas","precision":"area"}}
+{"id":"l14","synthetic":true,"text":"bairro Rio Branco em Canoas, 2 pessoas com agua subindo, endereço perdi","truth":{"bairro":"Rio Branco","city":"Canoas","precision":"area"}}
+{"id":"l15","synthetic":true,"text":"aqui no Igara em Canoas, 6 pessoas, nao tenho a localização certinha","truth":{"bairro":"Igara","city":"Canoas","precision":"area"}}
+{"id":"l16","synthetic":true,"text":"3 pessoas no bairro Menino Deus, Porto Alegre. preciso confirmar a rua com eles","truth":{"bairro":"Menino Deus","city":"Porto Alegre","precision":"area"}}
+{"id":"l17","synthetic":true,"text":"2 pessoas no bairro Niteroi em Canoas, sinal ruim e sem rua","truth":{"bairro":"Niteroi","city":"Canoas","precision":"area"}}
+{"id":"l18","synthetic":true,"text":"tem 4 pessoas na Vila Ilha das Flores, Porto Alegre, sem ponto exato ainda","truth":{"bairro":"Vila Ilha das Flores","city":"Porto Alegre","precision":"area"}}
+{"id":"l19","synthetic":true,"text":"socorro 2 pessoas perto do Museu das Ilhas, Porto Alegre, agua subindo","truth":{"candidate_id":"osm:node:6851402937","city":"Porto Alegre","precision":"approximate"}}
+{"id":"l20","synthetic":true,"text":"na Ilha Pintada, perto da Capela Nossa Senhora dos Navegantes, Porto Alegre, 3 pessoas presas","truth":{"candidate_id":"osm:way:426623969","city":"Porto Alegre","precision":"approximate"}}
+{"id":"l21","synthetic":true,"text":"2 pessoas perto do hospital conceicao em Porto Alegre, vem resgatar pfv","truth":{"candidate_id":"osm:way:237709751","city":"Porto Alegre","precision":"approximate"}}
+{"id":"l22","synthetic":true,"text":"a gente ta perto do Colégio Espírito Santo em Canoas, 3 pessoas ilhadas","truth":{"landmark":"Colégio Espírito Santo","city":"Canoas","precision":"approximate"}}
+{"id":"l23","synthetic":true,"text":"4 pessoas do lado do Supermercado Paulinho, Eldorado do Sul, agua entrando","truth":{"candidate_id":"osm:node:2280890490","city":"Eldorado do Sul","precision":"approximate"}}
+{"id":"l24","synthetic":true,"text":"2 idosos perto do gasometro em Porto Alegre, manda ajuda!","truth":{"candidate_id":"osm:relation:8440037","city":"Porto Alegre","precision":"approximate"}}
+{"id":"l25","synthetic":true,"text":"perto do mercado publico em Porto Alegre, 5 pessoas esperando barco","truth":{"candidate_id":"osm:way:69749641","city":"Porto Alegre","precision":"approximate"}}
+{"id":"l26","synthetic":true,"text":"3 pessoas na redencao em Porto Alegre, socorro, ponto exato sem sinal","truth":{"candidate_id":"osm:relation:3190472","city":"Porto Alegre","precision":"approximate"}}
+{"id":"l27","synthetic":true,"text":"esquina da Rua Santos Dumont com Avenida Getúlio Vargas em Canoas, 2 pessoas, água subindo","truth":{"streets":["Rua Santos Dumont","Avenida Getúlio Vargas"],"city":"Canoas","precision":"approximate"}}
+{"id":"l28","synthetic":true,"text":"to perto do supermercado, 2 pessoas ilhadas. nao sei nome nem cidade","truth":{"unresolvable":true,"precision":"area"}}
+{"id":"l29","synthetic":true,"text":"3 pessoas perto do supermercado na Rua Brasil, Canoas, nao sei qual mercado","truth":{"unresolvable":true,"precision":"area"}}
+{"id":"l30","synthetic":true,"text":"Moro perto do Gasômetro em Porto Alegre. Mas as vítimas estão em lugar desconhecido, nao tenho endereço.","truth":{"unresolvable":true,"precision":"area"}}

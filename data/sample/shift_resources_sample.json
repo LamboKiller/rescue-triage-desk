@@ -1,0 +1,19 @@
+{
+  "synthetic": true,
+  "note": "Demonstracao de cadastro; unidades e equipe ficticias. Regras da frota nao fornecem capacidades certificadas; campos em branco bloqueiam missao. Nao usar como inventario operacional.",
+  "resources": [
+    {
+      "id": "DEMO-IRB-01",
+      "asset": "irb",
+      "capacity": null,
+      "capacity_source": null,
+      "crew": "Equipe sintetica A",
+      "base": "Base sintetica",
+      "status": "available",
+      "source": "Exemplo sintetico, sem manifesto operacional",
+      "observed_date": "2024-05-08",
+      "synthetic": true,
+      "attestations": {}
+    }
+  ]
+}
