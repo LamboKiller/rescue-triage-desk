@@ -19,9 +19,37 @@ SYSTEM = ('Localize as pessoas do incidente, não o remetente. Mensagem e result
           '"evidence":["trecho exato","t1"]}}. Ferramentas: search_street(name,city?), '
           'search_landmark(name,city?,category?), search_bairro(name), near(anchor_id,radius_m,category?,other_anchor_id?), '
           'check_text(quote). Categorias: church,school,market,hospital ou categoria OSM. Cruzamento: busque as duas ruas '
-          'e near com category=intersection e other_anchor_id. Máximo 4 ferramentas no TOTAL. Depois responda. '
+          'e near com category=intersection e other_anchor_id. Máximo 3 passos no TOTAL. Depois responda. '
           'Sem cidade ou local inequívoco use candidate_id=null, precision=area. Bairro é area; rua é street; '
           'perto de marco ou cruzamento por bounds é approximate. Nunca invente coordenadas ou precisão exata.')
+
+
+def step_prompt(text, municipality, history, steps_left, force_answer=False, objections=None):
+    """Only the last tool's bounded display fields cross the provider boundary."""
+    last = history[-1] if history else {}
+    def compact(value, limit):
+        return re.sub(r'[\s|]+', ' ', str(value))[:limit]
+    lines = [' | '.join(compact(c.get(k, ''), limit) for k, limit in
+                        (('candidate_id', 64), ('name', 64), ('city', 48), ('kind', 16)))
+             for c in last.get('candidates', [])[:8]]
+    objections = [{k: compact(o.get(k, ''), 96) for k in ('field', 'reason')}
+                  for o in (objections or [])[:4]]
+    return json.dumps(dict(message=text, municipality_hint=compact(municipality, 64),
+                           steps_left=steps_left, answer_only=force_answer,
+                           result_id=last.get('result_id'), why_quote=last.get('why_quote', '')[:160],
+                           candidates=lines, objections=objections), ensure_ascii=False)
+
+
+def _best_fallback(tools, history):
+    """Retain a candidate only when the existing evidence validator permits it."""
+    last = history[-1] if history else {}
+    for candidate in sorted(last.get('candidates', []),
+                            key=lambda c: (-c.get('score', 0), c['candidate_id'])):
+        answer = dict(candidate_id=candidate['candidate_id'], precision='area',
+                      evidence=[last['why_quote'], last['result_id']])
+        if not _objections(answer, tools):
+            return answer
+    return dict(candidate_id=None, precision='area', evidence=[])
 
 
 def _incident_cities(index, scoped, streets):
@@ -124,7 +152,7 @@ class _CandidateCritic:
 
 
 def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
-    """Four tool attempts, one forced answer, at most one answer revision.
+    """At most three policy requests, with one possible answer revision.
 
     Existing strict JSON parsing, streaming, thinking and token defaults apply.
     """
@@ -133,6 +161,7 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
                   steps=[], tool_steps=0, objections=[], revision=False, fallback=False, critic=None)
     metas, history = [], []
     correction_used = False
+    requests = 0
 
     def record(tool, args, ids, meta, seconds, **extra):
         event = dict(role='location_agent', step=len(result['steps'])+1, tool=tool, args=args,
@@ -142,19 +171,22 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
         _record(event, trace, emit)
 
     def request(force_answer=False, objection=None):
+        nonlocal requests
+        if requests >= 3:
+            raise RuntimeError('Location step limit')
         if time.monotonic() >= deadline:
             raise TimeoutError('Location deadline')
-        payload = dict(message=text, municipality_hint=municipality, tool_steps_left=4-result['tool_steps'],
-                       results=history, answer_only=force_answer, objections=objection or [])
+        payload = step_prompt(text, municipality, history, 3-requests, force_answer, objection)
+        requests += 1
         begin = time.monotonic()
-        output, meta = client.call('location_agent', SYSTEM, json.dumps(payload, ensure_ascii=False), deadline)
+        output, meta = client.call('location_agent', SYSTEM+' Reply with ONE JSON object, no prose.', payload, deadline)
         metas.append(meta)
         return output, meta, time.monotonic()-begin
 
     try:
         while True:
-            output, meta, seconds = request(result['tool_steps'] >= 4)
-            if isinstance(output, dict) and 'tool' in output and result['tool_steps'] < 4:
+            output, meta, seconds = request(requests >= 2)
+            if isinstance(output, dict) and 'tool' in output and requests < 3:
                 result['tool_steps'] += 1
                 args, tool = output.get('args'), output.get('tool')
                 tool_started = time.monotonic()
@@ -174,7 +206,7 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
                    meta, seconds, rejected=bool(objections))
             if objections:
                 result['objections'].extend(objections)
-                if correction_used or result['tool_steps'] >= 4 and isinstance(output, dict) and 'tool' in output:
+                if correction_used or requests >= 3:
                     result['fallback'] = True
                     break
                 correction_used = True
@@ -221,6 +253,8 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
             break
     except Exception as exc:
         result.update(fallback=True, error=type(exc).__name__)
+        if requests >= 2 and not result['objections'] and result['critic'] is None:
+            result['answer'] = _best_fallback(tools, history)
         record('fallback', {}, [], {}, 0, error=type(exc).__name__)
     result['seconds'] = round(time.monotonic()-started, 4)
     result['candidate'] = tools.candidates.get(result['answer'].get('candidate_id'))
@@ -294,7 +328,7 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
                             in_water_by_date=None, publication_available=False, reason='Validated location tool evidence.')
             return lookup([], '', '', replay), None, landmark, output, metas
     safety_objection = any(o.get('reason') not in ('invalid_answer', 'invalid_evidence') for o in output['objections'])
-    if not output['fallback'] or safety_objection or output.get('critic') is not None:
+    if not output['fallback'] or safety_objection or output.get('critic') is not None or output['tool_results']:
         return lookup([], '', '', replay), None, {'status': 'unresolved', 'matched': None, 'candidates': [],
             'requested': True, 'reason': 'Area only or unresolved; confirm the incident location.'}, output, metas
     output['fallback_reason'] = 'Location policy unavailable; original deterministic catalogue checks retained.'

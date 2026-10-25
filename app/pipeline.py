@@ -78,7 +78,7 @@ class Pipeline:
 
     def run(self, request, ablation='full'):
         replay, messages = validate_request(request)
-        # One active run per desk bounds provider concurrency globally to three.
+        # Provider slots default to two globally (NIGHTSHIFT_MAX_CONCURRENCY).
         if not self.run_lock.acquire(blocking=False):
             raise ValueError('Já existe uma execução ativa nesta mesa. Aguarde sua conclusão.')
         try:
