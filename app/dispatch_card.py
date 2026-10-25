@@ -17,6 +17,30 @@ def build_card(case):
         use('result.location_approximate')
         lines.append('Local aproximado (bairro inteiro): confirmar ponto' if case.get('result', {}).get('location_precision') == 'area'
                      else 'Local aproximado: confirmar no local')
+    credibility = case.get('credibility')
+    if credibility:
+        lines.append('Credibilidade: '+use('credibility.verdict')+'; fonte '+use('credibility.source')+'.')
+        for i, reason in enumerate(credibility.get('reasons', [])):
+            lines.append('Sinal '+use(f'credibility.reasons.{i}.signal_id')+': '+use(f'credibility.reasons.{i}.quote'))
+        if credibility.get('fallback_reason'):
+            lines.append('Falha visível; regra determinística: '+use('credibility.fallback_reason'))
+    for i, warning in enumerate(case.get('result', {}).get('warnings', [])):
+        lines.append('Alerta: '+use(f'result.warnings.{i}'))
+    area = (case.get('landmark_check') or {}).get('hydro_area')
+    if area:
+        lines.append(use('landmark_check.hydro_area.label')+'; retrospectivo; confiança baixa.')
+        lines.append('Limite estimado: '+use('landmark_check.hydro_area.boundary_source'))
+        use('landmark_check.hydro_area.boundary_estimated')
+        if area.get('bbox'):
+            lines.append('Limites aproximados: '+use('landmark_check.hydro_area.bbox'))
+    matched = (case.get('landmark_check') or {}).get('matched') or {}
+    if matched.get('hydro', {}).get('reason_pt'):
+        lines.append('Hidrografia retrospectiva; confiança baixa: '+use('landmark_check.matched.hydro.reason_pt'))
+    if (case.get('landmark_check') or {}).get('hydro_relative'):
+        lines.append(use('landmark_check.reason')+' Camada retrospectiva; confiança baixa.')
+        use('landmark_check.hydro_relative')
+    if case.get('hydro_conflict'):
+        lines.append('Confirmar relato e local: '+use('hydro_conflict.message_pt'))
     if case.get('result', {}).get('people') is None and not case.get('fields', {}).get('people', {}).get('value'):
         lines.append('contagem desconhecida, confirmar')
     lines.append('Pessoas: '+use('fields.people.value')+'; '+ '; '.join(label+': '+use('fields.'+key+'.value') for key,label in [('children','crianças'),('elderly','idosos'),('disabled','deficiência / acamados'),('pets','pets')])+'.')

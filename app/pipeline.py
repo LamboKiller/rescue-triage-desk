@@ -131,6 +131,20 @@ class Pipeline:
         finally:
             source_pool.shutdown(wait=False, cancel_futures=True)
         incident_index = IncidentIndex(rows, landmark_rows)
+        credibility_history = []
+        for stored in self.registry.read():
+            for fact in stored.get('facts', []):
+                try:
+                    if timestamp(fact['replay_time']) > timestamp(replay):
+                        continue
+                    for prior_message in fact.get('messages') or [fact]:
+                        if timestamp(prior_message['received_at']) <= timestamp(replay):
+                            entry = dict(id=prior_message['message_id'], text=prior_message['text'],
+                                         time=prior_message['received_at'])
+                            if entry not in credibility_history:
+                                credibility_history.append(entry)
+                except (KeyError, ValueError, TypeError):
+                    continue
         message_deadlines = {}
         deadline_lock = threading.Lock()
         def process(message):
@@ -284,6 +298,32 @@ class Pipeline:
             case['incident_outside_text'] = outside_text
             case.update(dialogue_data)
             apply_route(case, rows)
+            from app.credibility import assess as assess_credibility
+            from app.geo.hydro import hydro_conflict
+            from app.geo.hazards import case_position
+            pos = case_position(case)
+            conflict = hydro_conflict(
+                message['text'], pos['lat'] if pos else None, pos['lon'] if pos else None, replay[:10],
+                street=get('street'), municipality=get('municipality'), precision=case['location_precision'])
+            # Use only messages visible by this message's time; detect() independently validates the 24h window.
+            prior = [entry for entry in credibility_history if entry['id'] != message['message_id']]
+            prior.extend(dict(id=m['message_id'], text=m['text'], time=m['received_at'])
+                         for m in messages if m['message_id'] != message['message_id'])
+            credibility = assess_credibility(message['text'], time=message['received_at'], history=prior,
+                hydro_conflict=conflict, client=agent_client if not self.sample and ablation == 'full' else None,
+                deadline=deadline)
+            case['credibility'] = credibility
+            case['hydro_conflict'] = conflict
+            if conflict:
+                case.setdefault('open_items', []).append(dict(reason='hydro_conflict',
+                    question='Confirmar relato e local: camada retrospectiva diverge do risco informado.',
+                    evidence=conflict))
+            stages['credibility_reviewer'] = credibility
+            if credibility['verdict'] == 'likely_fake':
+                result.update(decision='REVIEW_REQUIRED', decision_reason=credibility['reason_pt'])
+                case['route']['reason_pt'] = credibility['reason_pt']
+            elif credibility['verdict'] == 'doubtful':
+                result.setdefault('warnings', []).append(credibility['warning_pt'])
             attach(case)
             screen(case)
             emit('checks_done')

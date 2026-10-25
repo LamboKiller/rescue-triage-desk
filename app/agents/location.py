@@ -9,6 +9,7 @@ from app.derive_count import _plain, reconcile_people
 from app.geo.incident import IncidentIndex, incident_text, municipality_mentions
 from app.geo.landmarks import distance, distinct_places, exact_evidence, match as match_landmark, GENERIC
 from app.geo.streets import lookup, normalize
+from app.geo.hydro import life_safety_quote
 from app.llm.nightshift import TRACE_LOCK
 from app.redact import redact
 from app.rescue_state import state
@@ -33,19 +34,25 @@ def step_prompt(text, municipality, history, steps_left, force_answer=False, obj
     lines = [' | '.join(compact(c.get(k, ''), limit) for k, limit in
                         (('candidate_id', 64), ('name', 64), ('city', 48), ('kind', 16)))
              for c in last.get('candidates', [])[:8]]
+    hydro_evidence = [dict(candidate_id=compact(c.get('candidate_id', ''), 64),
+                           reason_pt=compact(c['hydro']['reason_pt'], 220))
+                      for c in last.get('candidates', [])[:8] if c.get('hydro', {}).get('reason_pt')]
     objections = [{k: compact(o.get(k, ''), 96) for k in ('field', 'reason')}
                   for o in (objections or [])[:4]]
     return json.dumps(dict(message=text, municipality_hint=compact(municipality, 64),
                            steps_left=steps_left, answer_only=force_answer,
                            result_id=last.get('result_id'), why_quote=last.get('why_quote', '')[:160],
-                           candidates=lines, objections=objections), ensure_ascii=False)
+                           candidates=lines, hydro_evidence=hydro_evidence, objections=objections), ensure_ascii=False)
 
 
 def _best_fallback(tools, history):
     """Retain a candidate only when the existing evidence validator permits it."""
     last = history[-1] if history else {}
     for candidate in sorted(last.get('candidates', []),
-                            key=lambda c: (-c.get('score', 0), c['candidate_id'])):
+                            key=lambda c: (
+                                {'wet': 0, 'unknown': 1, 'dry': 2}.get(c.get('hydro', {}).get('state'), 1)
+                                if life_safety_quote(tools.scoped) else 0,
+                                -c.get('score', 0), c['candidate_id'])):
         answer = dict(candidate_id=candidate['candidate_id'], precision='area',
                       evidence=[last['why_quote'], last['result_id']])
         if not _objections(answer, tools):
@@ -333,6 +340,10 @@ def _street_context(rows, fields, scoped, street, points):
                        'Unresolved supplementary reference; street address retained.')
 
 
+def tools_check_quote(quote, scoped):
+    return isinstance(quote, str) and bool(quote.strip()) and _plain(quote) in scoped
+
+
 def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index=None, points=(), trace=None, emit=None, memory=None):
     """Pipeline adapter; preserve existing lookup/landmark result contracts."""
     reconcile_people(fields, text)
@@ -351,12 +362,46 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
     # An entire bairro is an explicitly approximate search area in life danger.
     # Require a literal source-backed bairro and the usual city/evidence checks.
     bairros = index.hits(scoped, index.bairros)
+    from app.geo.hydro import resolve_descriptors
+    if not street['found'] and cities == {get('municipality')}:
+        bairro_names = {text[a:b] for a, b, cs in bairros if get('municipality') in cs}
+        bairro_name = next(iter(bairro_names)) if len(bairro_names) == 1 else None
+        relative = resolve_descriptors(text, get('municipality'), replay[:10], bairro_name)
+        relative = [item for item in relative if tools_check_quote(item.get('quote', ''), scoped)]
+        choices_relative = [(item, c) for item in relative for c in item['candidates']]
+        if len(choices_relative) == 1:
+            item, raw = choices_relative[0]
+            tools = LocationTools(rows, landmark_rows, text, replay, points=points, index=index)
+            candidate = {**raw, 'candidate_id': raw['id'], 'city': raw['municipality'],
+                         'kind': 'landmark', 'score': 1,
+                         'precision': 'area' if raw['precision'] == 'AREA' else 'approximate',
+                         'geometry_kind': 'hydro_relative_approximation', 'source': 'hydro_relative'}
+            tools.candidates[candidate['candidate_id']] = candidate
+            tools.results['t1'] = dict(why_quote=item['quote'], candidates=[candidate])
+            answer = dict(candidate_id=candidate['candidate_id'], precision=candidate['precision'],
+                          evidence=[item['quote'], 't1'])
+            if not _objections(answer, tools):
+                fields['landmark'] = dict(value=candidate['name'], quote=item['quote'], source='rule:hydro_relative')
+                landmark = dict(status='resolved', matched=candidate, candidates=[candidate], requested=True,
+                                precision=candidate['precision'], reason='Referência relativa aproximada; confirmar com contato.',
+                                hydro_relative=relative, in_water_by_date=None, publication_available=False)
+                output = dict(location_path='deterministic_hydro_relative', precision=candidate['precision'],
+                              candidate=candidate, answer=answer, steps=[], tool_steps=0,
+                              objections=[], fallback=False, revision=False)
+                return lookup([], '', '', replay), None, landmark, output, []
     if not hits and bairros and state(text)['life_safety']:
         tools = LocationTools(rows, landmark_rows, text, replay, points=points, index=index)
         choices = [(a, b, c) for a, b, cs in bairros for c in tools.search_bairro(text[a:b])
                    if c['city'] in cs and (not cities or cities == {c['city']})]
         if len(choices) == 1:
             a, b, candidate = choices[0]
+            from app.geo.hydro import area_point
+            area = area_point(candidate['name'], candidate['city'], replay[:10])
+            candidate['hydro_area'] = area
+            if area.get('flooded') and area.get('point'):
+                candidate.update(**area['point'], bounds=area['bbox'],
+                                 geometry_kind='estimated_flooded_bairro', precision='area')
+                tools.candidates[candidate['candidate_id']] = candidate
             quote = text[a:b]
             tools.results['t1'] = dict(why_quote=quote, candidates=[candidate])
             answer = dict(candidate_id=candidate['candidate_id'], precision='area', evidence=[quote, 't1'])
@@ -366,6 +411,8 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
                 landmark = dict(status='resolved', precision='area', matched=candidate, candidates=[candidate],
                                 requested=True, reason='Bairro inteiro; confirmar ponto em paralelo.',
                                 in_water_by_date=None, publication_available=False)
+                landmark['hydro_area'] = area
+                landmark['reason'] = area['label']
                 output = dict(location_path='deterministic_bairro', precision='area', candidate=candidate,
                               answer=answer, steps=[], tool_steps=0, objections=[], fallback=False, revision=False)
                 return lookup([], '', '', replay), None, landmark, output, []

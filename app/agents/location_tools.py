@@ -219,6 +219,12 @@ class LocationTools:
             output = getattr(self, tool)(**args)
         except TypeError:
             raise ValueError('Invalid tool arguments') from None
+        if isinstance(output, list) and output:
+            from app.geo.hydro import rank_candidates
+            ranked = rank_candidates(output, self.scoped, self.replay[:10], args.get('city'))
+            output = ranked['ranked']
+            for candidate in output:
+                self.candidates[candidate['candidate_id']] = candidate
         rid = 't'+str(len(self.results)+1)
         result = dict(result_id=rid, tool=tool, args=args, why_quote=why_quote,
                       candidates=output if isinstance(output, list) else [],

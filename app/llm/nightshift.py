@@ -127,7 +127,8 @@ class Nightshift:
         if hazard:
             pass  # thinking stays ON (enable_thinking=false -> 502/stall on Nightshift); shared max_tokens
         invalid_retried = False
-        for attempt in range(2 if hazard else 3):
+        attempts = 1 if role == 'credibility_reviewer' else 2 if hazard else 3
+        for attempt in range(attempts):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError('Global deadline')
@@ -147,7 +148,11 @@ class Nightshift:
                 event['output_chars'] = len(text)
                 event.update(model=meterless.get('routed_model'), receipt=meterless.get('receipt_id'),
                              route_kind=(meterless.get('winning_route') or {}).get('kind'))
-                result = first_json(text, location_shape=role == 'location_agent')
+                if role == 'credibility_reviewer':
+                    from app.credibility.reviewer import parse_output
+                    result = parse_output(text)
+                else:
+                    result = first_json(text, location_shape=role == 'location_agent')
                 if hazard:
                     from app.agents.hazard_critic import expand
                     expand(result, json.loads(content)['facts'])
@@ -167,12 +172,14 @@ class Nightshift:
                     except Exception:
                         err = {}
                     event.update(http_status=exc.code, detail=str(err.get('meterless_detail') or err.get('message') or '')[:160])
-                if not retry or attempt == (1 if hazard else 2) or time.monotonic() >= deadline:
+                if not retry or attempt == attempts - 1 or time.monotonic() >= deadline:
                     raise RuntimeError('Nightshift step failed') from None
             except ValueError as exc:
                 event.update(status='failed', error=type(exc).__name__, detail='empty_or_invalid_json')
                 event['invalid_head'] = invalid_head(text)
-                if invalid_retried or attempt == (1 if hazard else 2) or time.monotonic() >= deadline:
+                if role == 'credibility_reviewer':
+                    raise ValueError('Invalid credibility JSON') from None
+                if invalid_retried or attempt == attempts - 1 or time.monotonic() >= deadline:
                     raise RuntimeError('Nightshift response invalid') from None
                 invalid_retried, retry = True, True
             except Exception as exc:
