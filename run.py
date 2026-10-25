@@ -208,10 +208,16 @@ def main():
     parser.add_argument('command', nargs='?', choices=['serve'])
     parser.add_argument('--sample', action='store_true')
     parser.add_argument('--input', type=Path)
+    parser.add_argument('--inventory', type=Path, help='operator shift inventory JSON (see app/missions/README.md)')
     args = parser.parse_args()
     offline = args.sample or sample_mode()
     if args.command == 'serve':
-        server = create_server(port=int(setting('PORT', '8080')), sample=offline)
+        # Mission-enabled server wraps every original route (app/web/server.py).
+        from app.web.server import create_server as mission_server
+        from app.missions.planner import inventory_units
+        inventory = json.loads(args.inventory.read_text(encoding='utf-8-sig')) if args.inventory else []
+        inventory_units(inventory, '9999-12-31')
+        server = mission_server(port=int(setting('PORT', '8080')), sample=offline, inventory=inventory)
         print(f'Mesa de triagem: http://localhost:{server.server_port}; SAMPLE_MODE={offline}', flush=True)
         try:
             server.serve_forever()
