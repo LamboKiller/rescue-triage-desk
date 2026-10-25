@@ -24,18 +24,17 @@ class FakeClient:
     def call(self,role,system,payload,deadline):
         data=json.loads(payload); proposed=data['proposed_asset']
         fact=next(f for f in data['facts'] if f['id']=='fleet:'+proposed)
-        unsafe=proposed in data['fleet_summary']['unsafe_assets']
-        return {'objections':[{'fact_ids':[fact['id']], 'text_pt':'Recurso inseguro conforme as regras citadas.',
-                              'severity':'block'}] if unsafe else [],
-                'brief_pt':'Requer revisão humana e verificações locais.'}, {'role':role,'offline':True}
+        unsafe=': unsafe.' in fact['text_pt']
+        return {'block':[fact['id']] if unsafe else [], 'warn':[]}, {'role':role,'offline':True}
 
 
 class RecordingClient:
     def __init__(self,client): self.client=client; self.raw=None; self.facts=[]
     def call(self,role,system,payload,deadline):
         data=json.loads(payload); self.facts=data['facts']
-        self.raw,meta=self.client.call(role,system,payload,deadline)
-        return self.raw,meta
+        output,meta=self.client.call(role,system,payload,deadline)
+        self.raw=hazard_critic.expand(output,self.facts)
+        return output,meta
 
 
 def evaluate(items, truth, offline=False, client=None):

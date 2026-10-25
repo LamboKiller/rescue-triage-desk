@@ -1,7 +1,13 @@
 {
-  "landmark_aliases_v3": 24,
-  "landmarks_v3": 4201,
-  "road_closures_v3": 31,
-  "streets_flood_v3": 12586,
-  "messages_seed7_v3": 15
+  "landmark_aliases_v4": 24,
+  "landmarks_v4": 4201,
+  "road_closures_v4": 31,
+  "streets_flood_v4": 12586,
+  "closures_v4": 31,
+  "pump_status_daily_v4": 988,
+  "pumps_v4": 38,
+  "events_v4": 20,
+  "shelters_v4": 7574,
+  "street_points_v4": 20623,
+  "messages_seed7_v4": 15
 }

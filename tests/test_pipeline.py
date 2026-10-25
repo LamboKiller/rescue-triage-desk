@@ -71,9 +71,8 @@ class PipelineTests(unittest.TestCase):
                 if role!='hazard_critic':return super().call(role,system,payload,deadline)
                 self.roles.append(role)
                 data=json.loads(payload)
-                assert data['case_summary']['result']['decision']=='SEND_CANDIDATE'
-                assert data['facts'] and data['fleet_summary']['options']
-                assert data['proposed_asset']==data['fleet_summary']['options'][0]['asset']
+                assert 'case_summary' not in data and 'message' not in data
+                assert data['facts'] and data['proposed_asset']
                 fact='fleet:'+data['proposed_asset']
                 assert any(f['id']==fact for f in data['facts'])
                 return {'objections':[{'fact_ids':[fact],'text_pt':'Verifique as cautelas locais.',
