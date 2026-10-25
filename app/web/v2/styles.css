@@ -9,3 +9,8 @@
 .pin-agents{display:none}@media(min-width:2560px){.pin-agents{display:inline-block}}
 
 #system-light.good{color:var(--green)}
+
+/* Evidence flow: connectors only accompany recorded changes to an objected field. */
+.agent-flow{display:grid;gap:12px;margin-top:12px}.agent-step{border:1px solid var(--border);padding:12px;border-radius:4px;min-width:0}.agent-step.failed{border-left:3px solid var(--red)}.agent-step>strong{display:block;margin-top:8px}.agent-step details{margin:8px 0}.flow-connector{border-left:2px solid var(--amber);padding:8px;margin:8px 0}.source-popup{color:#17212a;font-size:13px;max-height:55vh;overflow:auto}.source-popup details,.source-popup p{overflow-wrap:anywhere}.source-popup a{color:#145488}.source-photos{display:flex;flex-wrap:wrap;gap:8px}.source-photos figure{margin:0;max-width:140px}.source-photos img{width:140px;height:90px;object-fit:cover}.source-photos figcaption{font-size:11px}#water-legend{display:flex;flex-wrap:wrap;gap:8px}#water-legend span{padding-left:4px}#water-legend small{flex-basis:100%}.call-open{border-left:3px solid var(--amber);padding-left:8px;animation:call-pulse 1s infinite alternate}@keyframes call-pulse{to{border-color:transparent}}@media(prefers-reduced-motion:reduce){.call-open{animation:none}}
+
+#run-stages .failed{border-left:3px solid var(--red);padding-left:8px;color:var(--red)}

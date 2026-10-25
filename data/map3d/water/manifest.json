@@ -1,0 +1,91 @@
+{
+  "bands": [
+    {
+      "min_m": 0,
+      "max_m": 0.3,
+      "color": "#b5dcf5",
+      "upper_inclusive": false,
+      "label": "0–< 0,3 m"
+    },
+    {
+      "min_m": 0.3,
+      "max_m": 1.2,
+      "color": "#76b5df",
+      "upper_inclusive": false,
+      "label": "0,3–< 1,2 m"
+    },
+    {
+      "min_m": 1.2,
+      "max_m": 2.5,
+      "color": "#398ac1",
+      "upper_inclusive": true,
+      "label": "1,2–2,5 m (inclusive)"
+    },
+    {
+      "min_m": 2.5,
+      "max_m": null,
+      "color": "#155a94",
+      "upper_inclusive": false,
+      "label": "> 2,5 m"
+    }
+  ],
+  "missing": "Sem dado não significa seco; pixels transparentes.",
+  "images": [
+    {
+      "observation_date": "2024-05-06",
+      "published_at": null,
+      "url": "/v2/map/water/2024-05-06.png",
+      "bytes": 95667,
+      "coordinates": [
+        [
+          -51.304573,
+          -29.647119
+        ],
+        [
+          -51.01069,
+          -29.647119
+        ],
+        [
+          -51.01069,
+          -30.273414
+        ],
+        [
+          -51.304573,
+          -30.273414
+        ]
+      ],
+      "source": "Copernicus Emergency Management Service (© 2024 European Union), EMSN194",
+      "retrospective": true,
+      "created_at": "2024-06-12",
+      "publication_note": "Publication date absent in source metadata; creation is not publication."
+    },
+    {
+      "observation_date": "2024-05-08",
+      "published_at": null,
+      "url": "/v2/map/water/2024-05-08.png",
+      "bytes": 96077,
+      "coordinates": [
+        [
+          -51.304573,
+          -29.647119
+        ],
+        [
+          -51.01069,
+          -29.647119
+        ],
+        [
+          -51.01069,
+          -30.273414
+        ],
+        [
+          -51.304573,
+          -30.273414
+        ]
+      ],
+      "source": "Copernicus Emergency Management Service (© 2024 European Union), EMSN194",
+      "retrospective": true,
+      "created_at": "2024-06-12",
+      "publication_note": "Publication date absent in source metadata; creation is not publication."
+    }
+  ]
+}
