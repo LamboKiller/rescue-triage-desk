@@ -56,7 +56,7 @@ class Registry:
         if self.path.exists():
             for line in self.path.read_text(encoding='utf-8').splitlines():
                 event = json.loads(line)  # Fail closed on damaged log; never silently skip.
-                if event['kind'] in ('merge', 'unmerge'):
+                if event['kind'] in ('merge', 'unmerge', 'approve_mission', 'cancel_mission'):
                     for projection in event['projections']:
                         cases[projection['case_id']] = projection
                     continue
@@ -107,6 +107,8 @@ class Registry:
         with self.locked():
             cases, seen = self._read()
             previous = cases.get(cid)
+            if previous and previous.get('status','').startswith('ASSIGNED:'):
+                raise Conflict('Cancele a missão antes de reanalisar o caso atribuído.')
             if previous and (previous.get('merge_state') or previous.get('status','').startswith('MERGED_INTO:')):
                 raise Conflict('Desfaça a união antes de reanalisar o caso.')
             # A delivery is ingested once. A changed replay/analysis is a separate
@@ -133,6 +135,8 @@ class Registry:
             cases, _ = self._read()
             if case_id not in cases:
                 raise KeyError(case_id)
+            if cases[case_id].get('status','').startswith('ASSIGNED:'):
+                raise Conflict('Cancele a missão antes de responder ao caso atribuído.')
             if cases[case_id].get('merge_state') or cases[case_id].get('status','').startswith('MERGED_INTO:'):
                 raise Conflict('Desfaça a união antes de responder.')
             if cases[case_id]['version'] != expected_version:
@@ -149,7 +153,7 @@ class Registry:
             cases, _ = self._read()
             return copy.deepcopy(cases.get(case_id) if case_id else sorted(cases.values(), key=lambda c: -c['result']['priority']))
 
-    def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False, target_case_id=None, target_expected_version=None):
+    def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False, target_case_id=None, target_expected_version=None, mission=None, mission_inventory=None, mission_id=None, expected_versions=None):
         if not human:
             raise PermissionError('Ação exclusiva de operador humano.')
         if not isinstance(actor, str) or not actor.strip() or len(actor) > 120:
@@ -163,12 +167,18 @@ class Registry:
             case = cases[case_id]
             if case['version'] != expected_version:
                 raise Conflict('Versão alterada. Recarregue e revise o caso.')
+            if action in ('approve_mission', 'cancel_mission'):
+                from app.missions.actions import apply
+                return apply(self, cases, case, action, actor, mission, mission_inventory,
+                             mission_id, expected_versions, caution_acknowledged)
+            if case['status'].startswith('ASSIGNED:'):
+                raise Conflict('Caso em missão; cancele a missão antes de outra ação.')
             if action in ('merge', 'unmerge'):
                 return self._merge(cases, case, action, actor, target_case_id, target_expected_version)
             status = case['status']
             if status.startswith('MERGED_INTO:'):
                 raise Conflict('Caso unido; use o caso principal.')
-            allowed = {'confirm_location', 'approve_dispatch', 'dispatch', 'field_confirm', 'request_callback', 'report_rescued'}
+            allowed = {'confirm_location', 'approve_dispatch', 'dispatch', 'field_confirm', 'request_callback', 'report_rescued', 'approve_mission', 'cancel_mission'}
             if action not in allowed:
                 raise ValueError('Ação desconhecida.')
             if status == 'field_confirmed':
@@ -230,6 +240,8 @@ class Registry:
             if other['version'] != target_version:
                 raise Conflict('Versão do caso secundário alterada.')
             for c in (case,other):
+                if c['status'].startswith('ASSIGNED:'):
+                    raise Conflict('Caso em missão; cancele a missão antes de unir.')
                 if c.get('merge_state') or c['status'].startswith('MERGED_INTO:') or c['status'] in ('human_approved','dispatched','field_confirmed'):
                     raise Conflict('Caso unido ou despacho ativo; união indisponível.')
             a,b = copy.deepcopy(case),copy.deepcopy(other)

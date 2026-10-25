@@ -1,0 +1,15 @@
+{"id":"n01","synthetic":true,"text":"Minha avó está acamada e não consegue andar.","truth":["stretcher_or_bedridden"]}
+{"id":"n02","synthetic":true,"text":"Tem uma pessoa em cadeira de rodas no corredor.","truth":["wheelchair"]}
+{"id":"n03","synthetic":true,"text":"Estou com meu bebê no colo.","truth":["infant"]}
+{"id":"n04","synthetic":true,"text":"A vizinha está grávida, aguardando aqui.","truth":["pregnant"]}
+{"id":"n05","synthetic":true,"text":"O cilindro de oxigênio acabou e precisa de insulina.","truth":["medical_urgent"]}
+{"id":"n06","synthetic":true,"text":"A parede da cozinha vai desabar.","truth":["structural_risk"]}
+{"id":"n07","synthetic":true,"text":"O nível da água está subindo bem rápido.","truth":["water_rising"]}
+{"id":"n08","synthetic":true,"text":"Ficamos com os gatos e cachorros da rua.","truth":["animals"]}
+{"id":"n09","synthetic":true,"text":"Casa da frente: 3 pessoas; casa dos fundos: 2 pessoas.","truth":[],"groups":[3,2]}
+{"id":"n10","synthetic":true,"text":"Há uma gestante e um recém-nascido; a água continua aumentando.","truth":["pregnant","infant","water_rising"]}
+{"id":"n11","synthetic":true,"text":"Temos comida e aguardamos contato no portão.","truth":[]}
+{"id":"n12","synthetic":true,"text":"Não há bebê. Sem animais na casa.","truth":[]}
+{"id":"n13","synthetic":true,"text":"Paciente faz hemodiálise e está acamado.","truth":["medical_urgent","stretcher_or_bedridden"]}
+{"id":"n14","synthetic":true,"text":"Cadeirante com dificuldade, os cachorros estão junto.","truth":["wheelchair","animals"]}
+{"id":"n15","synthetic":true,"text":"O teto está caindo; minha filha está com falta de ar.","truth":["structural_risk","medical_urgent"]}
