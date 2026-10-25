@@ -41,6 +41,8 @@ def exact_evidence(rows, text, cities=()):
             continue
         names = [(n, None) for n in [row['name']] + re.split(r'[|;]', row.get('alt_names', ''))]
         names += [(a['alias'], a) for a in row.get('curated_aliases', [])]
+        names += [(a['alias'], a) for a in row.get('learned_aliases', [])
+                  if _plain(a['city']) in {_plain(c) for c in cities}]
         for name, alias in names:
             words = re.findall(r'\w+', _plain(name))
             if not words or not set(words) <= text_words:
@@ -61,7 +63,7 @@ def exact_evidence(rows, text, cities=()):
                 # Reuse the catalogue's category/context exceptions (school,
                 # Trensurb, Brique and blood-bank versus parent hospital).
                 checked = match([row], place_name=name, municipality=row['municipality'], message=text)
-                if checked['status'] != 'resolved' or not checked['reason'].startswith('alias:'):
+                if alias.get('source') != 'learned' and (checked['status'] != 'resolved' or not checked['reason'].startswith('alias:')):
                     continue
             for m in matches:
                 hits.append(dict(row=row, start=m.start(), end=m.end(), quote=text[m.start():m.end()],

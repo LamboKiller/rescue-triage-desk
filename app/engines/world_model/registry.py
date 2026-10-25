@@ -56,6 +56,8 @@ class Registry:
         if self.path.exists():
             for line in self.path.read_text(encoding='utf-8').splitlines():
                 event = json.loads(line)  # Fail closed on damaged log; never silently skip.
+                if event['kind'] == 'place_memory':
+                    continue
                 if event['kind'] in ('resource', 'supervisor'):  # supervisor ticks/decisions are journal-only, never case state
                     continue
                 if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission'):
@@ -214,6 +216,9 @@ class Registry:
             self._append({'schema_version': 1, 'kind': 'action', 'case_id': case_id,
                           'version': case['version']+1, 'action': action, 'actor': redact(actor.strip()),
                           **({'asset':asset,'caution_acknowledgement':acknowledgement} if action=='approve_dispatch' else {})})
+            if action == 'confirm_location':
+                from app.memory.service import PlaceMemory
+                PlaceMemory(self).confirmed(self._read()[0][case_id])
             return copy.deepcopy(self._read()[0][case_id])
 
     def _merge(self, cases, case, action, actor, target_id, target_version):

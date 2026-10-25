@@ -319,7 +319,7 @@ def _street_context(rows, fields, scoped, street, points):
                        'Unresolved supplementary reference; street address retained.')
 
 
-def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index=None, points=(), trace=None, emit=None):
+def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index=None, points=(), trace=None, emit=None, memory=None):
     """Pipeline adapter; preserve existing lookup/landmark result contracts."""
     get = lambda k: fields.get(k, {}).get('value', '')
     index = index or IncidentIndex(rows, landmark_rows)
@@ -332,6 +332,9 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
     cities = _incident_cities(index, scoped, hits)
     # Only an unambiguous, literal catalogue reference bypasses the policy.
     exact = exact_evidence(landmark_rows, scoped, cities)
+    if not exact and memory is not None:
+        landmark_rows = memory.enrich(landmark_rows, replay, cities)
+        exact = exact_evidence(landmark_rows, scoped, cities)
     exact_rows = [h['row'] for h in exact]
     places = distinct_places(exact_rows)
     if len(places) == 1 and len(cities) <= 1 and not hits:
@@ -355,6 +358,11 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
                               args=dict(name=quote, municipality=candidate['city']),
                               result_ids=['t1', candidate['candidate_id']], why_quote=quote)], tool_steps=0, objections=[],
                           revision=False, fallback=False, critic=None)
+            if evidence['alias_row'] and evidence['alias_row'].get('source') == 'learned':
+                alias = evidence['alias_row']
+                output['memory_note'] = ('resolvido por memória aprendida (aprovado em '
+                    +alias['approved_at']+', caso '+alias['evidence_case_id']+')')
+                landmark['reason'] = output['memory_note']
             _record(dict(role='location_agent', tool='deterministic_alias', evidence=source,
                          result_ids=[candidate['candidate_id']]), trace, emit)
             return lookup([], '', '', replay), None, landmark, output, []

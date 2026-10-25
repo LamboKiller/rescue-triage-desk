@@ -241,6 +241,7 @@ class Pipeline:
             location, cross, landmark, location_stage, location_calls = location_agent.locate(
                 rows, landmark_rows, fields, message['text'], replay,
                 agent_client if not self.sample and ablation == 'full' else None, deadline,
+                memory=__import__('app.memory.service', fromlist=['PlaceMemory']).PlaceMemory(self.registry, landmark_rows),
                 index=incident_index, trace=trace, emit=emit)
             stages['location'] = location_stage
             calls.extend(location_calls)

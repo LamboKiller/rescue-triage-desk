@@ -26,6 +26,8 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     from app.resources import inventory as resource_inventory
     supervisor=SupervisorService(registry,lambda:resource_inventory(registry,inventory),service.proposals,
         None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/supervisor_trace.jsonl'))
+    from app.redteam.service import RedTeamService, handle as redteam_handle
+    redteam=RedTeamService(offline=offline)
     from app.callback.service import CallbackService
     callback_client=None
     if not offline:
@@ -33,11 +35,15 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
         callback_client=pipeline.client or Nightshift(ROOT/'runtime/callback_trace.jsonl')
     callback=CallbackService(registry,pipeline,callback_client,ROOT/'runtime/callback_log.jsonl')
     server=original_server(host,port,sample=offline,pipeline=pipeline)
+    from app.replay import routes as replay_routes
     BaseHandler=server.RequestHandlerClass
 
     class Handler(BaseHandler):
         def do_GET(self):
             path=urlsplit(self.path).path
+            if path == '/api/memory':
+                from app.memory.routes import handle
+                return handle(self,registry,'GET')
             if path.startswith('/api/cases/') and path.endswith('/callback') and len(path.split('/'))==5:
                 try:
                     query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
@@ -45,6 +51,8 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                 except KeyError: self.send_json(404,{'error':'Caso não encontrado.'});return
                 except Exception: self.send_json(500,{'error':'Falha ao montar o retorno.'});return
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'GET')
+            if path.startswith('/api/redteam'): return redteam_handle(self,redteam,'GET')
+            if path.startswith('/api/replay'): return replay_routes.handle(self,server.replay,'GET')
             if path not in ('/api/resources','/api/cases') and not path.startswith('/api/missions'): return super().do_GET()
             try:
                 if path=='/api/resources':
@@ -76,7 +84,12 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
 
         def do_POST(self):
             path=urlsplit(self.path).path
+            if path == '/api/memory':
+                from app.memory.routes import handle
+                return handle(self,registry,'POST')
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'POST')
+            if path.startswith('/api/redteam'): return redteam_handle(self,redteam,'POST')
+            if path.startswith('/api/replay'): return replay_routes.handle(self,server.replay,'POST')
             case_action=path.startswith('/api/cases/') and path.endswith('/actions')
             case_feedback=path.startswith('/api/cases/') and path.endswith('/feedback') and len(path.split('/'))==5
             case_callback=path.startswith('/api/cases/') and path.endswith('/callback/reply') and len(path.split('/'))==6
@@ -129,6 +142,10 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     server.feedback=feedback
     server.callback=callback
     server.supervisor=supervisor
+    server.redteam=redteam
+    from app.replay.routes import ReplayController
+    server.pipeline=pipeline
+    server.replay=ReplayController(server)
     return server
 
 
