@@ -77,8 +77,7 @@ class HazardFixTests(unittest.TestCase):
             _,meta=client.call('hazard_critic',hazard.SYSTEM,payload,time.monotonic()+30)
             bodies=[json.loads(c.args[0].data) for c in urlopen.call_args_list]
             self.assertEqual(len(bodies),2)
-            self.assertEqual(bodies[0]['max_tokens'],512)
-            self.assertFalse(bodies[0]['chat_template_kwargs']['enable_thinking'])
+            self.assertNotIn('chat_template_kwargs',bodies[0])  # thinking must stay ON on Nightshift
             self.assertLess(len(json.dumps(bodies[1])),len(json.dumps(bodies[0])))
             self.assertEqual(meta['output_chars'],22)
 

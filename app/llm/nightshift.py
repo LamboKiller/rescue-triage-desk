@@ -93,7 +93,7 @@ class Nightshift:
                 'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': redact(content)}]}
         hazard = role == 'hazard_critic'
         if hazard:
-            body.update(max_tokens=512, chat_template_kwargs={'enable_thinking': False})
+            pass  # thinking stays ON (enable_thinking=false -> 502/stall on Nightshift); shared max_tokens
         invalid_retried = False
         for attempt in range(2 if hazard else 3):
             remaining = deadline - time.monotonic()
