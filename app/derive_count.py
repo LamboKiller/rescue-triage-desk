@@ -178,6 +178,27 @@ def reconcile_people(fields, text):
     """Apply count evidence after extraction, equally for offline and model intake."""
     if not text or INJECTION.search(text):
         return
+    # Live intake can copy an age as a category's phrase. Recompute without
+    # ages before comparing vulnerable groups with the incident total.
+    from app.agents.counts import count
+    age_pattern = r'\b(?:(?:de|com)\s+)?(\d+|'+'|'.join(NUMBERS)+r')\s+(anos?|meses?)\b'
+    for key in ('children', 'elderly', 'disabled'):
+        field = fields.get(key, {})
+        quote = _plain(field.get('quote', ''))
+        ages = list(re.finditer(age_pattern, quote))
+        if not ages:
+            continue
+        without_ages = re.sub(age_pattern, '', quote).strip()
+        value = count(without_ages, key)
+        if value is None and key == 'children' and re.fullmatch(
+                r'(?:(?:meu|minha|o|a)\s+)?(?:filh[oa]|crianca|bebe|guri|guria)', without_ages):
+            age = int(ages[0][1]) if ages[0][1].isdigit() else NUMBERS[ages[0][1]]
+            if len(ages) == 1 and (ages[0][2].startswith('mes') or age < 18):
+                value = 1
+        if value is None:
+            fields.pop(key, None)  # Age alone does not establish a group count.
+        else:
+            fields[key] = {**field, 'value': value, 'derived': True, 'source': 'rule:age_not_count'}
     left = re.search(r'\b(?:mas|porem)\s+(?:ficou|ficaram|restou|restaram)\s+([^.;!\n]+)', _plain(text))
     if left:
         clause = text[left.start(1):left.end(1)]

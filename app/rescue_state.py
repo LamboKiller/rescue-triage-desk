@@ -15,6 +15,12 @@ RESCUED = re.compile(r'\b(?:ja (?:fomos resgatados|resgatad[oa]s?|tiraram todo m
                      r'(?:bombeiros|voluntarios).{0,20}levaram todas as|conseguiram tirar (?:todo mundo|o pessoal)|'
                      r'(?:a gente|as pessoas) (?:ja )?foi resgatad|as pessoas (?:ja )?foram resgatadas)')
 INFO = re.compile(r'\b(?:doa[cç][aã]o|doacoes|doar|doando|entregar|comprar|mantimentos|suprimentos|recebendo|recebem|informam|informacao|horario)\b')
+PHYSICAL_DANGER = re.compile(r'\b(?:ilhad[oa]s?|pres[oa]s?|telhado|correnteza|'
+    r'agua\s+(?:(?:ja|esta|ta|nao para de)\s+)?(?:subindo|subir|entrou|tomou|(?:na|no|ate a|ate o)\s+(?:cintura|peito|pescoco)))\b')
+VULNERABLE_OR_UPSTAIRS = re.compile(r'\b(?:gravid[ao]s?|idos[oa]s?|(?:segundo|2[º°o]?)\s+andar|andar superior)\b')
+ROAD_INFORMATION = re.compile(r'\b(?:transitavel|interditad[ao]s?|liberaram a (?:rua|estrada)|'
+    r'(?:como|se)\s+(?:esta|ta)\s+(?:a\s+)?(?:rua|estrada)|(?:da|posso|consegui?mos)\s+(?:pra|para)\s+(?:voltar|passar)\b)')
+DONATION_DRIVE = re.compile(r'\bcoleta\s+(?:de|para)\b|\bquem puder (?:levar|doar|entregar)\b')
 
 
 PAST_RESCUE = re.compile(r'\b(?:fomos|fui|foi|foram|todos|todas)\s+(?:ja\s+)?(?:tod[oa]s?\s+)?resgatad[oa]s?\b')
@@ -32,7 +38,7 @@ def state(text):
     rescued = bool(RESCUED.search(text)) or past_rescue(text)
     human_present = bool(re.search(r'\b(?:\d+|uma?|duas?|dois|tres|quatro|cinco|seis)\s+(?:pessoas?|adultos?|idos[oa]s?|criancas?|bebes?)\b|'
                                   r'\b(?:pessoas?|personas?|people|adult[oa]s?|idos[oa]s?|criancas?|bebes?|familias?|senhor[ae]s?|'
-                                  r'meu pai|minha mae|minha vo|meu vo|meu irmao|minha irma|pai|mae|avos?|vo|irmao|irma|filh[oa]s?|marido|esposa|tio|tia|vizinh[oa]s?|eu|nos|estou com|estamos|a gente precisa)\b', text))
+                                  r'meu pai|minha mae|minha vo|meu vo|meu irmao|minha irma|pai|mae|avos?|vo|irmao|irma|filh[oa]s?|marido|esposa|tio|tia|vizinh[oa]s?|moradores|gravid[ao]s?|eu|nos|estou|estamos|a gente precisa)\b', text))
     people_out = bool(PEOPLE_OUT.search(text) and ANIMALS.search(text) and not partial and
                       not re.search(r'\b(?:ainda|continua|segue)\b', text))
     animal_only = bool(people_out or NO_PEOPLE.search(text) or (ANIMALS.search(text) and not partial and
@@ -40,15 +46,19 @@ def state(text):
     # Supply/information conversations can mention rescues in passing. An
     # explicit human danger/request keeps the incident in the live queue.
     human_danger = bool(re.search(r'(?:pessoas?|gente|idos[oa]s?|criancas?|familia|meu pai|minha mae).{0,60}(?:ilhad|pres[oa]s?\b|telhado|precis.{0,15}resgat)|'
-                                 r'(?:socorro|preciso de resgate|precisamos de resgate)', text))
+                                 r'(?:socorro|preciso de resgate|precisamos de resgate)', text)) or bool(
+                                     human_present and PHYSICAL_DANGER.search(text))
     welfare = re.search(r'\balguem\s+(?:sabe\s+se|mora|vive)\b|\b(?:minha|meu)\s+\w+\s+nao\s+(?:responde|atende)\b|'
-                        r'\b(?:procuro|procurando)\s+(?:meu|minha|o|a)\b|perdi (?:o )?contato|ultima vez visto|ninguem tem noticia', text)
+                        r'\b(?:procuro|procurando)\s+(?:meu|minha|o|a)\b|perdi (?:o )?contato|ultima vez visto|ninguem tem noticia|'
+                        r'\b(?:achar\s+)?noticias\s+(?:de|do|da)\b|\bninguem sabe del[ae]\b', text)
     people_signal = bool(re.search(r'\b(?:\d+|uma?|duas?|dois|tres|quatro|cinco|seis)\s+(?:pessoas?|adultos?|idos[oa]s?|criancas?|bebes?)\b|'
                                    r'\b(?:pessoas|gente|familias?|idos[oa]s?|criancas?|bebes?|adultos?|moradores|cadeirantes?)\b', text))
-    informational = bool((INFO.search(text) or welfare) and not human_danger and not partial and not rescued)
+    informational = bool((INFO.search(text) or welfare or ROAD_INFORMATION.search(text) or DONATION_DRIVE.search(text))
+                         and not human_danger and not partial and not rescued)
     return {'people_signal': people_signal, 'partial': partial, 'rescued': rescued and not partial,
             'not_a_rescue': animal_only or informational,
-            'life_safety': partial or bool(LIFE_SAFETY.search(text))}
+            'life_safety': partial or bool(LIFE_SAFETY.search(text) or PHYSICAL_DANGER.search(text) or
+                                          human_present and VULNERABLE_OR_UPSTAIRS.search(text))}
 
 
 def guard_fields(fields, text):

@@ -55,6 +55,12 @@ def municipality_mentions(scoped, name_spans=()):
 
 def incident_text(text):
     plain = _plain(text)
+    # A worried family in another city is a remote contact, not a second
+    # incident address. Require the emotional-state predicate so a family
+    # actually trapped in that city remains incident evidence.
+    plain = re.sub(r'\b(?:(?:a|minha|nossa|sua)\s+)?(?:familia|parentes)\s+(?:toda\s+|todos\s+)?'
+                   r'em\s+[^.;!?\n]{1,70}?\s+(?:(?:esta|ta|estao|tao)\s+)?(?:desesperad[oa]s?|preocupad[oa]s?)\b',
+                   lambda m: m[0] if re.search(r'\b(?:ilhad|pres|agua|resgate|socorro)', m[0]) else ' '*len(m[0]), plain)
     # A remote reporter can state their own city after the incident clause too.
     # Mask only the city assertion, retaining offsets and the victim's address.
     remote = re.search(r'\b(?:a rua (?:da|do)|(?:minha|meu)\s+(?:ti[oa]|prim[oa]|irmao?|mae|pai|familia))\b', plain)
