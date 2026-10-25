@@ -5,3 +5,4 @@ logs/*
 !logs/sample_trace.jsonl
 runtime/
 .tmp/
+out/
