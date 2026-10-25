@@ -1,105 +1,63 @@
 # Gate 2 hard-requirement checklist
 
-Audit date: 24 October 2026. Single agent; stdlib-only, offline inspection.
-Starting worktree was clean. No `.env` was read; no sponsor/evaluation/load/serve
-command was executed. Supplied live facts below are accepted, not remeasured.
-PASS means the cited scope is evidenced, not that all submission steps are done.
+Refreshed 25 October 2026 by the docs/config agent (G3). No `.env` was read, no live model or Zetaris call was made.
+PASS = the cited scope is evidenced here; NEEDS-YUSSEF = a human step or a live measurement is still open.
+Offline results were re-run on the working tree of 25 Oct (other agents were editing `app/**` and `tests/**` at the time).
 
-| Requirement | Status | Evidence | Fix / owner |
-|---|---|---|---|
-| Zetaris is local connected data layer; REST + host S3 | PASS | `app/data/zetaris.py:21`, `:35`; `app/data/source.py:40`; `.env.example`; supplied verified local REST :8888, SeaweedFS :8333, bucket oah-s3 | Config now names bucket oah-s3 and v3 tables. |
-| Zetaris versioned inventory and inference contract | PASS | `tools/load_zetaris.py:51`, `:56`; supplied OAH_S3 rows: streets_flood_v3 12586, landmarks_v3 4201, messages_seed7_v3 15, road_closures_v3 31, landmark_aliases_v3 24 | Runtime reads streets/landmarks; closures are not routing input; runtime aliases remain local. |
-| Nightshift primary AI; others only secondary | PASS | `app/llm/nightshift.py:80`, `:94`; `ContractTests.test_nightshift_request_and_trace`; pipeline client at `app/pipeline.py:80` | Sole implemented AI provider; OpenAI-compatible is a protocol, not an OpenAI provider fallback. |
-| At least one Meterless Engine in a user feature | PASS | World Model adaptation `app/engines/world_model/registry.py:25`; ingestion `app/pipeline.py:225`; queue/actions `run.py:57`, `:83` | Behavioral implementation, not an SDK import. |
-| World Model feature test evidence | PASS | `RegistryTests.test_human_transition_gate_and_versions`, `test_stale_retained_and_rebuild`, `test_ten_concurrent_writers_zero_lost`; `PipelineTests.test_http_run_queue_action_and_stale_version` | Fresh suite result below; no sponsor certification claim. |
-| SAMPLE_MODE needs no sponsor/external network and recomputes real input | PASS | `app/pipeline.py:60`, `:108`; `app/data/source.py:22`; `PipelineTests.test_offline_no_network_and_not_precomputed` changes count 3–6 under patched network | Uses submitted sample text and local geographic CSVs, not prewritten answers. |
-| run.py + POST /run + bind 0.0.0.0 | PASS | `run.py:24`, `:81`, `:117`; HTTP queue/action test | Trusted-operator demo only. |
-| JSONL logs + stdout, actual model per call | PASS | `app/pipeline.py:79`; `app/llm/nightshift.py:89`, `:100`, `:129`; provider trace test | Logs requested/routed model and receipt per attempt. Unavailable provider metadata remains null; video must show a successful actual receipt. |
-| At least 3 inputs + 3 real pipeline outputs | PASS | `examples/input_01.json` through `input_03.json`, matching output files; `tools/make_examples.py:19–23`; `examples/README.md` | JSON parsed: full mode, 6 completed cases, 14/14 calls have model and receipt. Provenance is structural, not fresh live receipt validation. |
-| Dockerfile and placeholder-only .env.example | PASS | `Dockerfile:1–6`; `.dockerignore` excludes .env/logs/runtime; `.env.example` placeholder check below | Docker execution is separately pending. |
-| README setup, engine test, limitations, sponsors and declaration | PASS | `README.md` named sections; 177 lines at audit; eval comment preserved | Owner attestation remains pending, not falsely declared complete. |
-| Bounded retries and timeouts; total 5–10 min maximum | PASS | `app/pipeline.py:58`, `:62` (480 seconds); `app/llm/nightshift.py:84`, `:97`, `:123`; `ContractTests.test_nightshift_502_three_attempts`; `RetryTests.test_invalid_then_valid_and_cap`; deadline tests in PipelineTests | 8-minute response cap; already-running worker may finish after response. |
-| No real personal data / public-repo safety | PASS (Orbit review 24/10) | Key-like hits = header code, test fakes, placeholders; full git history has no real key patterns; user paths removed from tracked files (3 remain in old commits: Windows username only); phone/CPF-like hits = OSM ids; messages synthetic | Yussef final look before `git push` |
-| Declare work before 21/10/2026 21:00 | NEEDS-YUSSEF | README inventory; `PRE_EXISTING_DECLARATION.md` owner draft | Confirm timezone, dates, authorship and every prior component; sign and disclose. |
-| Complete D1–D3 manifest/license lineage | GAP | `data/ATTRIBUTION.md`; README Data/limitations records missing backup manifests | Yussef supplies missing source/license evidence; no data file edited. |
-| Verified live smoke | PASS | Supplied 24 October four-case pass including landmark request | Accepted from brief, not repeated. |
-| Unit tests | PASS | `python -m unittest discover -s tests` → 62 tests OK (24/10) | — |
-| Fresh live evaluation numbers | PASS (24/10 live run, README) | README/deck/demo retain exact EVAL_RESULTS comment | Orbit finishes active run and supplies verified numbers/methodology; do not rerun it for this audit. |
-| Docker build and connected container routing validated | NEEDS-YUSSEF | Dockerfile exists; execution deliberately deferred | Yussef runs Docker commands below after current evaluation. |
-| 1–4 minute video: at least one real Nightshift request | NEEDS-YUSSEF | `DEMO_SCRIPT.md` is a 3-minute recording script | Yussef records the page, model/receipt, landmark/count checks, critic/conditional revision, human gate and registry. Commands below. |
-| Final deck rendered and uploaded | NEEDS-YUSSEF | `DECK_OUTLINE.md`, 10 slides, all rubric weights mapped | Yussef creates deck and uploads with final results/declaration. |
-| Repo URL, video URL, deck URL submitted | NEEDS-YUSSEF | Drafts exist; no publication/upload performed | Yussef verifies public repo and completes official portal. No commit/push in this task. |
-| Sponsor explanation: Zetaris, engine+feature+test, Nemotron role | PASS | `SPONSOR_EXPLANATION.md` (one-page draft); real tests cited | Attach final suite result and real demo receipt to submission. |
+| # | Requirement | Status | Evidence (paths / commands) | Open |
+|---|---|---|---|---|
+| 1 | Zetaris is the local data layer (REST :8888, S3 :8333, bucket oah-s3) | PASS (v3 live 24 Oct); v4 NEEDS-YUSSEF | `app/data/zetaris.py`, `app/data/source.py` (`ZetarisSource`), `tools/load_zetaris.py --version v4`, `.env.example` (`ZETARIS_*_TABLE` v4 names); live v3 row counts in README "Setup" | Run `python tools/load_zetaris.py --version v4` then `python tools/smoke_live.py`; record result [TBD-live-number] |
+| 2 | Nightshift is the primary AI provider; others only secondary | PASS | `app/llm/nightshift.py` (stream, thinking on, bounded retries); `tests/test_providers.py`; no other provider implemented | — |
+| 3 | At least one Meterless Engine in a user feature, with test evidence | PASS | World Model: `app/engines/world_model/registry.py`; tests `python -m unittest discover -s tests -p test_core.py -v` (RegistryTests) and `-p test_pipeline.py -v` (`test_http_run_queue_action_and_stale_version`); user feature = queue, human actions, merges, missions, feedback | Attach final test log to submission |
+| 4 | SAMPLE_MODE runs with no Zetaris/Nightshift/network from real sample inputs | PASS | `python run.py serve --sample`; `app/pipeline.py` (`LocalSource`); clean-copy run below returned 3 cases from `examples/input_01.json` in 8.5 s (`mode: sample_offline`) | — |
+| 5 | `run.py` + `POST /run` bound to 0.0.0.0 | PASS | `run.py`, `app/web/server.py`; same clean-copy run (`POST /run` 200, `GET /` 200) | — |
+| 6 | JSONL traces in `logs/` + stdout with the model per call | PASS (offline); live receipt NEEDS-YUSSEF | `app/llm/nightshift.py` trace fields (requested/routed model, receipt, status, seconds); `logs/sample_trace.jsonl`; `python tools/check_traceability.py` | Video must show a successful live receipt |
+| 7 | ≥3 input and ≥3 real output examples | PASS | `examples/input_01..03.json`, `output_01..03.json`, `examples/README.md`; `tools/make_examples.py` | Regenerate from the final pipeline if outputs should show new agents (live run) |
+| 8 | Dockerfile + placeholder-only `.env.example` | PASS (build NEEDS-YUSSEF) | `Dockerfile`, `.dockerignore`, `.env.example` (28 settings; every `setting(...)`/`os.environ` name in app/tools/eval/run.py is present, checked by script; secrets are `replace_with_*`). `git check-ignore .env` → ignored; `git ls-files --error-unmatch .env` → untracked | `docker build -t rescue-triage-desk .` and `docker run --rm -p 8080:8080 rescue-triage-desk` (not executable in the authoring sandbox) |
+| 9 | README: setup, engine test, limitations | PASS | `README.md` sections Setup, Engine test, Evaluations, Data provenance, Honest limitations | Fill the `[TBD-live-number]` markers after live runs |
+| 10 | Timeouts + bounded retries; total run ≤ 10 min | PASS (offline) | 480 s response budget (`app/pipeline.py`), 75 s call timeout, ≤3 attempts, one JSON retry; `ContractTests.test_nightshift_502_three_attempts`, `RetryTests` | Live ≤10-minute 15-message batch: [TBD-live-number] |
+| 11 | No real personal data; public-repo safety | PASS (Orbit review 24 Oct) | Messages synthetic and flagged `synthetic`; masked-hit safety scan kept privately (not in repo; values never reproduced); `.gitignore` excludes `.env`, `runtime/`, `logs/*` except `logs/sample_trace.jsonl` | Yussef final look before `git push` |
+| 12 | Work before 21/10/2026 21:00 declared | NEEDS-YUSSEF | `docs/submission/PRE_EXISTING_DECLARATION.md` (inventory filled, dates/attestation pending); git history starts 2026-10-24 01:44 -0300 (`git log --reverse`), so everything earlier is external inventory | Confirm timezone, dates and authorship; sign |
+| 13 | Data lineage D1–D3 | GAP | `data/ATTRIBUTION.md`; README provenance table | Supply missing manifests/licences (flood/pump/levee/shelter layers, EMSN194 terms) |
+| 14 | Sponsor explanation (Zetaris, engine+feature+test, Nemotron role) | PASS (draft) | `docs/submission/SPONSOR_EXPLANATION.md` | Update with final agents list and live receipts |
+| 15 | 1–4 min demo video with one real Nightshift request | NEEDS-YUSSEF | `docs/submission/DEMO_SCRIPT.md` | Record live; show model + receipt |
+| 16 | Deck | NEEDS-YUSSEF | `docs/submission/DECK_OUTLINE.md` | Build and upload |
+| 17 | Public repo URL, video URL, deck URL submitted | NEEDS-YUSSEF | — | Portal submission |
+| 18 | Live evaluation of the current system | NEEDS-YUSSEF | Last live numbers (24 Oct, first pipeline) in README / `eval/results_live.json`; `eval/run_adversarial.py --live` now loads `.env` (fix below) | Run live evals listed below [TBD-live-number] |
 
-## Safe checks and fresh results
+## Evidence produced by this refresh
 
-- AST: parsed 46 Python files without importing application code (stdlib ast).
-- Examples: six JSON files parsed; three connected outputs; 14 model/receipt records.
-- `.env.example`: all credential and organization fields are replacement placeholders;
-  URLs/table names/model/default timeouts are public config, not credentials.
-- `git check-ignore .env`: exit 0; `git ls-files --error-unmatch .env`: untracked.
-- Safety scan: 80 tracked UTF-8 files, 0 skipped, 1770 masked file/line/type hits across 13 files.
-  Types: 14 key/token-like, 1534 phone-like, 219 CPF-like, 3 absolute Windows user
-  paths; zero email/non-loopback IPv4 matches. Candidates are not confirmed leaks.
-- Unit suite: `python -B -m unittest discover -s tests` with bytecode writes disabled:
-  **62 tests passed in 23.398 seconds**, exit 0, no failures/errors; Python 3.11.16.
-  Python 3.12/Docker execution was not established by this run.
-- Baseline discrepancy: the brief said 64 tests; HEAD `157a0a0` contains 62
-  test methods across seven test modules, matching discovery. No tests were changed.
-- Forbidden paths: final `git status --porcelain -uall` found zero changes under
-  app/, eval/, runtime/, logs/, data/, tests/ or run.py; all nine changed/new files
-  are inside the allowed doc/config paths. Starting worktree was clean.
+- **Live-runner fix.** `eval/run_adversarial.py` never called `load_env()`, so a live run had no `NIGHTSHIFT_*`/`ZETARIS_*` settings and every message failed at once (~7 s for all 24).
+  Now `main` calls `load_env()` unless `--offline`, and `--live` is accepted (mutually exclusive with `--offline`). Dry check: key present after `load_env()` (value not printed), argparse rejects `--live --offline`,
+  `python eval/run_adversarial.py --offline` still returns 24/24 decisions, 0 crashes, 0 unsafe sends. No live call was made.
+  Note: `eval/run_dialogues.py` and `eval/run_duplicates.py` also lack `load_env()` (not changed here; outside this task's file scope).
+- **Docker context check (no Docker available).** A script applied `.dockerignore` to the repo: 999 files, ~66 MB, top level `app` 106, `data` 781, `docs` 9, `eval` 40, `examples` 7, `tests` 33, `tools` 18; `.env`, `.git`, `runtime/`, `logs/`, `*_REPORT.md`, `*.log` absent; `.env.example` present.
+  A clean copy of that context (no `.env`, provider env vars removed) imported `run`, `app.pipeline`, `app.web.server`, `app.missions`, `app.callback.service`; `python run.py serve --sample` then served `GET /` 200 and `POST /run` with `examples/input_01.json` → 3 cases (`SEND_CANDIDATE`, `REPORTED_RESCUED`, `CALLBACK`), `mode: sample_offline`.
+- **Offline evals re-run (25 Oct)**: adversarial 24/24 decisions, routes 23/24, 0 unsafe, 0 crashes; missions 12/12; supervisor TP 8 / FP 0 / FN 0; callback 11/16 items; feedback 15/15; location 20/30 resolved (scripted). Dialogues read 7/10 (earlier reports 10/10) — unreconciled. See README table for report names.
 
-## Exact owner commands (after the active evaluation ends)
-
-These are handoff commands, not actions performed by this audit. Do not run a
-second evaluation or reload sponsor data while Orbit's run is active.
-
-Docker build and offline page (two commands; stop container with Ctrl+C):
+## Exact owner commands
 
 ```powershell
+# 1. Tests and engine evidence (offline)
+python -m unittest discover -s tests
+# 2. Docker (offline image)
 docker build -t rescue-triage-desk .
-docker run --rm -p 8080:8080 -e SAMPLE_MODE=true rescue-triage-desk
-```
-
-Connected container routing check, using local credentials without displaying them:
-
-```powershell
-docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 rescue-triage-desk
-```
-
-Video/live-demo preparation: stop any demo server using port 8080 first, configure
-`.env` locally with `SAMPLE_MODE=false`, then use separate PowerShell windows:
-
-```powershell
+docker run --rm -p 8080:8080 rescue-triage-desk
+# 3. Zetaris v4 + smoke (needs services)
+python tools/load_zetaris.py --version v4
+python tools/smoke_live.py
+# 4. Live evals (Nightshift + Zetaris; one at a time, Nightshift stalls under bursts)
+python eval/run_adversarial.py --live
+python eval/run_location.py --live
+python eval/run_missions.py --live
+python eval/run_supervisor.py --live
+python eval/run_callback.py --live
+python eval/run_feedback.py --live
+python eval/run_redteam.py --n 24 --seed 1 --live
+# 5. Demo: SAMPLE_MODE=false in .env, then
 python run.py serve
+Start-Process 'http://localhost:8080/v2'
 ```
 
-```powershell
-Start-Process 'http://localhost:8080'
-Start-Process '.\docs\submission\DEMO_SCRIPT.md'
-```
-
-Record the exact clicks in the script with the owner's recording tool, including
-a new successful Nightshift request. No installed recording CLI is assumed.
-
-Deck, declaration and private review:
-
-```powershell
-Start-Process '.\docs\submission\DECK_OUTLINE.md'
-notepad .\docs\submission\PRE_EXISTING_DECLARATION.md
-git status --short
-```
-
-Create/export the deck in the owner's presentation tool, review masked hits
-without exposing values, and confirm provenance and license evidence. For uploads,
-the official portal URL is not provided; paste the actual organizer URL:
-
-```powershell
-$submissionPortal = Read-Host 'Paste the official organizer submission portal URL'
-Start-Process $submissionPortal
-```
-
-Upload the final video and deck there and supply the public repo URL, sponsor
-explanation and completed declaration. Verify link visibility as a judge. There is
-no honest service-specific upload CLI command without the portal/service details.
+Connected container check: `docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 rescue-triage-desk`.
+Record the video from `docs/submission/DEMO_SCRIPT.md`; upload deck and video to the organizer portal (URL not in the repo).

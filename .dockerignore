@@ -1,7 +1,25 @@
+# Never ship secrets, runtime state, logs, VCS data or review/working files.
 .git
+.gitignore
 .env
+.env.*
+!.env.example
 .tmp
 __pycache__
 **/__pycache__
+*.pyc
 runtime
 logs
+data-backup
+out
+.claude
+.codex
+.vscode
+.idea
+Dockerfile
+.dockerignore
+# review / agent working files
+REVIEW*.md
+**/*_REPORT.md
+**/*_last.txt
+*.log

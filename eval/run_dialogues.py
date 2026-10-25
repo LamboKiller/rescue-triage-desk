@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from app.config import ROOT
+from app.config import ROOT, load_env
 from app.pipeline import Pipeline
 from app.engines.world_model.registry import Registry
 from tools.scratch import scratch
@@ -46,5 +46,6 @@ def evaluate(offline=False):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--offline',action='store_true');args=parser.parse_args()
+    if not getattr(args,'offline',False): load_env()
     result=evaluate(args.offline);print(json.dumps(result,ensure_ascii=False,indent=2))
     raise SystemExit(bool(result['crashes'] or result['failures'] or result['contradictions_flagged_accuracy']!=1 or result['version_count_accuracy']!=1))

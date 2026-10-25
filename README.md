@@ -1,225 +1,247 @@
 # Rescue Triage Desk
 
-A Portuguese dispatcher desk for rescue-message replay from the May 2024 Rio
-Grande do Sul floods. It produces evidence-linked cases, checks places and counts
-with code, and requires human approval. This is a retrospective demonstration.
+A dispatcher desk for the next Rio Grande do Sul flood, built and tested on the **May 2024 RS floods**
+(Porto Alegre and region). Citizens write messy Portuguese rescue requests; dispatchers need to know *where*,
+*how many*, *who is vulnerable*, *what is already rescued* and *which asset can safely go*, quickly and with
+evidence they can check. The desk turns each message into an evidence-linked case, checks places, counts and
+hazards **with code**, asks the citizen what is missing, groups cases into missions, and **a human approves every
+dispatch**. It is a retrospective replay desk, not a deployed emergency system: nothing is dispatched automatically.
 
-Message → Intake → Critic → at most one Revision → Location agent → deterministic
-checks → World Model registry → dispatcher review. The LLM interprets language;
-code validates evidence, joins context, counts and ranks. No automatic real dispatch
-or safe-route solver exists.
+**Design rule.** Nemotron (via Meterless Nightshift) reads language, spots contradictions, asks questions and explains
+revisions, always with exact quotes or fact ids that a validator checks. Code does every join, distance, count, rank,
+freshness gate and state change. An agent exists only where it decides something code cannot.
+
+## Architecture
+
+```mermaid
+flowchart TD
+  M[Message PT/EN/ES] --> R[redact + injection sentinel]
+  R --> I[Intake agent: quoted fields]
+  I --> C[Critic agent: checks each claim vs quote]
+  C -- objections --> V[Revision: at most ONE]
+  V --> L
+  C -- ok --> L[Location agent + 5 source-backed tools]
+  L --> D[Deterministic checks: counts, dates, route, priority, decision]
+  D --> H[Hazard context: flood layer, depth, pumps, closures, shelters]
+  H --> HC[Hazard critic: cites observations only]
+  D --> N[Needs agent: vulnerable groups, equipment]
+  D --> DR[Duplicate reviewer: one incident or two?]
+  HC --> W[(World Model registry: append-only, versioned, human-gated)]
+  N --> W
+  DR --> W
+  W --> Q[Dispatcher queue / map / dispatch card]
+  Q -- needs info --> CB[Callback planner: open items, max 3 validated questions]
+  CB -- citizen reply --> D
+  Q -- cases + fleet --> MS[Mission planner code + mission brief agent]
+  MS -- human approves --> W
+  W -- field feedback --> FB[Field feedback agent: rescued / partial / not found]
+  FB --> W
+  W --> SV[Supervisor: code detectors + agent ranks, proposes ONE action]
+  SV -- human accepts --> W
+  RT[Red-team attacker + code judge] -. failures become human-approved regressions .-> D
+  PM[(Place memory: human-approved aliases)] -. exact, city-scoped .-> L
+```
+
+The Location agent's five tools are street/designator search, landmark aliases and categories, bairro catalogue, bounded nearby/corner geometry and exact-quote checking.
+
+| Component | Kind | Where | What the agent decides / what code checks |
+|---|---|---|---|
+| Intake, Critic, one Revision | agents | `app/agents/intake.py`, `critic.py` | Extract fields with exact quotes; critic objects to unsupported claims; code verifies every quote span |
+| Location agent + tools | agent with tool loop (max 3 requests) | `app/agents/location.py`, `location_tools.py` | Picks among catalogue candidates; code validates ids, city, caller-vs-incident clause, precision |
+| Hazard critic | agent | `app/agents/hazard_critic.py` | Writes cautions only from cited observations; code computes the observations |
+| Needs | agent | `app/agents/needs.py` | Tags vulnerable groups/equipment from quotes; code derives counts; visible `deterministic_only` fallback |
+| Duplicate reviewer | agent | `app/agents/duplicate_reviewer.py`, `app/duplicates.py` | Code proposes candidates; agent judges; human merges/unmerges (reversible) |
+| Callback planner | agent | `app/callback/` | ≤3 questions mapped to open items; invalid plan → visible code templates |
+| Field feedback | agent | `app/feedback.py` | Reads crew reports (rescued / partial / not found) with exact quote; code updates counts |
+| Mission planner + brief | code + agent | `app/missions/` | Code groups, splits by capacity, vetoes unsafe assets; agent writes the brief; human approves |
+| Supervisor | code detectors + agent | `app/supervisor/` | Detectors cite fact ids; agent ranks/proposes one allowed action; next tick verifies |
+| Red team | attacker agent + code judge | `app/redteam/` | Attacker declares expected outcome before the pipeline runs (hashed); failures need human approval to become regressions |
+| Place memory | code, human-gated | `app/memory/` | Learned aliases are exact, city-scoped, revocable and never auto-promoted from model output |
+| Credibility reviewer | agent (module + eval exist; **not yet wired into `/run`**) | `app/credibility/` | Judges only code-found signals; never discards a message |
+| **World Model** | Meterless Engine (our Python adaptation) | `app/engines/world_model/registry.py` | Event replay, dedup, stale/conflict retention, expected-version gates, human-only transitions |
+
+Every agent call is streamed with thinking on, parsed as strict JSON, retried at most once, and falls back visibly
+(never a silent success). Injection-like text is routed to `REVIEW_REQUIRED`; an unsafe asset is blocked with a reason.
 
 ## Setup
 
-Python 3.12 is the Docker target; only the standard library is used. No pip install
-is needed. Fresh local verification is in the [checklist](docs/submission/GATE2_CHECKLIST.md).
-In PowerShell at the repository root:
+Python 3.12 is the Docker target; only the standard library and vendored files (MapLibre, fonts) are used. No `pip install`.
 
 ```powershell
-Copy-Item .env.example .env
-python -m unittest discover -s tests
+Copy-Item .env.example .env            # placeholders only; never commit .env
+python -m unittest discover -s tests   # offline, no services
 python run.py --sample --input examples/input_01.json
-python run.py --sample serve
+python run.py serve --sample           # http://localhost:8080  (binds 0.0.0.0)
 ```
 
-Open http://localhost:8080, paste a fictional message, keep the replay timestamp
-with timezone and click **Analisar pedido**. Do not submit real personal data.
-The server binds `0.0.0.0:8080`; use a trusted local network.
+Open <http://localhost:8080> (classic page) or `/v2` (dispatcher console). Use fictional messages only; the server binds all interfaces, so use a trusted network.
 
-`SAMPLE_MODE=true` or `--sample` uses local CSVs and recomputes fields from input.
-It needs no Nightshift, Zetaris or external network and never reads saved answers
-or truth labels. Agent panels say unavailable offline: this demonstrates the regex
-baseline and deterministic checks, not Nemotron. CLI/server writes registry state.
+**SAMPLE_MODE** (`SAMPLE_MODE=true` or `--sample`) uses local CSVs/GeoJSON, needs no Zetaris, Nightshift or network,
+recomputes everything from the submitted text and never reads saved answers or truth labels. Agent panels then say
+"unavailable offline": this shows the regex baseline plus all deterministic checks, not Nemotron. The CLI/server writes registry state to `runtime/`.
 
-### Connected setup
+**Connected mode** (`SAMPLE_MODE=false`): fill `.env` locally (`.env.example` has one comment per setting).
 
-After the active evaluation ends, configure `.env` locally with credentials,
-the local Zetaris organization ID and `SAMPLE_MODE=false`. Never publish that file.
-
-| Service | Local endpoint |
+| Service | Default endpoint |
 |---|---|
-| Meterless Nightshift (OpenAI-compatible) | `http://127.0.0.1:8088/v1` |
-| Zetaris REST | `http://localhost:8888/api/v1.0` |
-| SeaweedFS S3 on Docker host | `127.0.0.1:8333`, bucket `oah-s3` |
-| S3 as reached by Zetaris containers | `http://oah-s3:8333` |
+| Meterless Nightshift (OpenAI-compatible; primary and only AI provider) | `http://127.0.0.1:8088/v1` |
+| Zetaris REST (data layer) | `http://localhost:8888/api/v1.0` |
+| SeaweedFS S3 on host / as seen from Zetaris containers | `127.0.0.1:8333` / `http://oah-s3:8333`, bucket `oah-s3` |
 
-Supplied verified live facts, 24 October 2026 (not remeasured by this audit):
-Zetaris exposes `OAH_S3` tables loaded with `inferSchema=false`:
-
-| Table | Rows | Role |
-|---|---:|---|
-| `streets_flood_v3` | 12586 | Runtime street/flood context |
-| `landmarks_v3` | 4201 | Runtime named OSM landmarks |
-| `messages_seed7_v3` | 15 | Synthetic live-smoke messages |
-| `road_closures_v3` | 31 | Loaded context; no runtime routing |
-| `landmark_aliases_v3` | 24 | Loaded aliases; runtime reads local curated CSV |
-
-`python tools/smoke_live.py` checks each service and runs four cases end to end (including a
-landmark message); it passed on 24 Oct 2026. With sponsor services ready, use
-`python run.py serve`. TCP health proves reachability, not credentials.
+Zetaris: `python tools/load_zetaris.py --version v4` registers the CSV tables (`streets_flood_v4`, `landmarks_v4`,
+`closures_v4`, `pump_status_daily_v4`, `pumps_v4`, `events_v4`, `shelters_v4`, `street_points_v4`, `messages_seed7_v4`)
+over staged S3 files; `python tools/smoke_live.py` checks each service and runs cases end to end. The last live check reported
+here (24 Oct 2026) used the v3 tables (`streets_flood_v3` 12,586 rows, `landmarks_v3` 4,201, `messages_seed7_v3` 15, `road_closures_v3` 31,
+`landmark_aliases_v3` 24, `inferSchema=false`); the **v4 load and smoke run are [TBD-live-number]**.
+Flood polygons, depth grids and levees stay local files in both modes; curated aliases always come from `data/landmark_aliases.csv`.
+Keep `NIGHTSHIFT_MAX_CONCURRENCY` low (default 2) and never lower `NIGHTSHIFT_MAX_TOKENS` (thinking consumes it).
 
 ### Docker
 
-Build and run (sample mode):
-
 ```powershell
 docker build -t rescue-triage-desk .
-docker run --rm -p 8080:8080 -e SAMPLE_MODE=true rescue-triage-desk
+docker run --rm -p 8080:8080 rescue-triage-desk                    # SAMPLE_MODE=true is the image default
+docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false `
+  -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 `
+  -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 rescue-triage-desk
 ```
 
-For connected mode use `--env-file .env` and override endpoints to
-`http://host.docker.internal:8088/v1`, `http://host.docker.internal:8888/api/v1.0`
-and `host.docker.internal:8333` for Nightshift, Zetaris and host S3 respectively.
-Keep the Zetaris-side S3 URL on its own Docker network. `.dockerignore` excludes
-`.env`, runtime and logs. Container routing to host services is documented but not yet verified end to end.
+`.dockerignore` keeps `.env`, `runtime/`, `logs/`, `.git`, review/report files and caches out of the image.
+`docker build` has not been executed yet. The build context was listed and a clean copy of it (no `.env`) served one offline
+`POST /run` (evidence in `docs/submission/GATE2_CHECKLIST.md`). Container-to-host routing for connected mode: [TBD-live-number: not verified end to end].
 
-## Running the engine test
+## Evaluations
 
-The Meterless World Model adaptation is an append-only Python registry at
-`app/engines/world_model/registry.py`: event replay, deduplication, retained stale
-and conflicting observations, expected versions and human-gated transitions.
-It is our behavioral adaptation, not an imported Meterless SDK.
+Offline commands need nothing running. Live commands call Nightshift (and Zetaris) and are run by the operator only.
 
 ```powershell
-python -m unittest discover -s tests -p test_core.py -v
-python -m unittest discover -s tests -p test_pipeline.py -v
+python eval/run_adversarial.py --offline        # 24 hostile/odd messages; --live (or no flag) uses Nightshift
+python eval/run_dialogues.py --offline          # multi-turn citizen replies
+python eval/run_location.py                     # 30 location cases, scripted policy (--live for Nightshift)
+python eval/run_missions.py --offline           # mission grouping + needs tags    (--live)
+python eval/run_supervisor.py --offline         # supervisor detectors and loops   (--live)
+python eval/run_callback.py                     # callback planner                 (--live)
+python eval/run_feedback.py --offline           # field feedback                   (--live)
+python eval/run_duplicates.py --offline         # duplicate candidates
+python eval/run_hazard_eval.py --offline        # hazard critic wiring only
+python eval/run_credibility.py                  # credibility signals              (--live)
+python eval/run_redteam.py --n 24 --seed 1      # self-play red team               (--live)
+python eval/run_eval.py --offline               # generated + challenge sets; rewrites eval/results.json, never results_live.json
 ```
 
-`RegistryTests.test_human_transition_gate_and_versions` proves human/version gates;
-`test_stale_retained_and_rebuild` checks event replay;
-`test_ten_concurrent_writers_zero_lost` checks concurrent append behavior.
-`PipelineTests.test_http_run_queue_action_and_stale_version` links the engine to
-the user-facing queue/actions. These are offline tests, not sponsor certification.
+**Offline results** (synthetic sets; scripted stand-ins where noted; **they do not measure Nemotron**). Rows were re-run on 25 Oct 2026
+for this README (saved in the build workspace as `out/g3_evals/*`) and cross-checked with the named build report (`out/<ID>_REPORT.md`
+in the build workspace, not shipped in this repo). The last recorded full suite was 396 tests (commit `28aa6d8` message); [TBD: final suite count at release].
 
-## API, traces and examples
+| Eval | Result | Build report |
+|---|---|---|
+| Adversarial (24) | decisions 24/24, key fields 100%, routes 23/24 (`adv-pets`: frozen label says incomplete, desk routes `not_a_rescue`), 0 unsafe sends, 0 crashes | `F1_REPORT`, `SAFE1_REPORT` |
+| Red team `--n 42` | 35/42 → 42/42, unsafe SENDs 6 → 0; each of 14 categories 3/3 | `SAFE1_REPORT` |
+| Out-of-area (491 RS municipalities vs covered cities) | 491/491 | `SAFE1_REPORT` |
+| Missions (12 scenarios) | grouping 12/12, capacity violations 0, blocked-asset assignments 0, life-safety-first 100%; needs 15/15 (deterministic fallback) | `M1_REPORT` |
+| Supervisor (10 scenarios) | TP 8, FP 0, FN 0, loops 4/4, uncited numbers 0 | `S1_REPORT` |
+| Callback (12 cases; scripted planner, labelled simulator) | 11/16 items resolved (68.8%), 0.92 questions/case, 0 invented facts | `C1_REPORT` |
+| Field feedback (15 dialogues) | 15/15 | `F1_REPORT` |
+| Location (30; scripted policy, critic stubbed) | resolved 20/30, identity 26/30, precision 25/30, wrong city 0 | `L1_REPORT`, `L3_REPORT`, `L4_REPORT` |
+| Dialogues (10) | final decision 7/10 in the latest tree (earlier reports: 10/10); unreconciled, see limitations | `A35_REPORT`, `H3_REPORT` |
 
-`POST /run` accepts `application/json` with `replay_time` and 1–15 `messages`.
-Each message has a unique `message_id`, `text` and optional `received_at`.
-See `examples/input_01.json`. `GET /api/cases` reads registry state;
-`POST /api/cases/{case_id}/actions` takes action, actor and `expected_version`.
-Stale commands return 409.
+### Live evaluation
 
-Three request files and three pipeline-produced connected output files are in
-`examples/`; see [provenance](examples/README.md). They are saved artifacts, not
-new live measurements or canned runtime answers.
-
-Nightshift attempts write JSONL to `logs/run_<id>.jsonl` and stdout: role, message
-ID, requested model, routed model, receipt, status and duration. Missing provider
-metadata remains null; a failed call does not invent a winner. The page shows
-**Modelo, comprovante e duração**. Inputs, credentials and hidden reasoning are
-not intentionally logged; review artifacts before sharing.
-
-The response budget is capped at 480 seconds (8 minutes), returning partial
-results on deadline. Calls default to 75 seconds, at most three attempts; invalid
-JSON gets at most one corrective retry within that cap. At most three messages
-run concurrently; one run per desk. An already-running worker may finish afterward.
-
-## Sponsor technology
-
-**Zetaris is the connected data layer:** REST SQL queries over versioned SeaweedFS
-CSV tables supply streets and landmarks. Offline mode deliberately uses local files.
-
-**Meterless Nightshift is the primary and only implemented AI provider.** No
-Claude/OpenAI fallback exists. Its OpenAI-compatible request uses `stream=true`
-and defaults to `nvidia/nemotron-3.5-lightning-30b-a3b`. The supplied live deployment
-races that lane against `nvidia/nemotron-3.5-super-vl-120b-a12b`; each receipt
-identifies the actual winner. The verify lane is `llama-3.3-nemotron-super-49b`;
-its existence does not prove it ran. Intake extracts quoted fields, Critic checks
-claims, conditional Revision repairs objections once, and Location proposes place
-evidence. Code verifies results; the LLM never counts/joins/routes.
-
-**World Model** provides case memory and human approval gates. See the
-[sponsor explanation](docs/submission/SPONSOR_EXPLANATION.md) for evidence.
-
-## Data, evaluation and limitations
-
-Public geographic data grounds fictional messages; see [attribution](data/ATTRIBUTION.md).
-The supplied backup lacks the promised full D1–D3 manifest/license lineage: this
-remains a packaging gap. Street ODbL obligations are separate from MIT code.
-
-Only water layers at/before replay date are selected. Publication times are unknown,
-so mapped water is retrospective context, excluded from contemporaneous priority
-(`in_water_by_date=null`). Later OSM snapshots and aliases are also retrospective,
-not proof of May 2024 availability. Sampling can miss narrow crossings. Absence of a water
-match does not imply safety; no depth, safe route, shelter status or responder availability
-is established. Street matches cannot prove a house number or intersection.
-
-Resolved landmarks can supply candidates; ambiguous places require review/callback.
-One explicit total wins; eligible sender-plus-listed counts are marked
-**Contagem derivada — confirmar**. Vulnerable categories overlap and are not summed.
-A valid quote does not prove semantic truth. Priority weights are a demo policy.
-
-Synthetic labels do not prove real-message accuracy or responder benefit. Offline
-evaluation measures the regex baseline only.
-
-### Live evaluation (24 Oct 2026, Nightshift + Zetaris, `eval/results_live.json`)
+Last measured **24 Oct 2026** on the *first* pipeline (Intake → Critic → Revision → Location; `eval/results_live.json`):
 
 | Set | Method | Decision accuracy | Mean s / msg | p90 s | Calls / msg |
 |---|---|---:|---:|---:|---:|
 | Generated (30, seeds 101/202) | rules baseline | 1.00 | 0.8 | 1.1 | 0 |
 | | intake agent | 0.97 | 11.7 | 23.2 | 1.0 |
 | | full loop | 1.00 | 19.6 | 31.0 | 2.4 |
-| Challenge (40, hand-written, native-rewritten) | rules baseline | 0.60 | 0.5 | 1.0 | 0 |
+| Challenge (40, hand-written) | rules baseline | 0.60 | 0.5 | 1.0 | 0 |
 | | intake agent | 0.975 | 15.5 | 27.8 | 1.0 |
 | | full loop | 0.975 | 53.5 | 98.9 | 3.2 |
 
-Field F1 on the challenge set, rules → full loop: children 0.25 → 0.96, elderly 0 → 0.89, disabled 0 → 0.86,
-pets 0.29 → 0.91, street 0.32 → 0.95, house number 0.36 → 1.00, municipality 0.58 → 0.97. Critic: 18 of 40
-messages got objections → 18 revisions → 22 field changes: 18 correct, 3 wrong, 1 neutral. No partial runs;
-4 location-agent calls returned an unusable quote and fell back to the code matcher.
+Field F1 on the challenge set, rules → full loop: children 0.25 → 0.96, elderly 0 → 0.89, disabled 0 → 0.86, pets 0.29 → 0.91,
+street 0.32 → 0.95, house number 0.36 → 1.00, municipality 0.58 → 0.97. Critic: 18 of 40 messages got objections → 18 revisions →
+22 field changes: 18 correct, 3 wrong, 1 neutral. Generated messages come from templates (rules score perfectly there); the challenge
+set is small and its text rules were adjusted after seeing it, so those numbers are optimistic. The full loop costs about 3.5× the latency of intake alone.
 
-**Read with care.** Generated messages come from templates, so rules already score perfectly there. The challenge
-set is small (40), and after the first live run the text rules (POA → Porto Alegre, written totals, count
-conflicts, correction words) were adjusted while looking at these same messages. The challenge numbers are
-therefore optimistic; a fresh held-out set is the honest next measure. Agents and critic do not change the
-decision more than the intake agent alone here; their measured value is field accuracy (critic changes were
-right 18 of 22 times) at about 3.5× the latency. Remaining misses: a partial rescue read as "already rescued"
-(full loop) and a landmark message asked for a house number (intake only).
+**Live numbers for the current system (location tools, duplicates, callback, missions, supervisor, hazard critic, red team): [TBD-live-number].**
+A blind held-out batch and a 15-message end-to-end wall-time run are still to be measured; do not quote the table above for them.
 
-This is a trusted-operator demo. Actor labels are not authentication; same-origin
-checks do not replace authenticated roles, TLS, retention controls and audit backups.
-Anyone with API access can assert a human action. No real dispatch is automated.
+## Engine test (Meterless World Model)
 
-## Pre-existing components/declaration
-
-Inventory carried forward: public D1/D2/D3 packs, R3 red-team findings,
-`gen_proto.py` / `engine_proto.py` ideas (seeded templates and registry invariants),
-Gate 0 Nightshift/Zetaris/S3 contracts and stdlib S3 signing. The registry adapts
-prototype invariants to JSONL/human gates rather than porting SQLite.
-
-The dated declaration of work done before **21 October 2026, 21:00** is in
-[docs/submission/PRE_EXISTING_DECLARATION.md](docs/submission/PRE_EXISTING_DECLARATION.md).
-
-Submission drafts: [checklist](docs/submission/GATE2_CHECKLIST.md),
-[demo script](docs/submission/DEMO_SCRIPT.md), [deck outline](docs/submission/DECK_OUTLINE.md),
-[sponsor explanation](docs/submission/SPONSOR_EXPLANATION.md).
-
-## V2-A hazard context and map data
-
-Prepare local data without network access (backup remains read-only):
+`app/engines/world_model/registry.py` is our behavioural adaptation of the World Model (not an imported SDK): append-only journal,
+event replay, deduplication, retained stale/conflicting observations, expected-version gates (409 on stale commands) and human-only
+transitions. It backs the queue, merges, callbacks, missions, feedback and supervisor ticks.
 
 ```powershell
-python tools/prepare_hazards.py --backup C:/path/to/data-backup
-# Or set RTD_BACKUP_DIR; default is ./data-backup.
+python -m unittest discover -s tests -p test_core.py -v        # RegistryTests: human gate + versions, stale retained/rebuild, 10 concurrent writers
+python -m unittest discover -s tests -p test_pipeline.py -v    # PipelineTests.test_http_run_queue_action_and_stale_version
 ```
 
-The hazard engine attaches information after location resolution without changing
-triage decisions. Shared bbox grids are built once. Street positions use median
-OSM vertices; a house number is not geocoded. Flood polygons use the latest
-observation on or before the replay date; publication time is unknown. Pumps use
-that day's status (APURAR = unknown). Shelters use the latest snapshot that day
-or earlier; there are none before 8 May. Distances are straight-line, not routes.
+These are offline tests, not sponsor certification. Place memory deliberately does **not** claim to be H-MEM (spec mismatch: the H-MEM spec ranks model-generated memories; ours must be exact, city-scoped and human-approved).
 
-`GET /api/map?date=2024-05-08` returns local GeoJSON plus positioned cases; see
-[the exact map contract](docs/MAP_API.md). Gzip is negotiated with Accept-Encoding.
-The UI is unchanged. Depth remains pending. Static levees imply no operational
-condition; closure geometries are unverified corridor candidates.
+## API, traces, examples
 
-For a user-run connected upgrade, `python tools/load_zetaris.py --version v4`
-registers existing CSVs plus closures, pump_status_daily, pumps, events, shelters
-and street_points from data/hazards. Set the v4 table names in .env.example and
-run tools/smoke_live.py yourself. LocalSource and ZetarisSource expose these six
-tabular methods with the same string/empty-cell contract. The deterministic
-hazard engine and map use the prepared local snapshot in both modes, so polygons
-and levees remain local files; connected hazard tables are queryable context.
-No live loader or smoke test was run for V2-A.
+`POST /run` takes `replay_time` and 1–15 `messages` (`message_id`, `text`, optional `received_at`); see `examples/input_01.json`.
+Other routes: `GET /api/cases`, `POST /api/cases/{id}/actions` (action, actor, `expected_version`; stale → 409), `/api/cases/{id}/callback`,
+`/api/cases/{id}/card`, `/api/missions*`, `/api/supervisor*`, `/api/replay/*`, `/api/memory`, `/api/redteam`,
+`GET /api/map?date=` ([map contract](docs/MAP_API.md), [UI notes](docs/UI_V2.md)).
+Three request files and three pipeline-produced outputs are in `examples/` ([provenance](examples/README.md)); they are saved artifacts, not live measurements.
+
+Nightshift calls write JSONL to `logs/run_<id>.jsonl` and stdout (role, message id, requested model, routed model, receipt, status, duration).
+Missing provider metadata stays null. The response budget is 480 s with partial results; calls time out at 75 s with at most three attempts;
+one run per desk.
+
+## Data provenance
+
+"Kind": **pre-event** = existed before May 2024; **live-equivalent** = a real-time source whose per-record publication time is kept
+(usable for replay date D only if published ≤ D); **retrospective stand-in** = produced or published after the event, labelled
+`retrospective` with low confidence and kept out of contemporaneous priority. No-hindsight rule: a layer counts for date D when its
+observation date ≤ D. Unknown ≠ dry or safe.
+
+| Layer | Source | Licence | Observed vs published | Kind |
+|---|---|---|---|---|
+| Streets (12,586 rows) | OpenStreetMap, D1 snapshot 2024-06-15 | ODbL 1.0 | Snapshot after the event | retrospective stand-in |
+| Named landmarks (4,201) | OSM Overpass, 2026-10-24 | ODbL 1.0 | Snapshot 2.5 years after | retrospective stand-in |
+| Observed flood extent, 6 and 8 May | Possantti et al. (UFRGS), Zenodo 14617475 / 11164049 | CC BY 4.0 per source brief (record page shows no licence id) | Observed 2024-05-06/08; per-layer publication unknown (earliest record version 2024-05-09) | retrospective stand-in |
+| Flood delineation | Copernicus EMS EMSN194 | EU/Copernicus attribution; per-product terms unverified | Observed May 2024; published later | retrospective stand-in |
+| HAND depth grids (20 m, ±1 m) | Copernicus EMS EMSN194 WaterDepth v01 | XML terms conflict, unresolved | Observed 6/8 May; created 2024-06-12; publication not documented | retrospective stand-in (water image stays ineligible until publication is documented) |
+| Pumps, daily pump status, levees, shelter snapshots | UFRGS crisis layers (D1) | Per-layer licence not supplied | Daily status; shelters from 8 May; levees static | retrospective stand-in |
+| Road closures (31), infrastructure events | DNIT, DMAE, Porto Alegre bulletins | Reuse terms not supplied | Per-record source URL + published timestamp kept | live-equivalent (use only if published ≤ D); closure lines are unverified corridor candidates |
+| Census tracts, municipalities | IBGE Censo 2022; IBGE API list (497 RS municipalities, fetched 2026) | Public IBGE data | Census 2022 | pre-event |
+| Basemap tiles | Protomaps extract of OSM, 2026-10-24 | ODbL (Produced Work); style BSD-3 | Current extract | retrospective stand-in |
+| Terrain | Skadi / SRTM (2000) | Public-domain components, attribution | Pre-event | pre-event |
+| Buildings (5 zones) | OSM + Microsoft ML Footprints + Google Open Buildings 2.5D | ODbL / CDLA-Permissive-2.0 / CC BY 4.0 | Releases 2023–2026 | retrospective stand-in |
+| Flood photos (22) | Wikimedia Commons | CC BY 4.0, author credited per file | Post-event | illustration only |
+| Landmark aliases (24) | Hand-curated `data/landmark_aliases.csv` | MIT (own work) | Curated Oct 2026 | declared; retrospective |
+| Fleet dispatch rules | Authored research baseline `data/fleet/dispatch_rules.json` (v1.0.0-research) | MIT; citations inside | Not a validated SOP | own work |
+| Messages and shift inventory | Synthetic: generator, hand-written, red team | MIT | Fictional; flagged `synthetic` | synthetic |
+
+Full credits and hazard-layer notes: [`data/ATTRIBUTION.md`](data/ATTRIBUTION.md), `data/map3d/MANIFEST.md`.
+The supplied backup lacks the promised D1–D3 manifests, so layer-level licence lineage is incomplete (listed as a gap in the checklist).
+Street ODbL obligations are separate from the MIT code.
+
+## Pre-existing and third-party components
+
+Declared (with dates and owner attestation pending) in [`docs/submission/PRE_EXISTING_DECLARATION.md`](docs/submission/PRE_EXISTING_DECLARATION.md).
+In short: public D1–D3 source packs, the curated alias list, R3 red-team findings, `gen_proto.py` / `engine_proto.py` ideas, Gate 0
+Nightshift/Zetaris/S3 contracts and stdlib S3 signing, vendored **MapLibre GL JS** (`app/web/v2/vendor/`), **Noto Sans** glyphs (OFL),
+Protomaps style and sprites, and OSM, Copernicus EMS, Wikimedia Commons, IBGE, UFRGS/Zenodo, Microsoft and Google building data as tabulated above.
+
+## Honest limitations
+
+- **Depth and flood layers are retrospective.** Created or published after the event; replays label them and keep them out of contemporaneous priority. No data ≠ dry. Sampling can miss narrow crossings; no depth, shelter status or responder availability is established for a given hour.
+- **Messages are synthetic.** Offline and challenge scores say nothing about real-message accuracy or responder benefit. Challenge rules were tuned on their own set.
+- **No real fleet inventory.** Assets come from a sample inventory and research rules; mission stop order is a straight-line sequence, not a navigable route. There is no safe-route solver.
+- **Nightshift latency.** Full loop: 53.5 s mean, 98.9 s p90 per message on the challenge set (24 Oct, first pipeline). Calls are bounded (75 s, 3 attempts); runs are capped at 480 s.
+- **Offline ≠ model quality.** Scripted planners and `deterministic_only` fallbacks prove wiring and validators, not Nemotron.
+- **Open item:** offline dialogue eval reads 7/10 in the latest tree where earlier reports read 10/10 (review-policy changes from H3/SAFE1); not yet reconciled.
+- A valid quote does not prove semantic truth; a street match cannot prove a house number; priority weights are a demo policy.
+- Trusted-operator demo: actor labels are not authentication; no TLS or role system; anyone with API access can assert a human action.
+
+## Submission files
+
+[Gate 2 checklist](docs/submission/GATE2_CHECKLIST.md) · [pre-existing declaration](docs/submission/PRE_EXISTING_DECLARATION.md) ·
+[demo script](docs/submission/DEMO_SCRIPT.md) · [deck outline](docs/submission/DECK_OUTLINE.md) ·
+[sponsor explanation](docs/submission/SPONSOR_EXPLANATION.md)
+
+Hazard data prep (offline, backup read-only): `python tools/prepare_hazards.py --backup C:/path/to/data-backup` (or set `RTD_BACKUP_DIR`).

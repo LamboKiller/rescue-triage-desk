@@ -9,7 +9,7 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.pipeline import Pipeline
 from app.engines.world_model.registry import Registry
-from app.config import ROOT
+from app.config import ROOT, load_env
 from tools.scratch import scratch
 
 
@@ -46,7 +46,11 @@ def evaluate(offline=False):
 
 
 if __name__ == '__main__':
-    parser=argparse.ArgumentParser(); parser.add_argument('--offline',action='store_true'); args=parser.parse_args()
+    # Live mode needs NIGHTSHIFT_*/ZETARIS_* from .env; without load_env every call fails at once (~7 s for 24 messages).
+    parser=argparse.ArgumentParser(); mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--offline',action='store_true'); mode.add_argument('--live',action='store_true',help='default; explicit alias')
+    args=parser.parse_args()
+    if not args.offline: load_env()
     result=evaluate(args.offline)
     print(json.dumps(result,ensure_ascii=False,indent=2))
     raise SystemExit(bool(result['crashes'] or result['unsafe_send']))
