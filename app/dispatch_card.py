@@ -13,6 +13,9 @@ def build_card(case):
         return str(value) if value is not None else default
     place = ', '.join(use('fields.'+k+'.value') for k in ('landmark','street','number','municipality') if k in case.get('fields',{}))
     lines.append('Local: '+(place or 'não informado')+'. Posição: '+use('result.location_confidence')+'; '+use('position.position_kind')+'.')
+    if case.get('result', {}).get('location_approximate'):
+        use('result.location_approximate')
+        lines.append('Local aproximado: confirmar no local')
     lines.append('Pessoas: '+use('fields.people.value')+'; '+ '; '.join(label+': '+use('fields.'+key+'.value') for key,label in [('children','crianças'),('elderly','idosos'),('disabled','deficiência / acamados'),('pets','pets')])+'.')
     lines.append('Profundidade (estimativa): faixa '+use('hazards.depth_band')+'; data '+use('hazards.depth_observed_date')+'.')
     chosen = case.get('approved_asset') or case.get('proposed_asset')

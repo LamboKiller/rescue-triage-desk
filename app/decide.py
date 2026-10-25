@@ -14,7 +14,8 @@ def timestamp(value):
     return dt
 
 
-def decide(fields, location, replay_time, received_at, complete=True, cross_location=None, landmark_location=None):
+def decide(fields, location, replay_time, received_at, complete=True, cross_location=None, landmark_location=None,
+           life_safety=False):
     def v(key, default=None):
         return fields.get(key, {}).get('value', default)
     questions = []
@@ -24,9 +25,10 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     lm = landmark_location or {}
     resolved = lm.get('status') == 'resolved'
     landmark_request = bool(v('landmark') or lm.get('requested'))
+    approximate = bool(not v('number') and (resolved or life_safety and location['found']))
     if not v('municipality') and not resolved:
         questions.append('Em qual município está o pedido?')
-    if landmark_request and not resolved:
+    if landmark_request and not resolved and not (approximate and location['found'] and lm.get('status') != 'ambiguous'):
         if lm.get('status') == 'ambiguous':
             names = [r['name'] + (' ('+r['neighbourhood']+')' if r.get('neighbourhood') else '') for r in lm['candidates']]
             questions.append('É '+ ' ou '.join(names) +'?')
@@ -35,7 +37,7 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     elif not location['found'] and not resolved:
         questions.append('Qual é a rua e o município exatos?')
     exact_cross = bool(v('cross_street') and cross_location and cross_location['found'])
-    if not v('number') and not exact_cross and not landmark_request and not resolved:
+    if not v('number') and not exact_cross and not landmark_request and not resolved and not approximate:
         questions.append('Qual é o número da casa ou o cruzamento exato entre duas ruas?')
     if people < 1:
         questions.append('Quantas pessoas precisam de resgate?')
@@ -51,12 +53,16 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     priority = 5 * min(vulnerable, 10) + 8 * bool(v('risk_words'))
     priority += 4 * (location.get('in_water_by_date') is True) + min(24, max(0, int(age)))
     decision = 'CALLBACK' if questions else 'SEND_CANDIDATE'
+    if approximate:
+        questions.append('Qual é o ponto exato ou referência para a equipe localizar as pessoas?')
     if age < 0:
         priority = 0  # Future message facts cannot affect the replay queue.
     if v('already_rescued', False) and age >= 0:
         decision = 'REPORTED_RESCUED'
         questions.append('O resgate foi confirmado por uma equipe em campo?')
     reason = ('Resgate relatado no texto; aguarda confirmação em campo.' if decision == 'REPORTED_RESCUED' else
+              'Risco à vida e local aproximado identificado; confirmar o ponto exato em paralelo.' if
+                  decision == 'SEND_CANDIDATE' and approximate else
               'Dados pendentes: ' + ' '.join(questions) if questions else
               'Local por ponto de referência e contagem de pessoas informados; confirmar o local com a pessoa.' if resolved else
               'Rua e número ou cruzamento e contagem de pessoas informados; confirmar o local com a pessoa.')
@@ -66,6 +72,7 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
             fields['people'].get('listed', []))+'). ' + reason
     return {'decision': decision, 'priority': priority, 'questions': questions,
             'decision_reason': reason, 'people_derived': people_derived,
+            'location_approximate': approximate,
             'age_hours': round(age, 2), 'conflicting_counts': conflict,
             'location_confidence': 'local por ponto de referência — confirmar com a pessoa' if resolved else
                 ('rua no cadastro; confirmar com pessoa' if location['found'] else 'insuficiente')}

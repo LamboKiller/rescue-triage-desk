@@ -1,11 +1,14 @@
 """Deterministic, auditable routing; untrusted instructions never authorize SEND."""
 import re
 from app.derive_count import INJECTION, _plain
+from app.geo.incident import incident_text
+from app.rescue_state import state
 
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
 OUTSIDE = re.compile(r'\b(recife|curitiba|sao paulo|rio de janeiro|belo horizonte|florianopolis|pernambuco|parana|santa catarina|bahia|ceara|maranhao|piaui|estado do para|amazonas|acre|amapa|roraima|rondonia|tocantins|goias|mato grosso(?: do sul)?|espirito santo|sergipe|alagoas|paraiba|rio grande do norte|distrito federal|pelotas|santa maria|caxias do sul|rio grande|passo fundo)\b|(?:/|\bestado (?:de|do) )\s*(?:sp|pr|pe|sc|rj|mg|ba|ce|ma|pi|pa|am|ac|ap|rr|ro|to|go|mt|ms|es|se|al|pb|rn|df)\b')
 REQUEST = re.compile(r'precisamos|preciso|socorro|nos resgat|nos ajudar|estamos (?:presos|ilhados)|agua (?:entrou|subindo)|need (?:rescue|help)|necesitamos|evacuar|resgat(?:e|ar) (?:meu|nosso|a gente)')
 LABELS = {'street':'Rua identificada', 'landmark':'Ponto de referência', 'ambiguous_place':'Local ambíguo',
+          'not_a_rescue':'Sem pessoas para resgatar — revisão humana',
           'already_rescued':'Resgate relatado', 'not_a_request_or_injection':'Sem pedido verificável ou instrução suspeita',
           'out_of_area':'Fora da área atendida', 'agent_failure':'Falha na análise', 'incomplete':'Dados incompletos'}
 
@@ -15,21 +18,38 @@ def apply_route(case, rows):
     city = _plain(fields.get('municipality', {}).get('value', ''))
     lm = case.get('landmark_check') or {}
     injection = bool(INJECTION.search(case['text']))
-    outside = bool((city and city not in COVERED) or OUTSIDE.search(text))
+    resolved_city = _plain((lm.get('matched') or {}).get('municipality') or
+                           (case.get('checks') or {}).get('municipality') or '')
+    outside_text = case.get('incident_outside_text', incident_text(case['text']))
+    outside_match = OUTSIDE.search(outside_text)
+    # Outside text must assert an incident location, not just mention a city.
+    outside_cue = bool(outside_match and re.search(
+        r'\b(?:em|no|na|municipio|cidade|estado|pedido|resgate|socorro)\b[^.;!\n]{0,70}$|/\s*$',
+        outside_text[:outside_match.start()]))
+    outside = resolved_city not in COVERED and bool((city and city not in COVERED) or outside_cue)
+    # A direct assertion about the incident's state contradicts a city match;
+    # a street catalogue hit alone cannot reconcile that conflicting address.
+    if outside_match and re.search(r'\b(?:endereco|local|pedido|resgate)\b[^.;!\n]{0,30}\bestado\b',
+                                   outside_text[:outside_match.start()]):
+        outside = True
+    rescue = state(case['text'])
     failure = not case.get('complete', False) or case.get('review_degraded') or any(
         e.startswith(('agent_step_failed', 'location_failed', 'global_deadline')) for e in case.get('errors', []))
     route = 'street'
     if failure:
         route = 'agent_failure'
         result.update(decision='REVIEW_REQUIRED', decision_reason='Falha na análise automática; revisão humana obrigatória.')
+    elif injection:
+        route = 'not_a_request_or_injection'
+        result.update(decision='REVIEW_REQUIRED',
+                      decision_reason='Instrução suspeita no texto; revisão humana obrigatória.')
+    elif rescue['not_a_rescue']:
+        route = 'not_a_rescue'
+        result.update(decision='REVIEW_REQUIRED',
+                      decision_reason='Sem pessoas precisando de resgate; encaminhar para revisão humana.')
     elif outside:
         route = 'out_of_area'
         result.update(decision='CALLBACK', decision_reason='Município ou estado fora dos seis municípios atendidos; confirmar encaminhamento.')
-    elif injection:
-        # Even genuine requests embedded in instructions require human review.
-        route = 'not_a_request_or_injection'
-        result.update(decision='REVIEW_REQUIRED' if REQUEST.search(text) else 'CALLBACK',
-                      decision_reason='Instrução suspeita no texto; confirmar o pedido com uma pessoa.')
     elif result['decision'] == 'REPORTED_RESCUED':
         route = 'already_rescued'
     elif ((len(re.findall(r'\b(?:rua|avenida|travessa|estrada)\b', text)) > 1 or
@@ -44,10 +64,13 @@ def apply_route(case, rows):
         route = 'incomplete' if fields else 'not_a_request_or_injection'
     elif lm.get('status') == 'resolved':
         route = 'landmark'
-    if route in ('out_of_area', 'not_a_request_or_injection'):
+    if route in ('out_of_area', 'not_a_request_or_injection', 'not_a_rescue'):
         result['questions'] = ['Pode confirmar o pedido e o município para encaminhamento humano?']
     case['route'] = {'id':route, 'label_pt':LABELS[route], 'reason_pt':result['decision_reason'], 'steps':[]}
-    case['routing_flags'] = {'injection':injection, 'out_of_area':outside, 'source':'rule:routing_v1'}
+    case.pop('incident_outside_text', None)
+    case['routing_flags'] = {'injection':injection, 'out_of_area':outside,
+                            'location_approximate':bool(result.get('location_approximate')),
+                            'source':'rule:routing_v2'}
 
 
 def finish_route(case):

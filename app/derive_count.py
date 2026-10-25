@@ -46,6 +46,11 @@ def count_values(text):
     """Distinct people counts mentioned in the text (for disagreement detection)."""
     values = set()
     for m in TOTAL_FORMS.finditer(text or ''):
+        # A category/group count is not another total ("tem 2 famílias,
+        # 7 pessoas" or "tem 2 idosos entre 5 pessoas").
+        if re.match(r'\s+(?:familias?|adultos?|idos[oa]s?|criancas?|bebes?|cachorros?|gatos?|pets?)\b',
+                    _plain((text or '')[m.end():])):
+            continue
         raw = next(g for g in m.groups() if g)
         n = int(raw) if raw.isdigit() else NUMBERS.get(_plain(raw))
         if n:

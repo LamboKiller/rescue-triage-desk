@@ -4,7 +4,8 @@ import unicodedata
 import math
 from app.geo.streets import normalize as street_normalize
 
-STOP = {'a', 'o', 'as', 'os', 'de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'estacao', 'hospital'}
+STOP = {'a', 'o', 'as', 'os', 'de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'estacao', 'hospital',
+        'igreja', 'capela', 'paroquia'}
 
 
 def normalize(text):
@@ -15,6 +16,7 @@ def normalize(text):
 CONTEXT_STOP = {'dentro', 'perto', 'proximo', 'lado', 'ao', 'estamos', 'estou', 'aqui', 'junto'}
 CATEGORIES = {'hospital': {'amenity:hospital'}, 'escola': {'amenity:school'},
               'colegio': {'amenity:school'},
+              'capela': {'amenity:place_of_worship'}, 'paroquia': {'amenity:place_of_worship'},
               'igreja': {'amenity:place_of_worship'}, 'mercado': {'amenity:marketplace', 'shop:supermarket'},
               'aeroporto': {'aeroway:aerodrome', 'aeroway:terminal'}, 'estadio': {'leisure:stadium'},
               'shopping': {'shop:mall'}, 'rodoviaria': {'amenity:bus_station'}}
@@ -113,6 +115,15 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
         key=lambda name: (len(name.split()), len(name)), default='') for key, hits in alias_hits.items()}
     scoped = [r for r in rows if (municipality and normalize(r['municipality']) == normalize(municipality))
               or (not municipality and (r['osm_type'], r['osm_id']) in alias_hits)]
+    # Island context must constrain the incident, even if a mainland facility
+    # has the same dedication. Derive island names and anchors from OSM names.
+    island_anchors = []
+    for row in scoped:
+        name = normalize(row['name']).split()
+        if 'ilha' in name:
+            locality = name[name.index('ilha'):]
+            if len(locality) >= 2 and (' '+' '.join(locality)+' ') in (' '+context+' '):
+                island_anchors.append(row)
     suburbs = {normalize(r['name']) for r in scoped if r['category'] in ('place:suburb', 'place:neighbourhood')
                and (' '+normalize(r['name'])+' ') in (' '+context+' ')}
     if neighbourhood:
@@ -134,6 +145,8 @@ def match(rows, place_name='', landmark_quote='', municipality='', neighbourhood
     candidates = []
     message_normalized = normalize(message)
     for row in distinct_places(scoped):
+        if island_anchors and not any(distance(row, anchor) <= 2000 for anchor in island_anchors):
+            continue
         alias = next((alias_hits.get((m['osm_type'], m['osm_id']), '') for m in row['osm_members']
                       if alias_hits.get((m['osm_type'], m['osm_id']))), '')
         if hints and row['category'] not in hints and not alias:

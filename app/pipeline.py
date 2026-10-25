@@ -21,6 +21,8 @@ from app.derive_count import CORRECTION, canonical_municipality, count_values, d
 from app.geo.hazards import attach, get_data
 from app.geo.streets import lookup
 from app.geo.landmarks import match as match_landmark
+from app.geo.incident import IncidentIndex
+from app.rescue_state import guard_fields
 from app.llm.nightshift import Nightshift, TRACE_LOCK
 from app.redact import redact
 from app.routing import apply_route, finish_route
@@ -65,11 +67,12 @@ def validate_request(request):
 
 
 class Pipeline:
-    def __init__(self, registry, sample=False, source=None, client=None, budget_seconds=480):
+    def __init__(self, registry, sample=False, source=None, client=None, budget_seconds=480, max_workers=4):
         self.registry, self.sample = registry, sample
         self.source = source or (LocalSource() if sample else ZetarisSource())
         self.client = client
         self.budget_seconds = min(480, budget_seconds)
+        self.max_workers = max(1, min(4, max_workers))
         self.run_lock = threading.Lock()
         get_data()  # Build the shared local grid once, before per-case timing.
 
@@ -127,6 +130,7 @@ class Pipeline:
             rows, source_error = [], safe_error(exc)
         finally:
             source_pool.shutdown(wait=False, cancel_futures=True)
+        incident_index = IncidentIndex(rows, landmark_rows)
         def process(message):
             from app.runs import EventClient
             cid = previous['case_id'] if previous else hashlib.sha256(message['message_id'].encode()).hexdigest()[:24]
@@ -212,6 +216,8 @@ class Pipeline:
                 fields['municipality'] = {**fields['municipality'],
                                           'value': canonical_municipality(get('municipality')),
                                           'derived': True, 'source': 'rule:canonical_municipality'}
+            outside_text = incident_index.resolve(fields, message['text'])
+            rescue_state = guard_fields(fields, message['text'])
             # Yussef 24/10: counting is code. A single written total wins; else sender + listed people (flagged).
             if not get('people'):
                 derived = written_total(message['text']) or derive_people(message['text'])
@@ -225,26 +231,36 @@ class Pipeline:
             if needs_location:
                 guess = {'place_name': get('landmark'), 'landmark_quote': get('landmark'),
                          'municipality': get('municipality'), 'neighbourhood': ''}
-                if not self.sample and ablation == 'full':
+                # Try verified source names first; avoid a serial model naming
+                # call when the street or landmark already identifies the place.
+                landmark = match_landmark(landmark_rows, **guess, replay=replay,
+                                          message=message['text'], streets=rows)
+                if (not self.sample and ablation == 'full' and
+                        landmark['status'] != 'resolved' and not location['found']):
                     try:
                         guess, meta = location_agent.run(agent_client, message['text'], get('municipality'), deadline)
                         if get('municipality'):
                             guess['municipality'] = get('municipality')
                         stages['location'] = guess
                         calls.append(meta)
+                        landmark = match_landmark(landmark_rows, **guess, replay=replay,
+                                                  message=message['text'], streets=rows)
                     except Exception as exc:
                         stages['location'] = 'failed'
                         errors.append('location_failed:'+safe_error(exc))
-                landmark = match_landmark(landmark_rows, **guess, replay=replay,
-                                          message=message['text'], streets=rows)
                 landmark['requested'] = bool(get('landmark') or guess.get('landmark_quote'))
+                if landmark.get('status') == 'resolved' and not get('municipality'):
+                    fields['municipality'] = {'value': landmark['matched']['municipality'],
+                        'quote': get('landmark') or landmark['matched']['name'],
+                        'derived': True, 'source': 'rule:landmark_catalogue'}
                 if landmark_error:
                     landmark['source_error'] = landmark_error
                 if time.monotonic() >= deadline:
                     complete = False
             emit('location_done', role='location')
             result = decide(fields, location, replay, message['received_at'], complete=complete,
-                            cross_location=cross, landmark_location=landmark)
+                            cross_location=cross, landmark_location=landmark,
+                            life_safety=rescue_state['life_safety'])
             if previous is not None and dialogue_data.get('contradictions'):
                 result['questions'].append('Confirmar contradições entre mensagens: '+', '.join(sorted({c['field'] for c in dialogue_data['contradictions']}))+'.')
                 if not result['conflicting_counts']:
@@ -268,6 +284,7 @@ class Pipeline:
                     'complete': complete, 'proposed_field_count': proposed,
                     'call_count_complete': 'global_deadline' not in errors,
                     'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}
+            case['incident_outside_text'] = outside_text
             case.update(dialogue_data)
             apply_route(case, rows)
             attach(case)
@@ -289,7 +306,7 @@ class Pipeline:
             case['seconds'] = round(time.monotonic()-message_started, 4)
             # Redact the entire model argument as well as input: models can emit PII.
             return json.loads(redact(json.dumps(case, ensure_ascii=False)))
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
         futures = {pool.submit(process, m): m for m in messages}
         results = []
         try:
