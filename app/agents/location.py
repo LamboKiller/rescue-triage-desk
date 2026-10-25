@@ -190,19 +190,22 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
             if answer.get('candidate_id') is None:
                 result['answer'] = answer
                 break
-            candidate = tools.candidates[answer['candidate_id']]
-            begin = time.monotonic()
-            review, cmeta = critic.run(_CandidateCritic(client, candidate), text,
-                {'location': {'quote': '\n'.join(e for e in answer['evidence'] if e not in tools.results)}}, deadline)
-            metas.append(cmeta)
-            result['critic'] = review
-            record('critic', {}, [candidate['candidate_id']], cmeta, time.monotonic()-begin)
-            objections = review['objections']
-            if objections:
+            while answer.get('candidate_id') is not None:
+                candidate = tools.candidates[answer['candidate_id']]
+                begin = time.monotonic()
+                review, cmeta = critic.run(_CandidateCritic(client, candidate), text,
+                    {'location': {'quote': '\n'.join(e for e in answer['evidence'] if e not in tools.results)}}, deadline)
+                metas.append(cmeta)
+                result['critic'] = review
+                record('critic', {}, [candidate['candidate_id']], cmeta, time.monotonic()-begin)
+                objections = review['objections']
+                if not objections:
+                    break
                 result['objections'].extend(objections)
                 if correction_used:
                     result['fallback'] = True
                     break
+                correction_used = True
                 result['revision'] = True
                 revised, rmeta, rseconds = request(True, objections)
                 answer = revised.get('answer') if isinstance(revised, dict) else None
@@ -212,9 +215,8 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
                     result['objections'].extend(rejected)
                     result['fallback'] = True
                     break
-                if answer.get('candidate_id') == candidate['candidate_id']:
-                    result['fallback'] = True
-                    break
+            if result['fallback']:
+                break
             result['answer'] = answer
             break
     except Exception as exc:
@@ -239,6 +241,12 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
     if not city_ok:
         street = lookup([], '', '', replay)
     street_quote = fields.get('street', {}).get('quote', '')
+    # Extracted fields may still refer to the caller; an outage must not restore them.
+    if not street_quote or _plain(street_quote) not in scoped:
+        street = lookup([], '', '', replay)
+    cross_quote = fields.get('cross_street', {}).get('quote', '')
+    if cross and (not cross_quote or _plain(cross_quote) not in scoped):
+        cross = None
     number = str(get('number'))
     address_in_incident = bool(street_quote and _plain(street_quote) in scoped and re.search(
         re.escape(_plain(street_quote))+r'\s*[,\-]?\s*(?:(?:n[uú]mero|n[ºo.]|nro)\s*[:=]?\s*)?'+re.escape(number)+r'\b', scoped))
@@ -247,9 +255,13 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
                 and not get('cross_street') and not get('landmark'))
     if fast:
         return street, cross, None, {'location_path': 'deterministic', 'precision': 'exact', 'steps': [], 'tool_steps': 0}, []
-    fallback = match_landmark(landmark_rows, place_name=get('landmark'), landmark_quote=get('landmark'),
-        municipality=get('municipality'), replay=replay, message=text, streets=rows)
+    incident_landmark = get('landmark') if get('landmark') and _plain(get('landmark')) in scoped else ''
+    fallback = match_landmark(landmark_rows, place_name=incident_landmark, landmark_quote=incident_landmark,
+        municipality=get('municipality'), replay=replay, message=scoped, streets=rows)
     fallback['requested'] = bool(get('landmark'))
+    if fallback.get('matched') and fallback['matched']['category'] in ('place:suburb', 'place:neighbourhood'):
+        fallback.update(status='unresolved', matched=None, requested=True,
+                        reason='Neighbourhood is area only; confirm the incident location.')
     if not city_ok:
         fallback = {'status': 'unresolved', 'matched': None, 'candidates': [], 'requested': True,
                     'reason': 'Extracted municipality disagrees with incident evidence.'}

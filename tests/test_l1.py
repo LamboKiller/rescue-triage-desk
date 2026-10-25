@@ -131,6 +131,15 @@ class LocationToolsTests(unittest.TestCase):
             scoped = incident_text(phrase+' Mas as vítimas estão sem endereço conhecido.')
             self.assertNotIn('canoas', scoped)
 
+    def test_caller_spatial_clause_preserves_incident_offsets(self):
+        text = 'Moro ao lado do Mercado Lua em Canoas mas o resgate é na Escola Aurora em Porto Alegre.'
+        tools = self.tools(text)
+        self.assertFalse(tools.check_text('Mercado Lua')['incident'])
+        self.assertTrue(tools.check_text('Escola Aurora')['incident'])
+        self.assertEqual(len(tools.scoped), len(text))
+        with self.assertRaises(ValueError):
+            tools.execute('search_landmark', {'name': 'Lua'}, 'Mercado Lua')
+
 
 class LocationLoopTests(unittest.TestCase):
     def setUp(self):
@@ -245,6 +254,32 @@ class LocationLoopTests(unittest.TestCase):
         self.assertEqual(stage['location_path'], 'deterministic')
         self.assertEqual(client.roles, [])
 
+    def test_provider_failure_does_not_restore_callers_location(self):
+        fields = {k: {'value': v, 'quote': v} for k, v in
+                  [('street', 'Rua Brasil'), ('number', '90'), ('municipality', 'Canoas'),
+                   ('landmark', 'Escola Aurora')]}
+        text = 'Moro perto da Escola Aurora na Rua Brasil 90 em Canoas. Mas as vítimas não sabem onde estão.'
+        checks, _, landmark, stage, _ = location.locate([street('Rua Brasil')], [place('Escola Aurora')], fields,
+            text, REPLAY, Script([]), time.monotonic()+10)
+        self.assertTrue(stage['fallback'])
+        self.assertFalse(checks['found'])
+        self.assertNotEqual(landmark['status'], 'resolved')
+
+    def test_revised_candidate_is_reviewed_before_acceptance(self):
+        tools = LocationTools([], [place('Escola Aurora'), place('Mercado Lua', osm_id='22')],
+            'Escola Aurora ou Mercado Lua em Canoas.', REPLAY)
+        first = tools.search_landmark('Aurora')[0]['candidate_id']
+        second = tools.search_landmark('Lua')[0]['candidate_id']
+        actions = [
+            {'tool': 'search_landmark', 'args': {'name': 'Aurora'}, 'why_quote': 'Escola Aurora'},
+            {'tool': 'search_landmark', 'args': {'name': 'Lua'}, 'why_quote': 'Mercado Lua'},
+            self.answer(candidate_id=first),
+            self.answer(candidate_id=second, evidence=['Mercado Lua', 't2'])]
+        client = Script(actions, [{'field': 'location', 'reason': 'unsupported', 'quote': 'ou'}])
+        result, _ = self.run_agent(client, tools)
+        self.assertEqual(client.roles.count('critic'), 2)
+        self.assertIsNone(result['candidate'])
+
     def test_stale_city_field_cannot_take_exact_fast_path(self):
         fields = {k: {'value': v, 'quote': v} for k, v in
                   [('street', 'Rua Brasil'), ('number', '90'), ('municipality', 'Porto Alegre')]}
@@ -278,6 +313,40 @@ class LocationLoopTests(unittest.TestCase):
         result = decide(fields, checks, REPLAY, REPLAY, cross_location=cross, landmark_location=landmark, life_safety=True)
         self.assertEqual(result['decision'], 'CALLBACK')
         self.assertEqual(stage['candidate']['city'], 'Canoas')
+
+    def test_neighbourhood_landmark_cannot_be_promoted_by_model(self):
+        text = 'Socorro no bairro Jardim Azul em Canoas.'
+        tools = LocationTools([], [place('Jardim Azul', category='place:neighbourhood')], text, REPLAY)
+        cid = tools.search_landmark('Jardim Azul')[0]['candidate_id']
+        action = {'tool': 'search_landmark', 'args': {'name': 'Jardim Azul'}, 'why_quote': 'Jardim Azul'}
+        bad = self.answer(candidate_id=cid, evidence=['Jardim Azul', 't1'])
+        result, _ = self.run_agent(Script([action, bad, bad]), tools)
+        self.assertIsNone(result['candidate'])
+        self.assertTrue(any(o['reason'] == 'overstated_precision' for o in result['objections']))
+
+    def test_offline_and_outage_fallback_keep_bairro_as_area(self):
+        rows = [place('Jardim Azul', category='place:suburb')]
+        text = '2 pessoas no bairro Jardim Azul em Canoas.'
+        for client in (None, Script([])):
+            fields = {k: {'value': v, 'quote': v} for k, v in
+                      [('landmark', 'Jardim Azul'), ('municipality', 'Canoas')]}
+            _, _, landmark, stage, _ = location.locate([], rows, fields, text, REPLAY,
+                client, time.monotonic()+10)
+            self.assertNotEqual(landmark['status'], 'resolved')
+            self.assertEqual(stage['precision'], 'area')
+
+    def test_bairro_context_does_not_block_a_resolved_street(self):
+        from app.decide import decide
+        fields = {k: {'value': v, 'quote': v} for k, v in
+                  [('landmark', 'Jardim Azul'), ('municipality', 'Canoas'), ('street', 'Rua Brasil')]}
+        fields['people'] = {'value': 2, 'quote': '2 pessoas'}
+        text = '2 pessoas na Rua Brasil, bairro Jardim Azul em Canoas.'
+        checks, cross, landmark, stage, _ = location.locate([street('Rua Brasil')],
+            [place('Jardim Azul', category='place:suburb')], fields, text, REPLAY, None, time.monotonic()+10)
+        decision = decide(fields, checks, REPLAY, REPLAY, cross_location=cross,
+                          landmark_location=landmark, life_safety=True)
+        self.assertEqual(decision['decision'], 'SEND_CANDIDATE')
+        self.assertEqual(stage['precision'], 'street')
 
     def test_two_branches_in_same_city_require_disambiguation(self):
         tools = LocationTools([], [place('Escola Aurora'),

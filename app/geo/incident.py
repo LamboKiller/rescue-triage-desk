@@ -10,7 +10,7 @@ from app.geo.streets import normalize as street_normalize
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
 PREFIX = dict.fromkeys(('av', 'avenida', 'r', 'rua', 'tv', 'travessa', 'est', 'estrada'), 'via')
 STOP = {'de', 'da', 'do', 'das', 'dos'}
-CALLER = re.compile(r'\b(?:(?:estou|to|tou)\s+)?(?:ligando|telefonando|falando|escrevendo|ligo|moro|sou)\s+(?:aqui\s+)?(?:de|em|no|na)\s+[^.;!\n]+', re.I)
+CALLER = re.compile(r'\b(?:(?:estou|to|tou)\s+)?(?:ligando|telefonando|falando|escrevendo|ligo|moro|sou)\s+(?:aqui\s+)?(?:perto\s+(?:de|do|da)|ao\s+lado\s+(?:de|do|da)|de|em|no|na)\s+[^.;!\n]+', re.I)
 INCIDENT = re.compile(r'\b(?:mas|porem|enquanto|o pedido|o resgate|ela mora|ele mora|eles estao|elas estao|minha irma|meu irmao)\b')
 
 

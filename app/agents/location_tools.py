@@ -95,9 +95,10 @@ class LocationTools:
                 if s >= best-.06][:12]
 
     def _place(self, row, score=1):
-        return self._remember(dict(candidate_id='osm:'+row['osm_type']+':'+str(row['osm_id']), kind='landmark',
+        area = row['category'] in ('place:suburb', 'place:neighbourhood')
+        return self._remember(dict(candidate_id='osm:'+row['osm_type']+':'+str(row['osm_id']), kind='bairro' if area else 'landmark',
             name=row['name'], city=row['municipality'], municipality=row['municipality'], category=row['category'],
-            precision='approximate', geometry_kind='catalogue_centroid', source='landmarks', score=round(score, 4),
+            precision='area' if area else 'approximate', geometry_kind='catalogue_centroid', source='landmarks', score=round(score, 4),
             lat=float(row['lat']), lon=float(row['lon']), osm_type=row['osm_type'], osm_id=row['osm_id'],
             neighbourhood=row.get('neighbourhood', ''), street=row.get('street', ''),
             osm_members=row.get('osm_members', []), **self._water(row, 'in_water_')))

@@ -11,7 +11,7 @@ NUM = r'(?:\d{1,5}|'+'|'.join(sorted(WORDS,key=len,reverse=True))+r')'
 PATTERNS = {
  'rescued_n':rf'\b(?:pegamos|resgatamos|retiramos|tiramos|salvamos|levamos|resgatados?)\s+({NUM})\b',
  'remaining_n':rf'\b(?:falta[m]?|resta[m]?|ficaram|ficou|ainda (?:ha|tem))\s+({NUM})\b',
- 'not_found':r'\b(?:nao (?:achamos|encontramos) ninguem|ninguem (?:no endereco|no local)|local vazio)\b',
+ 'not_found':r'\b(?:nao (?:achamos|encontramos) ninguem(?: (?:no endereco|no local))?|ninguem (?:no endereco|no local)|local vazio)\b',
  'left_by_other_means':r'\b(?:ja )?(?:sairam|foram embora|sa[iu]+)\s+(?:de carona|por conta propria|com vizinhos|por outros meios)\b',
  'needs_more_resources':r'\b(?:precisa(?:mos)?|precisam|necessita(?:mos)?)(?: de)?\s+(?:mais\s+)?(?:um|outro|dois|\d+)\s+(?:barcos?|equipes?|ambulancias?)\b',
  'new_hazard':r'\b(?:fio[s]? energizado[s]?|correnteza forte|(?:agua|nivel).{0,25}(?:subindo|aumentando)|(?:casa|telhado|parede).{0,25}(?:cedendo|desabando|caindo))\b'}
@@ -26,6 +26,13 @@ def literal(text):
     return int(plain) if re.fullmatch(r'\d{1,5}',plain) else WORDS.get(plain)
 
 
+def affirmed(text,start,end):
+    # Inspect the original clause too: a model must not drop "nao" from its quote.
+    prefix=re.split(r'[,.;!?\n]',folded(text[:start]))[-1]
+    return not (re.search(r'\b(?:nao|nunca|sem|talvez|se)\b.{0,60}$',prefix)
+                or text[end:].lstrip().startswith('?'))
+
+
 def validate(output,text):
     if not isinstance(output,dict) or not isinstance(output.get('outcomes'),list): raise ValueError('Formato de retorno invalido.')
     out=[]
@@ -33,6 +40,8 @@ def validate(output,text):
         if not isinstance(item,dict) or item.get('kind') not in PATTERNS: raise ValueError('Resultado desconhecido.')
         kind=item['kind'];quote=item.get('quote')
         if not isinstance(quote,str) or not quote.strip() or quote not in text: raise ValueError('Trecho nao consta do relato.')
+        if not any(affirmed(text,m.start(),m.end()) for m in re.finditer(re.escape(quote),text)):
+            raise ValueError('Resultado negado ou incerto no relato.')
         row={'kind':kind,'quote':quote}
         if kind.endswith('_n'):
             count=item.get('count_quote')
@@ -43,8 +52,14 @@ def validate(output,text):
             evidence=re.search(PATTERNS[kind],folded(quote))
             if not evidence or literal(evidence[1])!=literal(count):
                 raise ValueError('Contagem nao corresponde ao resultado citado.')
+            if not affirmed(quote,evidence.start(),evidence.end()): raise ValueError('Contagem negada ou incerta.')
             row.update(count_quote=count,value=literal(count))
-        else: row['value']=True
+        else:
+            uncertain=r'\b(?:talvez|possivelmente|se)\b'
+            negative=r'\b(?:nao|nunca|sem)\b'
+            if re.search(uncertain,folded(quote)) or kind!='not_found' and re.search(negative,folded(quote)):
+                raise ValueError('Resultado negado ou incerto.')
+            row['value']=True
         if row not in out: out.append(row)
     return out
 
@@ -54,7 +69,7 @@ def fallback(text):
     offsets=[i for i,c in enumerate(chunks) for _ in c];out=[]
     for kind,pattern in PATTERNS.items():
         for match in re.finditer(pattern,plain):
-            if re.search(r'\b(?:nao|sem)\s*$',plain[max(0,match.start()-10):match.start()]): continue
+            if not affirmed(plain,match.start(),match.end()): continue
             row={'kind':kind,'quote':text[offsets[match.start()]:offsets[match.end()-1]+1]}
             if kind.endswith('_n'):
                 row['count_quote']=text[offsets[match.start(1)]:offsets[match.end(1)-1]+1]
@@ -70,11 +85,18 @@ class FeedbackExtractor:
         if not self.client: return out
         try:
             if hasattr(self.client,'start_message'): self.client.start_message('field-feedback')
-            raw,meta=self.client.call('field_feedback',SYSTEM,json.dumps({'text':text},ensure_ascii=False),time.monotonic()+150)
-            checked=validate(raw,text)
+            deadline=time.monotonic()+150
+            for attempt in range(2):
+                raw,meta=self.client.call('field_feedback',SYSTEM+(' Copie trechos afirmados com contagens literais; JSON valido.' if attempt else ''),json.dumps({'text':text},ensure_ascii=False),deadline)
+                out['calls'].append(meta)
+                try:
+                    checked=validate(raw,text)
+                    break
+                except ValueError:
+                    if attempt: raise
             for row in out['outcomes']:
                 if row not in checked: checked.append(row)
-            out.update(outcomes=checked,feedback_check='model_reviewed',calls=[meta])
+            out.update(outcomes=checked,feedback_check='model_reviewed')
         except Exception as exc: out['fallback_reason']=type(exc).__name__
         finally:
             if hasattr(self.client,'message_calls'): out['calls']=self.client.message_calls()
@@ -104,7 +126,8 @@ def apply(case,report,actor,received_at,source):
     c['open_items']=[i for i in c.get('open_items',[]) if i.get('reason')!='stale']
     c['stale']=False
     event={**report,'actor':actor,'received_at':received_at,'source':source,'conflicts':conflicts}
-    c.setdefault('feedback',[]).append(event);c['last_update_at']=received_at
+    c.setdefault('feedback',[]).append(event)
+    c['last_update_at']=max((c.get('last_update_at',c['received_at']),received_at),key=timestamp)
     c.setdefault('agents',{})['field_feedback']=report
     if conflicts:
         c['open_items'].append({'field':'feedback','reason':'feedback_conflict','questions':conflicts,'report':event})

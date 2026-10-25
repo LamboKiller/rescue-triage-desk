@@ -8,13 +8,12 @@ python -m app.web.server --sample --port 8080 --inventory path/to/inventory.json
 
 Open `/v2`, select an incident and open **Missões**. Omit `--sample` for live
 `needs_extractor` and `mission_brief` calls using the existing Nightshift settings.
-The original `python run.py serve` remains available; its POST router has no
-extension hook and does not expose mission endpoints. No existing launcher file
-was changed because M1 owns `app/web/**`.
+`python run.py serve --sample` also starts the mission-enabled desk.
 
 The repository has no verified boat passenger capacities or available-unit
-inventory. With no inventory file, proposals explicitly ask for those data and
-cannot be approved. An operator inventory is a JSON array of actual units:
+inventory. Register documented units in **Recursos** at shift start, or supply
+an inventory file. Unknown capacities and verification flags keep the existing
+mission blockers. An operator inventory file is a JSON array of actual units:
 
 ```json
 [
@@ -39,8 +38,37 @@ replay day are excluded. Fleet verification field names are in
 `data/fleet/dispatch_rules.json`. Unknown attestations stay unknown. An existing
 fleet veto is retained even if inventory supplies additional flags: re-evaluate
 the case/resource package before proposing it again. Wheelchair/bedridden needs
-also require an explicitly litter-capable unit. Inventory is read at startup;
-restart after updating it. Active reservations survive restart in the registry.
+also require an explicitly litter-capable unit. File inventory is read at startup.
+Shift resources are durable World Model events and take effect without restart;
+a registered ID overrides the same ID in the file. Active reservations survive
+restart in the registry.
+
+`GET /api/resources` returns resources, fleet types and verification field names.
+`POST /api/resources` accepts `actor`, `expected_version` (0 for a new unit), and
+`unit`: `id`, `asset`, `capacity` (null if unknown), `capacity_source` (required
+for a known capacity), `crew`, `base`, `status` (available/assigned/maintenance),
+`source`, `observed_date`, `synthetic` and optional `attestations`. Availability
+also respects active mission reservations. Editing a reserved unit returns 409.
+`data/sample/shift_resources_sample.json` is explicitly synthetic, with unknown
+capacities; it is a schema example, not operational inventory.
+
+`POST /api/cases/<id>/feedback` accepts `actor`, `expected_version`, `text`,
+`received_at` (ISO 8601 with timezone) and `source` (crew/citizen).
+`POST /api/missions/<id>/feedback` additionally requires `case_id` for a pending
+stop. The field_feedback role copies evidence; code validates and computes
+counts, records conflicts for review, increments the case version and completes
+the stop. Partial rescues preserve needs and requeue the remaining people for
+new human approval. Not-found reports create a callback. Completing all stops
+releases the mission's inventory reservation; cancellation preserves completed
+feedback outcomes. Invalid model evidence retries once, then visibly falls back.
+
+`GET /api/cases?replay_time=<ISO timestamp>` applies stale detection and returns
+priority scores with Portuguese reasons. `STALE_HOURS` defaults to 6; only active
+SEND/ASSIGNED cases get an automatic "Ainda estao no local?" callback. Scores use
+dated depth observations, label retrospective data, and never treat unknown as dry.
+The UI shows age badges and priority reasons. The header status button lists case
+errors. `python tools/reset_demo.py` backs up the journal and rebuilds explicitly
+synthetic example inputs offline, retaining the original journal on failure.
 
 `GET /api/missions/proposals?date=YYYY-MM-DD` produces plans from current
 available SEND candidates whose messages/analyses are already available on the

@@ -32,7 +32,8 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                 if path=='/api/resources':
                     from app.resources import read
                     from app.fleet import document
-                    self.send_json(200,{'resources':read(registry),'types':{k:v.get('label_pt',k) for k,v in document()['assets'].items()}});return
+                    self.send_json(200,{'resources':read(registry),'types':{k:v.get('label_pt',k) for k,v in document()['assets'].items()},
+                        'verification_fields':document()['verification_fields']});return
                 if path=='/api/cases':
                     from app.priority import queue
                     from app.decide import timestamp
@@ -61,15 +62,19 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
             case_feedback=path.startswith('/api/cases/') and path.endswith('/feedback') and len(path.split('/'))==5
             if path!='/api/resources' and not path.startswith('/api/missions') and not case_action and not case_feedback: return super().do_POST()
             try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 0<length<=256000: raise ValueError('JSON ausente ou maior que 256 KB.')
+                self.connection.settimeout(10)
+                # Consume the bounded body before a header rejection. Closing with
+                # unread request bytes can reset the socket on Windows, losing 403.
+                raw=self.rfile.read(length)
+                if len(raw)!=length: raise ValueError('JSON incompleto.')
                 origin=self.headers.get('Origin')
                 if origin and urlsplit(origin).netloc!=self.headers.get('Host'):
                     self.send_json(403,{'error':'Origem não permitida.'});return
                 if not self.headers.get('Content-Type','').startswith('application/json'):
                     self.send_json(415,{'error':'Use application/json.'});return
-                length=int(self.headers.get('Content-Length','0'))
-                if not 0<length<=256000: raise ValueError('JSON ausente ou maior que 256 KB.')
-                self.connection.settimeout(10)
-                request=json.loads(self.rfile.read(length).decode('utf-8'))
+                request=json.loads(raw.decode('utf-8'))
                 if not isinstance(request,dict): raise ValueError('Envie um objeto JSON.')
                 if path=='/api/resources':
                     from app.resources import register

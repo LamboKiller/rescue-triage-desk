@@ -24,10 +24,10 @@ window.DeskFeedback=(()=>{
   async function load(){
    const data=await api('/api/resources');content.replaceChildren();
    content.append(el('p','Capacidade de passageiros após equipe e equipamento. Deixe em branco sem fonte documental; valor ausente bloqueia missão.'));
-   for(const u of data.resources||[]){const section=el('section');section.append(el('strong',`${u.id} · ${u.asset} · ${u.status}`),el('p',`Capacidade: ${u.capacity??'a confirmar'} · equipe: ${u.crew} · base: ${u.base}${u.synthetic?' · SINTÉTICO':''}`));content.append(section,editor(u,data.types));}
-   content.append(el('h3','Registrar unidade'),editor(null,data.types));
+   for(const u of data.resources||[]){const section=el('section');section.append(el('strong',`${u.id} · ${u.asset} · ${u.status}`),el('p',`Capacidade: ${u.capacity??'a confirmar'} · equipe: ${u.crew} · base: ${u.base}${u.synthetic?' · SINTÉTICO':''}`));content.append(section,editor(u,data.types,data.verification_fields));}
+   content.append(el('h3','Registrar unidade'),editor(null,data.types,data.verification_fields));
   }
-  function editor(unit,types){
+  function editor(unit,types,verification=[]){
    const f=el('form');const fields={};
    for(const [key,title,type]of [['id','Identificador','text'],['asset','Tipo','select'],['capacity','Capacidade (documentada)','number'],['capacity_source','Fonte da capacidade','text'],['crew','Equipe','text'],['base','Base','text'],['status','Estado','select'],['source','Fonte do registro','text'],['observed_date','Data do turno','date']]){
     const label=el('label',title),input=el(type==='select'?'select':'input');input.id=`resource-${unit?.id||'new'}-${key}`;label.htmlFor=input.id;
@@ -35,9 +35,11 @@ window.DeskFeedback=(()=>{
     else input.type=type;
     if(type==='number')input.min='1';input.value=unit?.[key]??(key==='observed_date'?day:'');if(!['capacity','capacity_source'].includes(key))input.required=true;if(unit&&key==='id')input.readOnly=true;fields[key]=input;f.append(label,input);
    }
+   const checks=el('details'),flags={};checks.append(el('summary','Verificações documentadas da frota'),el('p','Marque confirmado somente após verificar o requisito na fonte do registro. Desconhecido mantém o bloqueio ou cautela.'));
+   for(const key of verification){const label=el('label',key),input=el('select');input.id=`resource-${unit?.id||'new'}-check-${key}`;label.htmlFor=input.id;for(const [value,title]of [['','Desconhecido'],['true','Confirmado'],['false','Não atendido']]){const option=el('option',title);option.value=value;input.append(option);}input.value=unit?.attestations?.[key]==null?'':String(unit.attestations[key]);flags[key]=input;checks.append(label,input);}f.append(checks);
    const syntheticLabel=el('label','Dados sintéticos'),synthetic=el('input');synthetic.type='checkbox';synthetic.checked=unit?.synthetic===true;syntheticLabel.append(synthetic);f.append(syntheticLabel);
    const save=el('button',unit?'Atualizar recurso':'Registrar recurso');save.type='submit';f.append(save);
-   f.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{const value={...(unit||{})};for(const [k,input]of Object.entries(fields))value[k]=k==='capacity'?(input.value?Number(input.value):null):input.value;value.synthetic=synthetic.checked;await api('/api/resources',{actor:'operador',expected_version:unit?.version||0,unit:value});notice('Recurso registrado no World Model.');await load();}catch(error){notice(error.message,true);}finally{save.disabled=false;}};return f;
+   f.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{const value={...(unit||{})};for(const [k,input]of Object.entries(fields))value[k]=k==='capacity'?(input.value?Number(input.value):null):input.value;value.attestations={};for(const [key,input]of Object.entries(flags))value.attestations[key]=input.value===''?null:input.value==='true';value.synthetic=synthetic.checked;await api('/api/resources',{actor:'operador',expected_version:unit?.version||0,unit:value});notice('Recurso registrado no World Model.');await load();}catch(error){notice(error.message,true);}finally{save.disabled=false;}};return f;
   }
   try{await load();}catch(error){content.append(el('p',error.message,'danger'));}
  }

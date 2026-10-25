@@ -87,6 +87,46 @@ class FeedbackTests(unittest.TestCase):
         out=FeedbackExtractor(client).extract('pegamos dois')
         self.assertEqual(out['feedback_check'],'model_reviewed');self.assertEqual(out['outcomes'][0]['value'],2)
 
+    def test_model_cannot_remove_negation_or_uncertainty_from_counts(self):
+        raw={'outcomes':[{'kind':'rescued_n','quote':'pegamos 4','count_quote':'4'}]}
+        for text in ('nao pegamos 4','talvez pegamos 4','pegamos 4?'):
+            with self.subTest(text=text):
+                out=FeedbackExtractor(Client(raw)).extract(text)
+                self.assertEqual(out['outcomes'],[])
+                self.assertEqual(out['feedback_check'],'deterministic_only')
+        raw['outcomes'][0]['quote']='nao pegamos 4'
+        with self.assertRaises(ValueError): validate(raw,'nao pegamos 4')
+
+    def test_invalid_evidence_retries_once_then_uses_visible_fallback(self):
+        client=Client({'outcomes':[{'kind':'rescued_n','quote':'ausente','count_quote':'4'}]})
+        out=FeedbackExtractor(client).extract('resgatamos 4')
+        self.assertEqual(len(client.calls),2);self.assertEqual(len(out['calls']),2)
+        self.assertEqual(out['feedback_check'],'deterministic_only')
+        self.assertEqual(out['outcomes'][0]['value'],4)
+
+    def test_older_feedback_cannot_roll_update_clock_back(self):
+        c=self.send('precisa de mais um barco')
+        c=self.service.submit(c['case_id'],dict(actor='test',text='resgatamos 4',expected_version=c['version'],received_at='2024-05-08T11:00:00-03:00'))
+        self.assertEqual(c['last_update_at'],'2024-05-08T12:00:00-03:00')
+        self.assertEqual(c['result']['decision'],'REVIEW_REQUIRED')
+
+    def test_agent_extracts_paraphrased_departure_with_exact_evidence(self):
+        text='A familia deixou o imovel no carro dos vizinhos.'
+        client=Client({'outcomes':[{'kind':'left_by_other_means','quote':text}]})
+        self.assertEqual(FeedbackExtractor().extract(text)['outcomes'],[])
+        report=FeedbackExtractor(client).extract(text)
+        self.assertEqual(report['feedback_check'],'model_reviewed')
+        from app.feedback import apply
+        c=apply(self.c,report,'test','2024-05-08T12:00:00-03:00','crew')
+        self.assertEqual((c['status'],c['remaining_n']),('RESCUED',0))
+
+    def test_negated_departure_never_closes_case(self):
+        text='nao sairam de carona'
+        for quote in (text,'sairam de carona'):
+            out=FeedbackExtractor(Client({'outcomes':[{'kind':'left_by_other_means','quote':quote}]})).extract(text)
+            self.assertEqual(out['outcomes'],[])
+            self.assertEqual(out['feedback_check'],'deterministic_only')
+
     def test_remaining_unknown_and_negative_does_not_close(self):
         c=seed(self.r,'unknown',None)
         c=self.send('resgatamos 3',c)
@@ -192,7 +232,9 @@ class ResourceMissionTests(unittest.TestCase):
             case=self.r.read(c['case_id'])
             service.feedback(mid,{'case_id':c['case_id'],'actor':'test','expected_version':case['version'],'text':'resgatamos 2','received_at':NOW},f)
             self.assertEqual(service.detail(mid)['status'],'done' if i==1 else 'assigned')
-            self.assertTrue(service.detail(mid)['stops'][i]['done'])
+            stops={s['case_id']:s for s in service.detail(mid)['stops']}
+            self.assertTrue(stops[c['case_id']]['done'])
+            if i==0: self.assertEqual(read(self.r)[0]['status'],'assigned')
         self.assertEqual(read(self.r)[0]['status'],'available')
         self.assertEqual(Registry(self.r.path).read(cases[0]['case_id'])['status'],'RESCUED')
 
@@ -241,6 +283,7 @@ class APITests(unittest.TestCase):
         code,out=self.call('/api/resources',{'actor':'operator','unit':unit()});self.assertEqual(code,200)
         code,out=self.call('/api/resources');self.assertEqual(out['resources'][0]['capacity'],None)
         self.assertIn('irb',out['types'])
+        self.assertIn('stretcher_capable',out['verification_fields'])
         body={'text':'pegamos 3, falta 1','actor':'operator','expected_version':1,'received_at':NOW}
         code,c=self.call('/api/cases/'+self.c['case_id']+'/feedback',body)
         self.assertEqual((code,c['status'],c['version']),(200,'PARTIAL',2))
@@ -254,6 +297,13 @@ class APITests(unittest.TestCase):
         self.assertEqual(self.call('/api/resources',{}, {'Content-Type':'application/json','Origin':'http://outside.invalid'})[0],403)
         self.assertEqual(self.call('/api/cases?replay_time=bad')[0],400)
         with urllib.request.urlopen(self.base+'/v2/feedback.js') as r: self.assertIn(b'DeskFeedback',r.read())
+
+    def test_rejected_origin_consumes_body_without_writing_resource(self):
+        body={'actor':'operator','unit':unit()}
+        for _ in range(5):
+            code,_=self.call('/api/resources',body,{'Content-Type':'application/json','Origin':'http://outside.invalid'})
+            self.assertEqual(code,403)
+        self.assertEqual(self.call('/api/resources')[1]['resources'],[])
 
 
 class DemoTests(unittest.TestCase):
