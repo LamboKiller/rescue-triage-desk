@@ -56,7 +56,7 @@ class Registry:
         if self.path.exists():
             for line in self.path.read_text(encoding='utf-8').splitlines():
                 event = json.loads(line)  # Fail closed on damaged log; never silently skip.
-                if event['kind'] == 'resource':
+                if event['kind'] in ('resource', 'supervisor'):  # supervisor ticks/decisions are journal-only, never case state
                     continue
                 if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission'):
                     for projection in event['projections']:

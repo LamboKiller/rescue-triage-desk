@@ -21,12 +21,30 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     service=MissionService(registry,inventory,None if offline else pipeline.client or MissionClient(ROOT/'runtime/mission_trace.jsonl'),radius_m)
     from app.feedback import FeedbackService
     feedback=FeedbackService(registry,None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/feedback_trace.jsonl'))
+    from app.supervisor.service import SupervisorService
+    from app.supervisor import routes as supervisor_routes
+    from app.resources import inventory as resource_inventory
+    supervisor=SupervisorService(registry,lambda:resource_inventory(registry,inventory),service.proposals,
+        None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/supervisor_trace.jsonl'))
+    from app.callback.service import CallbackService
+    callback_client=None
+    if not offline:
+        from app.llm.nightshift import Nightshift
+        callback_client=pipeline.client or Nightshift(ROOT/'runtime/callback_trace.jsonl')
+    callback=CallbackService(registry,pipeline,callback_client,ROOT/'runtime/callback_log.jsonl')
     server=original_server(host,port,sample=offline,pipeline=pipeline)
     BaseHandler=server.RequestHandlerClass
 
     class Handler(BaseHandler):
         def do_GET(self):
             path=urlsplit(self.path).path
+            if path.startswith('/api/cases/') and path.endswith('/callback') and len(path.split('/'))==5:
+                try:
+                    query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
+                    self.send_json(200,callback.view(path.split('/')[3],refresh='refresh' in query));return
+                except KeyError: self.send_json(404,{'error':'Caso não encontrado.'});return
+                except Exception: self.send_json(500,{'error':'Falha ao montar o retorno.'});return
+            if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'GET')
             if path not in ('/api/resources','/api/cases') and not path.startswith('/api/missions'): return super().do_GET()
             try:
                 if path=='/api/resources':
@@ -58,9 +76,11 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
 
         def do_POST(self):
             path=urlsplit(self.path).path
+            if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'POST')
             case_action=path.startswith('/api/cases/') and path.endswith('/actions')
             case_feedback=path.startswith('/api/cases/') and path.endswith('/feedback') and len(path.split('/'))==5
-            if path!='/api/resources' and not path.startswith('/api/missions') and not case_action and not case_feedback: return super().do_POST()
+            case_callback=path.startswith('/api/cases/') and path.endswith('/callback/reply') and len(path.split('/'))==6
+            if path!='/api/resources' and not path.startswith('/api/missions') and not case_action and not case_feedback and not case_callback: return super().do_POST()
             try:
                 length=int(self.headers.get('Content-Length','0'))
                 if not 0<length<=256000: raise ValueError('JSON ausente ou maior que 256 KB.')
@@ -81,6 +101,8 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                     result=register(registry,request)
                 elif case_feedback:
                     result=feedback.submit(path.split('/')[3],request)
+                elif case_callback:
+                    result=callback.reply(path.split('/')[3],request)
                 elif path.startswith('/api/missions/') and path.endswith('/feedback') and len(path.split('/'))==5:
                     result=service.feedback(path.split('/')[3],request,feedback)
                 elif path=='/api/missions':
@@ -105,6 +127,8 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     server.RequestHandlerClass=Handler
     server.missions=service
     server.feedback=feedback
+    server.callback=callback
+    server.supervisor=supervisor
     return server
 
 
