@@ -55,6 +55,13 @@ def municipality_mentions(scoped, name_spans=()):
 
 def incident_text(text):
     plain = _plain(text)
+    # A remote reporter can state their own city after the incident clause too.
+    # Mask only the city assertion, retaining offsets and the victim's address.
+    remote = re.search(r'\b(?:a rua (?:da|do)|(?:minha|meu)\s+(?:ti[oa]|prim[oa]|irmao?|mae|pai|familia))\b', plain)
+    if remote:
+        caller_city = re.compile(r'\b(?:eu\s+)?(?:estou|to|tou)\s+(?:aqui\s+)?em\s+(?:'
+            + '|'.join(map(re.escape, sorted(set(rs_municipalities()) | {'curitiba', 'recife', 'sao paulo', 'rio de janeiro', 'florianopolis'}, key=len, reverse=True))) + r')\b')
+        plain = caller_city.sub(lambda m: m[0] if re.match(r'\s+com\b', plain[m.end():]) else ' '*len(m[0]), plain)
     def remove(m):
         tail = INCIDENT.search(m[0])
         return ' ' * (tail.start() if tail else len(m[0])) + (m[0][tail.start():] if tail else '')
@@ -65,7 +72,7 @@ def incident_text(text):
     def remote_relative(m):
         return m[0] if re.search(r'\bcom\b', m[0]) else ' '*len(m[0])
     plain = re.sub(r'\b(?:estou|to|tou)\s+(?:(?:aqui|trabalhando)\s+)?(?:em|no|na)\s+[^.;!\n]+?'
-                   r'(?:,\s*|\s+e\s+)(?=(?:minha (?:mae|irma|avo|vo)|meu (?:pai|irmao|avo))\b)', remote_relative, plain)
+                   r'(?:,\s*|\s+e\s+)(?=(?:(?:a rua|o endereco|a casa) (?:da|do) |minha (?:mae|irma|avo|vo)|meu (?:pai|irmao|avo))\b)', remote_relative, plain)
     # Keep offsets into the original text; superseded streets cannot compete
     # with the explicitly corrected address.
     for correction in reversed(list(CORRECTION.finditer(plain))):

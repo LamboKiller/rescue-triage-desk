@@ -218,14 +218,15 @@ class IncidentTests(unittest.TestCase):
                         gate.wait(timeout=10)
                     with lock:
                         active -= 1
-                    return {'people': '2 pessoas', 'street': 'Rua Brasil', 'number': '67', 'municipality': 'Canoas'}, {'role': role}
+                    number = payload.split('número ')[1].split(',')[0]
+                    return {'people': '2 pessoas', 'street': 'Rua Brasil', 'number': number, 'municipality': 'Canoas'}, {'role': role}
                 return ({'objections': []} if role == 'critic' else {'block': [], 'warn': []}), {'role': role}
         registry = Registry(scratch.path/'events.jsonl')
         pipeline = Pipeline(registry, source=self.source, client=Reader())
         with contextlib.redirect_stdout(io.StringIO()):
             output = pipeline.run({'replay_time': TIME, 'messages': [
                 {'message_id': 'batch-'+str(i), 'received_at': TIME,
-                 'text': '2 pessoas na Rua Brasil, número 67, Canoas.'} for i in range(15)]})
+                 'text': f'2 pessoas na Rua Brasil, número {67+i}, Canoas.'} for i in range(15)]})
         self.assertEqual(maximum, 4)
         self.assertEqual(len(output['cases']), 15)
         self.assertEqual(len(registry.read()), 15)

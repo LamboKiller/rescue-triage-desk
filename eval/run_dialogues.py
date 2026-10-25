@@ -21,6 +21,9 @@ def evaluate(offline=False):
         pipeline=Pipeline(Registry(Path(folder)/'events.jsonl'),sample=offline)
         for d in dialogues:
             key=d['dialogue_id']; expected=truth[key]
+            # Dialogues are independent incidents: a fresh registry keeps one dialogue's
+            # rescued/duplicate state from leaking into the next one at the same address.
+            pipeline=Pipeline(Registry(Path(folder)/(key+'.jsonl')),sample=offline)
             try:
                 with contextlib.redirect_stdout(io.StringIO()):
                     first=pipeline.run({'replay_time':d['messages'][0]['received_at'],'messages':[dict(d['messages'][0],message_id=key)]})['cases'][0]

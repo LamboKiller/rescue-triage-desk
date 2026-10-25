@@ -7,7 +7,7 @@ from app.agents import critic
 from app.agents.location_tools import LocationTools
 from app.derive_count import _plain, reconcile_people
 from app.geo.incident import IncidentIndex, incident_text, municipality_mentions
-from app.geo.landmarks import distance, distinct_places, exact_evidence, match as match_landmark
+from app.geo.landmarks import distance, distinct_places, exact_evidence, match as match_landmark, GENERIC
 from app.geo.streets import lookup, normalize
 from app.llm.nightshift import TRACE_LOCK
 from app.redact import redact
@@ -92,6 +92,10 @@ def _objections(answer, tools):
         return [{'field': 'location', 'reason': 'quote_result_mismatch'}]
     objections = []
     scoped = tools.scoped
+    if (candidate['kind'] == 'landmark' and set(normalize(candidate['name']).split()) <= GENERIC
+            and not (candidate.get('category', '').startswith('public_transport:') and
+                     re.search(r'\b(?:estacao|metro|trem)\s+(?:do |da |de )?'+re.escape(_plain(candidate['name']))+r'\b', scoped))):
+        objections.append({'field': 'location', 'reason': 'generic_place'})
     streets = tools.index.hits(scoped, tools.index.streets, tools.index.max_words)
     explicit = _incident_cities(tools.index, scoped, streets)
     bairros = tools.index.hits(scoped, tools.index.bairros)
@@ -344,6 +348,27 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
         street = lookup([], '', '', replay)
         fields.pop('street', None)
     cities = _incident_cities(index, scoped, hits)
+    # An entire bairro is an explicitly approximate search area in life danger.
+    # Require a literal source-backed bairro and the usual city/evidence checks.
+    bairros = index.hits(scoped, index.bairros)
+    if not hits and bairros and state(text)['life_safety']:
+        tools = LocationTools(rows, landmark_rows, text, replay, points=points, index=index)
+        choices = [(a, b, c) for a, b, cs in bairros for c in tools.search_bairro(text[a:b])
+                   if c['city'] in cs and (not cities or cities == {c['city']})]
+        if len(choices) == 1:
+            a, b, candidate = choices[0]
+            quote = text[a:b]
+            tools.results['t1'] = dict(why_quote=quote, candidates=[candidate])
+            answer = dict(candidate_id=candidate['candidate_id'], precision='area', evidence=[quote, 't1'])
+            if not _objections(answer, tools):
+                fields['landmark'] = dict(value=candidate['name'], quote=quote, source='rule:bairro_area')
+                fields['municipality'] = dict(value=candidate['city'], quote=quote, derived=True, source='rule:bairro_area')
+                landmark = dict(status='resolved', precision='area', matched=candidate, candidates=[candidate],
+                                requested=True, reason='Bairro inteiro; confirmar ponto em paralelo.',
+                                in_water_by_date=None, publication_available=False)
+                output = dict(location_path='deterministic_bairro', precision='area', candidate=candidate,
+                              answer=answer, steps=[], tool_steps=0, objections=[], fallback=False, revision=False)
+                return lookup([], '', '', replay), None, landmark, output, []
     # Only an unambiguous, literal catalogue reference bypasses the policy.
     exact = exact_evidence(landmark_rows, scoped, cities)
     if not exact and memory is not None:
@@ -452,6 +477,8 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
                               why_quote=incident_landmark)], revision=False, fallback=False)
             _record(dict(role='location_agent', **output['steps'][0]), trace, emit)
             return street, cross, fallback, output, []
+        fallback.update(status='unresolved', matched=None, requested=True,
+                        reason='Landmark evidence did not pass location validation.')
     if client is None:
         return street, cross, fallback, {'location_path': 'agent', 'offline': True, 'precision':
             'approximate' if fallback['status'] == 'resolved' else 'street' if street['found'] else 'area',

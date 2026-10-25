@@ -23,6 +23,10 @@ def merge(previous, fields, reply, client, deadline, offline):
     for key, field in fields.items():
         field = dict(field, message_index=index)
         old = merged.get(key)
+        if correction and old and old['value'] != field['value']:
+            # A deliberate correction in its own message is the reporter's answer; only
+            # a self-correction inside one message needs a confirmation question.
+            field.pop('confirm', None)
         if old and old['value'] != field['value'] and key in ('people','children','elderly','disabled','pets') and not correction:
             conflicts.append({'field':key,'previous':old,'reply':field,'message_index':index})
         else:

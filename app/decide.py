@@ -15,7 +15,7 @@ def timestamp(value):
 
 
 def decide(fields, location, replay_time, received_at, complete=True, cross_location=None, landmark_location=None,
-           life_safety=False):
+           life_safety=False, people_signal=True):
     def v(key, default=None):
         return fields.get(key, {}).get('value', default)
     questions = []
@@ -29,7 +29,8 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     resolved = lm.get('status') == 'resolved' and not lm.get('context_only')
     landmark_request = bool(v('landmark') or lm.get('requested'))
     context_only = bool(location['found'] and v('number') and lm.get('context_only'))
-    approximate = bool(not v('number') and (resolved or life_safety and location['found']))
+    area = bool(resolved and lm.get('precision') == 'area')
+    approximate = bool(area or not v('number') and (resolved or life_safety and location['found']))
     if not v('municipality') and not resolved:
         questions.append('Em qual município está o pedido?')
     if lm.get('status') == 'conflict':
@@ -45,8 +46,6 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     exact_cross = bool(v('cross_street') and cross_location and cross_location['found'])
     if not v('number') and not exact_cross and not landmark_request and not resolved and not approximate:
         questions.append('Qual é o número da casa ou o cruzamento exato entre duas ruas?')
-    if people < 1:
-        questions.append('Quantas pessoas precisam de resgate?')
     if conflict:
         questions.append('Há contagens conflitantes. Qual é o total de pessoas e de pessoas vulneráveis?')
     if not complete:
@@ -58,7 +57,15 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     vulnerable = max(v('children', 0), v('elderly', 0), v('disabled', 0))
     priority = 5 * min(vulnerable, 10) + 8 * bool(v('risk_words'))
     priority += 4 * (location.get('in_water_by_date') is True) + min(24, max(0, int(age)))
+    # SAFE2-B: an unknown count never blocks a usable location, but only when the text
+    # shows people in danger; otherwise the desk still has to ask who needs rescue.
+    count_open = people < 1
+    if count_open and not (people_signal or life_safety or fields.get('count_unknown') or
+                           any(v(k, 0) for k in ('children', 'elderly', 'disabled'))):
+        questions.append('Quantas pessoas precisam de resgate?')
     decision = 'CALLBACK' if questions else 'SEND_CANDIDATE'
+    if count_open and 'Quantas pessoas precisam de resgate?' not in questions:
+        questions.append('Quantas pessoas precisam de resgate?')
     if approximate:
         questions.append('Qual é o ponto exato ou referência para a equipe localizar as pessoas?')
     if age < 0:
@@ -73,6 +80,8 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
               'Local por ponto de referência e contagem de pessoas informados; confirmar o local com a pessoa.' if resolved else
               'Rua e número ou cruzamento e contagem de pessoas informados; confirmar o local com a pessoa.')
     people_derived = bool(fields.get('people', {}).get('derived'))
+    if count_open and decision == 'SEND_CANDIDATE':
+        reason = 'contagem desconhecida, confirmar. ' + reason
     if people_derived and decision != 'REPORTED_RESCUED':
         grouped = fields['people'].get('source') == 'rule:grouped_people'
         reason = 'Contagem derivada — confirmar: '+('mínimo ' if fields['people'].get('minimum') else '')+str(people)+' ('+('grupos: ' if grouped else 'quem escreve + ')+', '.join(
@@ -80,6 +89,8 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
     return {'decision': decision, 'priority': priority, 'questions': questions,
             'decision_reason': reason, 'people_derived': people_derived,
             'location_approximate': approximate,
+            'people': people if people >= 1 else None,
+            'location_precision': 'area' if area else 'approximate' if approximate else 'exact' if v('number') else 'street',
             'age_hours': round(age, 2), 'conflicting_counts': conflict,
             'location_confidence': 'local por ponto de referência — confirmar com a pessoa' if resolved else
                 ('rua no cadastro; confirmar com pessoa' if location['found'] else 'insuficiente')}

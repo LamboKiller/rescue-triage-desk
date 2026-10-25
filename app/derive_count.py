@@ -178,6 +178,29 @@ def reconcile_people(fields, text):
     """Apply count evidence after extraction, equally for offline and model intake."""
     if not text or INJECTION.search(text):
         return
+    left = re.search(r'\b(?:mas|porem)\s+(?:ficou|ficaram|restou|restaram)\s+([^.;!\n]+)', _plain(text))
+    if left:
+        clause = text[left.start(1):left.end(1)]
+        members = list(PHRASE.finditer(clause))
+        named = list(re.finditer(r'\b(?:o|a)\s+(?:seu|dona|senhor|senhora)\s+\w+', _plain(clause)))
+        total, listed = 0, []
+        for member in members:
+            raw, noun = member.groups()
+            if not raw and _plain(noun).endswith('s'):
+                fields.pop('people', None)
+                fields['count_unknown'] = dict(value=True, quote=clause, source='rule:remaining_people')
+                return
+            total += int(raw) if raw and raw.isdigit() else NUMBERS.get(_plain(raw), 1) if raw else 1
+            listed.append(member[0])
+        for member in named:
+            if not any(a.start() <= member.start() < a.end() for a in members):
+                total += 1
+                listed.append(clause[member.start():member.end()])
+        if total:
+            fields['people'] = dict(value=total, quote=clause, derived=True,
+                                    source='rule:remaining_people', listed=listed)
+            fields.pop('conflicting_counts', None)
+            return
     mentions = []
     for m in TOTAL_FORMS.finditer(text):
         if re.match(r'\s+(?:familias?|adultos?|idos[oa]s?|criancas?|bebes?|cachorros?|gatos?|pets?)\b', _plain(text[m.end():])):
@@ -193,7 +216,12 @@ def reconcile_people(fields, text):
         m, n = corrected[-1]
         fields['people'] = dict(value=n, quote=m[0], source='rule:corrected_people', derived=True,
             previous=[dict(value=v, quote=old[0]) for old, v in mentions if old.start() < cues[-1].start()],
-            listed=[m[0]], confirm=True)
+            listed=[m[0]])
+        # Only a self-correction inside one message needs confirming; a correction sent as a
+        # later message (history is joined by newlines) is the reporter's deliberate answer.
+        boundary = text.rfind(chr(10), 0, cues[-1].start())
+        if not (boundary >= 0 and all(old.end() <= boundary for old, _ in mentions if old.start() < cues[-1].start())):
+            fields['people']['confirm'] = True
         fields.pop('conflicting_counts', None)
     elif len(distinct) > 1 and not derive_grouped(text):
         fields['conflicting_counts'] = dict(value=True, quote=text, source='rule:count_conflict',
@@ -233,7 +261,7 @@ def reconcile_people(fields, text):
 
 
 RESCUE_COMPLETE = re.compile(
-    r'\b(?:ja (?:foram|estao|estamos|fomos) (?:tod[oa]s? )?(?:resgatad[oa]s?|retirad[oa]s?|tirad[oa]s?|no abrigo)|'
+    r'\b(?:ja sai(?:mos)?\b|(?:um |uma |o |a )?vizinh[oa][^.;!\n]{0,35}me levou de (?:caiaque|barco|lancha)|ja (?:foram|estao|estamos|fomos) (?:tod[oa]s? )?(?:resgatad[oa]s?|retirad[oa]s?|tirad[oa]s?|no abrigo)|'
     r'(?:consegui|conseguimos|conseguiram) sair|(?:um |uma |o |a )?vizinh[oa][^.;!\n]{0,45}me tirou)\b')
 REMAINING = re.compile(
     r'\b(?:ainda|continua[m]?|segue[m]?)\s+(?:(?:esta[o]?|tem|ha|ficou|ficaram)\s+)?'

@@ -256,7 +256,7 @@ class Pipeline:
             emit('location_done', role='location')
             result = decide(fields, location, replay, message['received_at'], complete=complete,
                             cross_location=cross, landmark_location=landmark,
-                            life_safety=rescue_state['life_safety'])
+                            life_safety=rescue_state['life_safety'], people_signal=rescue_state['people_signal'])
             if previous is not None and dialogue_data.get('contradictions'):
                 result['questions'].append('Confirmar contradições entre mensagens: '+', '.join(sorted({c['field'] for c in dialogue_data['contradictions']}))+'.')
                 if not result['conflicting_counts']:
