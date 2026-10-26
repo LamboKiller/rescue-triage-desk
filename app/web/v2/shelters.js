@@ -27,9 +27,11 @@ window.DeskShelters=(()=>{
         r.hidden=medicalOnly&&!m;
       }
       if(medicalOnly){
-        const sortedRows=rows.filter(r=>!r.hidden).sort((a,b)=>{const ma=cases.get(a.dataset.case).medical,mb=cases.get(b.dataset.case).medical;return remaining(ma)-remaining(mb)||ma.time_to_harm_hours[1]-mb.time_to_harm_hours[1];});
+        const visibleRows=rows.filter(r=>!r.hidden);
+        const sortedRows=[...visibleRows].sort((a,b)=>{const ma=cases.get(a.dataset.case).medical,mb=cases.get(b.dataset.case).medical;return remaining(ma)-remaining(mb)||ma.time_to_harm_hours[1]-mb.time_to_harm_hours[1];});
         const empty=q.querySelector('.empty');
-        if(sortedRows.some((r,i)=>q.children[i]!==r))for(const r of sortedRows)q.append(r);
+        // Hidden rows stay in the DOM; compare only visible rows so our observer settles.
+        if(sortedRows.some((r,i)=>visibleRows[i]!==r))for(const r of sortedRows)q.append(r);
         if(!sortedRows.length&&!q.querySelector('.medical-empty')){const p=el('p','Nenhum incidente aberto com necessidade médica citada.','empty medical-empty');q.append(p);}
         if(sortedRows.length)q.querySelector('.medical-empty')?.remove();
         if(empty&&sortedRows.length)empty.hidden=true;
