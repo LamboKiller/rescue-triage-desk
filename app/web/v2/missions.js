@@ -33,7 +33,7 @@ window.DeskMissions=(()=>{
           }catch(error){notice(error.message,true);act.disabled=blockers.length>0||!assigned&&!check.checked;}
         },assigned?'':'primary');
         act.disabled=blockers.length>0||!assigned;check.onchange=()=>{act.disabled=blockers.length>0||!check.checked;};
-        if(!assigned)section.append(ack);section.append(act);body.append(section);
+        if(!assigned)section.append(ack);section.append(act);body.append(section);if(assigned)await window.DeskChain?.mount(section,p,{api,el,button,evidence,refresh,notice,day});
       }
     }catch(error){if(token!==generation||!body.isConnected)return;window.DeskMap.showMission(null);body.replaceChildren(el('p',error.message,'danger'));}
   }

@@ -596,6 +596,10 @@ class Pipeline:
                             for evidence in entry['review']['evidence']:
                                 evidence['case']='B' if evidence['case']=='A' else 'A'
                     case['duplicates'].append(entry)
+        try:  # N2A3: advisory cross-source check AFTER every decision; deterministic here, model phrasing on a background thread
+            from app.contradictions.hook import after_decision
+            after_decision(self, results, previous, None if self.sample or ablation != 'full' else client)
+        except Exception: pass
         if previous is not None:
             from app.dialogue import messages as reply_messages
             case = results[0]

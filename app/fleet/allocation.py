@@ -156,7 +156,14 @@ def allocate(case,inventory,day,distance_fn=None):
         if cap: reason('CAPACITY',f'Capacidade: {cap} passageiros; viagens calculadas: {trips}.')
         if trips and trips>1: reason('MULTI_TRIP',confirm=True,severity=2)
         p=point(case);base=u.get('base_location')
-        travel=(distance_fn or distance)(base,p) if base and p else None
+        travel=(getattr(distance_fn,'for_unit',None)(base,p,u) if getattr(distance_fn,'for_unit',None) else (distance_fn or distance)(base,p)) if base and p else None
+        if (isinstance(travel,dict) and travel.get('reachable') is False) or (getattr(distance_fn,'for_unit',None) and travel is None):
+            # Routing failure never makes a unit ineligible by itself: fall back to the labelled straight line
+            # and put "rota não comprovada" on the human checklist.
+            reason('ROUTE_UNPROVEN','REVISAR: rota não comprovada até o caso; distância em linha reta é só estimativa. '+'; '.join((travel or {}).get('review_pt',[])),confirm=True,severity=2)
+            travel=distance(base,p) if base and p else None
+        elif isinstance(travel,dict) and travel.get('route',{}).get('decision')=='REVIEW_REQUIRED':
+            reason('ROUTE_REVIEW','Confirmar rota estimada, transporte da embarcação e trecho aquático.',confirm=True,severity=2)
         eta=travel.get('eta_seconds') if isinstance(travel,dict) else None
         basis=travel.get('basis_pt') if isinstance(travel,dict) else 'Distância em linha reta da base; estimativa, sem rota ou ETA.'
         dist=travel.get('distance_m') if isinstance(travel,dict) else travel

@@ -48,7 +48,7 @@ class MissionService:
             c,units=allocation_snapshot(self,case_id,day)
             prepared=eligible_cases([c],day,self.extractor,time.monotonic()+90)
             if prepared: c=prepared[0]
-            result=allocate(c,units,day)
+            result=allocate(c,units,day,distance_fn=self.routing_distance(day) if hasattr(self,'routing_distance') else None)
             key=fingerprint(result)
             if key not in self.allocation_briefs:
                 self.allocation_briefs[key]=explain_allocation(result,self.client,time.monotonic()+90)
@@ -143,13 +143,14 @@ class MissionService:
             raise Conflict('Selecione uma parada da missao ativa.')
         return feedback_service.submit(cid,request,mid)
 
-    def detail(self,mid):
-        cases=self.registry.read();events=[a for c in cases for a in c.get('actions',[])
+    def detail(self,mid,_cases=None):
+        cases=self.registry.read() if _cases is None else _cases;events=[a for c in cases for a in c.get('actions',[])
             if a.get('mission_id')==mid and a.get('action')=='approve_mission']
         if not events:
             if mid in self.cache: return {**copy.deepcopy(self.cache[mid]),'mission_id':None,'status':'proposed'}
             raise KeyError(mid)
-        plan=copy.deepcopy(events[0]['mission']);ids={s['case_id'] for s in plan['stops']}
+        current=next((c.get('mission') for c in cases if c.get('mission_id')==mid and c.get('mission')),None)
+        plan=copy.deepcopy(current or events[0]['mission']);ids={s['case_id'] for s in plan['stops']}
         members=[c for c in cases if c['case_id'] in ids]
         cancelled=any(a.get('mission_id')==mid and a.get('action')=='cancel_mission' for c in members for a in c.get('actions',[]))
         done={c['case_id'] for c in members if any(a.get('action')=='field_feedback' and a.get('mission_id')==mid and a.get('stop_done') for a in c.get('actions',[]))}

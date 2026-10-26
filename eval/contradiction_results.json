@@ -1,0 +1,16 @@
+{
+ "cases": 15,
+ "expected_items": 9,
+ "tp": 9,
+ "fp": 0,
+ "fn": 0,
+ "precision": 1.0,
+ "recall": 1.0,
+ "decision_changes_without_human": 0,
+ "quote_not_in_message": 0,
+ "sources_without_id_or_quote": 0,
+ "mean_detect_ms": 0.705,
+ "max_detect_ms": 6.939,
+ "model_calls": 0,
+ "failed_cases": []
+}

@@ -12,10 +12,10 @@
     "night_ok": true,
     "pets_ok": true,
     "base_location": {
-      "lat": -29.92,
-      "lon": -51.18
+      "lat": -29.927933,
+      "lon": -51.16139
     },
-    "base": "[SIMULADO] Base Canoas",
+    "base": "[SIMULADO] Base Canoas — Av. Santos Ferreira (referência: Corpo de Bombeiros, nº 965; ponto na via escolhido no grafo OSM, seco estimado)",
     "crew": "[SIMULADO] Equipe ficticia",
     "status": "available",
     "last_report_at": "2024-05-08T08:00:00-03:00",
@@ -77,10 +77,10 @@
     "night_ok": false,
     "pets_ok": true,
     "base_location": {
-      "lat": -29.93,
-      "lon": -51.18
+      "lat": -30.030443,
+      "lon": -51.22999
     },
-    "base": "[SIMULADO] Base Canoas",
+    "base": "[SIMULADO] Base Porto Alegre — R. Gen. Andrade Neves (referência: Defesa Civil, nº 106; ponto na via escolhido no grafo OSM, seco estimado)",
     "crew": "[SIMULADO] Equipe ficticia",
     "status": "available",
     "last_report_at": "2024-05-08T08:00:00-03:00",
@@ -142,10 +142,10 @@
     "night_ok": false,
     "pets_ok": false,
     "base_location": {
-      "lat": -29.915,
-      "lon": -51.18
+      "lat": -29.927636,
+      "lon": -51.161906
     },
-    "base": "[SIMULADO] Base Canoas",
+    "base": "[SIMULADO] Base Canoas — Av. Santos Ferreira (referência: Corpo de Bombeiros, nº 965; ponto na via escolhido no grafo OSM, seco estimado)",
     "crew": "[SIMULADO] Equipe ficticia",
     "status": "available",
     "last_report_at": "2024-05-08T08:00:00-03:00",
@@ -207,10 +207,10 @@
     "night_ok": true,
     "pets_ok": true,
     "base_location": {
-      "lat": -29.94,
-      "lon": -51.18
+      "lat": -29.92655,
+      "lon": -51.163326
     },
-    "base": "[SIMULADO] Base Canoas",
+    "base": "[SIMULADO] Base Canoas — Av. Santos Ferreira (referência: Corpo de Bombeiros, nº 965; ponto na via escolhido no grafo OSM, seco estimado)",
     "crew": "[SIMULADO] Equipe ficticia",
     "status": "available",
     "last_report_at": "2024-05-08T08:00:00-03:00",
@@ -272,10 +272,10 @@
     "night_ok": true,
     "pets_ok": true,
     "base_location": {
-      "lat": -29.95,
-      "lon": -51.18
+      "lat": -29.928102,
+      "lon": -51.157916
     },
-    "base": "[SIMULADO] Base Canoas",
+    "base": "[SIMULADO] Base Canoas — Av. Santos Ferreira (referência: Corpo de Bombeiros, nº 965; ponto na via escolhido no grafo OSM, seco estimado)",
     "crew": "[SIMULADO] Equipe ficticia",
     "status": "available",
     "last_report_at": "2024-05-08T08:00:00-03:00",
@@ -337,10 +337,10 @@
     "night_ok": true,
     "pets_ok": false,
     "base_location": {
-      "lat": -29.91,
-      "lon": -51.18
+      "lat": -30.030762,
+      "lon": -51.227811
     },
-    "base": "[SIMULADO] Base Canoas",
+    "base": "[SIMULADO] Base Porto Alegre — R. Gen. Andrade Neves (referência: Defesa Civil, nº 106; ponto na via escolhido no grafo OSM, seco estimado)",
     "crew": "[SIMULADO] Equipe ficticia",
     "status": "available",
     "last_report_at": "2024-05-08T08:00:00-03:00",
@@ -402,10 +402,10 @@
     "night_ok": true,
     "pets_ok": false,
     "base_location": {
-      "lat": -29.98,
-      "lon": -51.18
+      "lat": -29.940269,
+      "lon": -51.14713
     },
-    "base": "[SIMULADO] Base Canoas",
+    "base": "[SIMULADO] Base de apoio aéreo — Canoas, ponto aproximado perto da Base Aérea (nó OSM, seco estimado)",
     "crew": "[SIMULADO] Equipe ficticia",
     "status": "out_of_service",
     "last_report_at": "2024-05-08T08:00:00-03:00",

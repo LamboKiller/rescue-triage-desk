@@ -3,6 +3,7 @@ import re
 from app.derive_count import INJECTION, _plain, completed_rescue_quote, REMAINING
 from app.geo.incident import incident_text, rs_municipalities, municipality_mentions
 from app.rescue_state import ANIMALS, state
+from app.volunteers.detect import is_offer as volunteer_offer
 
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
 OUTSIDE = re.compile(r'\b(?:'+'|'.join(map(re.escape, sorted(set(rs_municipalities()) - COVERED, key=len, reverse=True)))+
@@ -10,6 +11,7 @@ OUTSIDE = re.compile(r'\b(?:'+'|'.join(map(re.escape, sorted(set(rs_municipaliti
 REQUEST = re.compile(r'precisamos|preciso|socorro|nos resgat|nos ajudar|estamos (?:presos|ilhados)|agua (?:entrou|subindo)|need (?:rescue|help)|necesitamos|evacuar|resgat(?:e|ar) (?:meu|nosso|a gente)')
 LABELS = {'street':'Rua identificada', 'landmark':'Ponto de referência', 'ambiguous_place':'Local ambíguo',
           'not_a_rescue':'Sem pessoas para resgatar — revisão humana',
+          'volunteer_offer':'Voluntários — oferta de ajuda',
           'already_rescued':'Resgate relatado', 'not_a_request_or_injection':'Sem pedido verificável ou instrução suspeita',
           'out_of_area':'Fora da área atendida', 'agent_failure':'Falha na análise', 'incomplete':'Dados incompletos'}
 
@@ -65,6 +67,9 @@ def apply_route(case, rows):
         route = 'not_a_request_or_injection'
         result.update(decision='REVIEW_REQUIRED',
                       decision_reason='Instrução suspeita no texto; revisão humana obrigatória.')
+    elif volunteer_offer(case['text']):  # F6: boat offer, never a rescue case
+        route = 'volunteer_offer'
+        result.update(decision='REVIEW_REQUIRED', questions=[], decision_reason='oferta de ajuda — verificar voluntário')
     elif rescue['not_a_rescue'] and not animal_rescue(case['text']) and case.get('complete') and not case.get('errors'):
         route = 'not_a_rescue'
         note = ' critic indisponível; revisão humana necessária.' if case.get('review_degraded') else ''

@@ -58,10 +58,10 @@ class Registry:
                 event = json.loads(line)  # Fail closed on damaged log; never silently skip.
                 if event['kind'] == 'place_memory':
                     continue
-                if event['kind'] in ('resource', 'supervisor'):  # supervisor ticks/decisions are journal-only, never case state
+                if event['kind'] in ('resource', 'supervisor', 'contradiction'):  # supervisor ticks/decisions are journal-only, never case state
                     continue
                 if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission',
-                                     'repost_link', 'repost_unlink'):
+                                     'repost_link', 'repost_unlink', 'mission_update'):
                     for projection in event['projections']:
                         earlier = cases.get(projection['case_id'])
                         cases[projection['case_id']] = projection

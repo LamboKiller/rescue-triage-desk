@@ -19,7 +19,7 @@ NODE_DEFS = {
     'needs': ('Meios e necessidades', 'tool'), 'hazard_critic': ('Crítico de risco', 'agent'),
     'credibility': ('Credibilidade', 'agent'), 'duplicate_reviewer': ('Revisor de duplicatas', 'agent'),
     'hydro': ('Hidrografia retrospectiva', 'data'), 'decide': ('Decisão por regras', 'tool'),
-    'callback_planner': ('Planejador de retorno', 'agent'), 'supervisor': ('Supervisor', 'agent'),
+    'callback_planner': ('Planejador de retorno', 'agent'), 'supervisor': ('Supervisor', 'agent'), 'contradiction': ('Contradições entre fontes', 'agent'),
     'mission_planner': ('Planejador de missão', 'agent'), 'red_team': ('Red-team (atacante)', 'agent'),
     'judge': ('Juiz do red-team', 'tool'), 'place_memory': ('Memória de lugares', 'data'),
     'zetaris': ('Zetaris', 'data'), 'nightshift': ('Nightshift (modelo)', 'system'),
@@ -398,6 +398,35 @@ def _supervisor_events(g, seq, ev, ctx):
                 loop['outcome'] = 'aceito; aguardando re-checagem'
 
 
+def _contradiction_event(g, seq, ev, ctx):
+    """N2A3: cross-source contradiction items -> operator question -> human decision (detectors are code; the model only phrases strong ones)."""
+    ts, cid = ev.get('replay_time'), ev.get('case_id')
+    cids = [cid] if cid else []
+    ctx.setdefault('contradictions', {})
+    if ev.get('type') == 'detected':
+        for it in ev.get('items') or []:
+            g.edge(seq, 'j', ts, 'tool:cross_source', 'contradiction', 'data', 'Fontes divergentes', f'{it.get("kind")} ({it.get("strength")})', case_ids=cids,
+                   detail={'item_id': it.get('id'), 'strength': it.get('strength')})
+            g.edge(seq, 'j', ts, 'contradiction', 'operator', 'alert', 'Pergunta ao operador', f'{it.get("kind")} ({it.get("strength")})', human_gate=True, case_ids=cids,
+                   detail={'item_id': it.get('id'), 'strength': it.get('strength'), 'suggestion': it.get('suggestion')})
+            ctx['contradictions'][it.get('id')] = g.loop(id=f'contradiction:{it.get("id")}', kind='contradiction', case_ids=cids, seq=seq, ts=ts, status='open', iterations=0,
+                                                         closed_ts=None, basis='replay', outcome='divergência aberta; aguardando operador',
+                                                         detail={'kind': it.get('kind'), 'strength': it.get('strength')})
+    elif ev.get('type') == 'phrased':
+        fb = ev.get('fallback_reason')
+        g.calls.append(('contradiction', ts, ev.get('seconds'), 'fallback' if fb else 'ok', None))
+        g.edge(seq, 'j', ts, 'contradiction', 'operator', 'call', 'Pergunta redigida' + (' (modelo)' if ev.get('phrased_by') == 'model' else ' (modelo indisponível: pergunta por regra)'),
+               _s(ev.get('question_pt') or fb or ''), case_ids=cids, latency_s=ev.get('seconds'), status='fallback' if fb else 'ok', detail={'item_id': ev.get('item_id'), 'fallback_reason': fb})
+    elif ev.get('type') == 'decision':
+        g.edge(seq, 'j', ts, 'operator', 'contradiction', 'human_action', 'Operador: ' + str(ev.get('decision')), f'{ev.get("decision")} por {ev.get("actor")}', human_gate=True,
+               case_ids=cids, detail={'item_id': ev.get('item_id'), 'decision': ev.get('decision'), 'execution': ev.get('execution')})
+        loop = ctx['contradictions'].get(ev.get('item_id'))
+        if loop:
+            loop['iterations'] += 1
+            loop.update(status='closed', closed_ts=ts, outcome={'acknowledge': 'reconhecida pelo operador', 'dismiss': 'dispensada pelo operador',
+                                                              'confirm': 'sugestão confirmada pelo operador'}.get(ev.get('decision'), ev.get('decision')))
+
+
 def _memory_event(g, seq, ev, ctx):
     ts = ev.get('at')
     if ev.get('action') == 'propose':
@@ -536,6 +565,8 @@ def _build_all(journal_path, callback_log, redteam_rows, now):
             _supervisor_events(g, seq, ev, ctx)
         elif k == 'place_memory':
             _memory_event(g, seq, ev, ctx)
+        elif k == 'contradiction':
+            _contradiction_event(g, seq, ev, ctx)
     journal_seq = seq
     _redteam(g, redteam_rows)
     _enrich_callbacks(g, callback_log)

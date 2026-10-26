@@ -1,5 +1,8 @@
 'use strict';
 window.DeskFleet=(()=>{
+  const km=value=>value==null?'distância a confirmar':(value/1000).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km estimados';
+  const pretty=text=>String(text||'').replace(/(\d+(?:\.\d+)?) m(?=\s|[;.,)]|$)/g,(_,n)=>km(Number(n)));
+  function sources(el,ids){const d=el('details');d.append(el('summary',`fontes (${ids.length})`),el('small',ids.join(', ')));return d;}
   const yes=value=>value===true?'Sim':value===false?'Não':'A confirmar';
   async function render(body,c,ctx){
     const {api,el,button,evidence,notice,refresh,day}=ctx;
@@ -9,23 +12,23 @@ window.DeskFleet=(()=>{
       const result=await api(`/api/cases/${encodeURIComponent(c.case_id)}/assets?date=${encodeURIComponent(day)}`);
       if(!card.isConnected)return;
       card.replaceChildren(el('h3','Qual meio enviar'),el('p',result.distance_basis_pt),
-        el('p',result.explanation_pt),el('small',result.explanation_check==='model_reviewed'?'Comparação Nemotron · citações validadas':`Modelo determinístico · ${result.fallback_reason||'sem chamada'}`));
+        el('p',pretty(result.explanation_pt)),el('small',result.explanation_check==='model_reviewed'?'Comparação Nemotron · citações validadas':`Modelo determinístico · ${result.fallback_reason||'sem chamada'}`));
       if(!result.top3.length)card.append(el('p','Sem unidade elegível. Confira os bloqueios antes de despachar.','danger'));
       for(const row of result.top3){
         const item=el('section');item.append(el('h4',`${row.rank}. ${row.label_pt} · ${row.id}`),
-          el('p',`${row.synthetic?'[SIMULADO] · ':''}${row.capacity_people} passageiros · ${row.trips} viagem(ns) · base: ${row.distance_m==null?'distância a confirmar':row.distance_m+' m estimados'}`));
+          el('p',`${row.synthetic?'[SIMULADO] · ':''}${row.capacity_people} passageiros · ${row.trips} viagem(ns) · base: ${km(row.distance_m)}`));
         const list=el('ul');
         for(const reason of row.reasons.filter(r=>!r.code.startsWith('R')||r.code!=='R000')){
-          const li=el('li',`${reason.text_pt} [${reason.code}]`);li.append(el('small',` · ${reason.fact_ids.join(', ')}`));list.append(li);
+          const li=el('li',`${pretty(reason.text_pt)} [${reason.code}]`);li.append(el('small',` · ${reason.fact_ids.join(', ')}`));list.append(li);
         }item.append(list);
         const checks=[];
         if(row.confirmation_checklist?.length)item.append(el('h4','Confirmar antes de despachar'));
         for(const check of row.confirmation_checklist||[]){
           const label=el('label',undefined,'ack'),tick=el('input');tick.type='checkbox';
-          label.append(tick,document.createTextNode(` ${check.text_pt} [${check.code}; ${check.fact_ids.join(', ')}]`));
+          label.append(tick,document.createTextNode(` ${pretty(check.text_pt)} [${check.code}]`));
           const overrideLabel=el('label',`Justificativa para ressalva ${check.code}`),override=el('textarea');
           override.maxLength=500;override.rows=2;override.id=`fleet-check-${row.id}-${check.code}`;overrideLabel.htmlFor=override.id;
-          item.append(label,overrideLabel,override);checks.push({check,tick,override});
+          item.append(label,sources(el,check.fact_ids),overrideLabel,override);checks.push({check,tick,override});
         }
         const reasonLabel=el('label','Motivo para escolher fora da primeira posição'),reasonInput=el('textarea');
         reasonInput.maxLength=500;reasonInput.rows=2;reasonInput.id=`fleet-override-${row.id}`;reasonLabel.htmlFor=reasonInput.id;

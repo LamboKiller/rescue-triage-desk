@@ -3,12 +3,12 @@
 // desk's own records); this file decides nothing and highlights only edges that arrived in the latest poll.
 window.DeskFlow=(()=>{
  const NS='http://www.w3.org/2000/svg';
- const ORDER=['citizen','intake','critic','revision','location','tool:','needs','hazard_critic','credibility','duplicate_reviewer','hydro','zetaris','decide','callback_planner','operator','crew','mission_planner','supervisor','place_memory','red_team','judge','regression','nightshift'];
+ const ORDER=['citizen','intake','critic','revision','location','tool:','needs','hazard_critic','credibility','duplicate_reviewer','hydro','zetaris','decide','callback_planner','operator','crew','mission_planner','supervisor','contradiction','place_memory','red_team','judge','regression','nightshift'];
  const STATUS={ok:'ok',failed:'falhou',fallback:'regra determinística'};
  const KIND={message:'mensagem',reply:'resposta',call:'chamada',handoff:'repasse',tool_call:'ferramenta',decision:'decisão',callback_ask:'pergunta de retorno',human_action:'ação humana',
   alert:'alerta',recheck:'re-checagem',mission_proposal:'proposta de missão',field_report:'relato de campo',memory_proposal:'memória proposta',attack:'ataque',verdict:'veredito',proposal:'proposta de regressão',data:'dado'};
  const LOOP={critic_revision:'Crítico → revisão',location_tools:'Localização: passos de ferramenta',callback:'Retorno: pergunta → resposta → nova decisão',supervisor:'Supervisor: alerta → operador → re-checagem',
-  mission:'Missão: proposta → aprovação → equipe → caso',redteam:'Red-team: ataque → juiz → humano → regressão',memory:'Memória: proposta → aprovação humana'};
+  mission:'Missão: proposta → aprovação → equipe → caso',redteam:'Red-team: ataque → juiz → humano → regressão',memory:'Memória: proposta → aprovação humana',contradiction:'Contradição: fontes divergentes → pergunta → operador'};
  let ctx=null,sys={edges:[],nodes:[],stats:{},open_loops:[],loops:[],cursor:null,clock:null},cases=new Map(),timer=null,detail=null;
  const rank=id=>{const i=ORDER.findIndex(k=>k.endsWith(':')?id.startsWith(k):k===id);return i<0?ORDER.length:i;};
  const hhmm=t=>String(t||'').slice(11,16);

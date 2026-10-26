@@ -1,0 +1,12 @@
+{"id":"two-nearby-households","cases":[{"people":2},{"people":2,"lon":-51.175}],"expected":2}
+{"id":"household-would-overfill","cases":[{"people":5}],"expected":0}
+{"id":"unknown-household-reserves-boat","cases":[{"people":null}],"expected":0,"unknown":true}
+{"id":"urgent-neighbour-first","cases":[{"id":"routine","priority":"P2"},{"id":"urgent","priority":"P1"}],"expected":2,"first":"urgent"}
+{"id":"passengers-onboard-no-mutation","onboard":1,"cases":[{"priority":"P1"}],"expected":1}
+{"id":"draft-too-deep-for-alley","cases":[{"depth":0.1,"priority":"P1"}],"expected":0}
+{"id":"distant-household","cases":[{"lon":-51.1}],"expected":0}
+{"id":"radius-can-be-tightened","radius_km":0.1,"cases":[{}],"expected":0}
+{"id":"fully-reserved-unit","assigned":6,"cases":[{}],"expected":0}
+{"id":"existing-unknown-count-reserves-all","assigned":null,"cases":[{}],"expected":0}
+{"id":"only-two-additions","cases":[{},{},{}],"expected":2}
+{"id":"suspicious-message-held","cases":[{"injection":true,"priority":"P1"}],"expected":0}

@@ -35,7 +35,12 @@ class LandingService:
     def view(self, case_id, now, expand=False):
         case = self._case(case_id)
         states = self.shelters.shelters.state(now)
-        out = planner.plan(case, now, self._points(states, now[:10]), states, self.store.events, self.access_fn, self.distance_fn)
+        distance_fn = self.distance_fn
+        if getattr(self, 'road_routing', False):
+            from app.geo.routing import landing_distance, landing_transfers
+            distance_fn = distance_fn or landing_distance(now[:10])
+        out = planner.plan(case, now, self._points(states, now[:10]), states, self.store.events, self.access_fn, distance_fn)
+        if getattr(self, 'road_routing', False): landing_transfers(out['options'], now[:10])
         ch = self.choice_of(case_id, now)
         out['choice'] = ch
         pick = next((o for o in out['options'] if ch and o['landing_id'] == ch['landing_id']), None)

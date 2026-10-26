@@ -155,7 +155,8 @@ def build_plan(cases,day,inventory,radius_m):
         if not c.get('location_confirmed'): block.append('Confirmar localização do caso '+c['case_id']+'.')
         if (c.get('hazards') or {}).get('depth_band','unknown')=='unknown': block.append('Confirmar profundidade e acesso do caso '+c['case_id']+'.')
         if (c.get('hazards') or {}).get('depth_observed_date','')>day: block.append('Observação de profundidade posterior à data do plano.')
-        if c.get('routing_flags',{}).get('injection') or c.get('result',{}).get('conflicting_counts') or c.get('open_items'):
+        blocking_items=[i for i in (c.get('open_items') or []) if not (isinstance(i,dict) and i.get('reason')=='contradiction')]  # N2A3 cross-source items are advisory (card + callback), never a dispatch block by themselves
+        if c.get('routing_flags',{}).get('injection') or c.get('result',{}).get('conflicting_counts') or blocking_items:
             block.append('Revisão humana necessária: instruções suspeitas ou dados em conflito no caso '+c['case_id']+'.')
         if any(c.get(k,'9999')[:10]>day for k in ('received_at','replay_time')): block.append('Mensagem posterior à data do plano.')
     if not units: block.append('Informar inventário datado e recurso permitido pelas regras para todos os casos.')

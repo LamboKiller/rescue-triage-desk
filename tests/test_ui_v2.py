@@ -127,7 +127,7 @@ class UITests(unittest.TestCase):
         self.assertIn('sources', json.loads(body)['hazards'])
         self.assertIn('ODbL', json.loads(body)['map3d'])
         ui = sum(p.stat().st_size for p in routes_v2.UI.rglob('*') if p.suffix in ('.html', '.css', '.js') and 'vendor' not in p.relative_to(routes_v2.UI).parts)
-        self.assertLessEqual(ui, 200000)  # raised 26/10: Fluxo + Abrigos tabs (operator-facing), vendored libs excluded
+        self.assertLessEqual(ui, 260000)  # raised 26/10 (Orbit): fleet, landing, volunteers, route, chaining, cross-source panels; own unminified UI only, vendored libs excluded
         self.assertLessEqual(sum(p.stat().st_size for p in routes_v2.MAP.rglob('*') if p.is_file()), 60000000)
 
     def test_javascript_syntax_and_safety_gates(self):

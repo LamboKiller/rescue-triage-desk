@@ -53,7 +53,7 @@ window.DeskSupervisor=(()=>{
   root.append(tl);
   const list=el('div',undefined,'sup-alerts');if(!data.alerts.length)list.append(el('p','Sem alertas neste dia.','muted'));
   for(const a of data.alerts)list.append(alertCard(a));
-  root.append(list);
+  root.append(list);window.DeskChain?.alerts(list,ctx);
  }
  function init(c){
   ctx=c;const bar=document.querySelector('.status-bar'),anchor=document.getElementById('resources');

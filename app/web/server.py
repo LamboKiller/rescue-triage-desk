@@ -24,6 +24,8 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     from app.missions.client import MissionClient
     service=MissionService(registry,inventory,None if offline else pipeline.client or MissionClient(ROOT/'runtime/mission_trace.jsonl'),radius_m)
     if demo_units is not None: service.allocation_inventory=demo_units
+    from app.geo.routing import FleetDistance, case_route, day_value as routing_day
+    service.routing_distance=FleetDistance
     from app.feedback import FeedbackService
     feedback=FeedbackService(registry,None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/feedback_trace.jsonl'))
     from app.supervisor.service import SupervisorService
@@ -42,9 +44,16 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     from app.shelters.service import ShelterService
     from app.shelters import routes as shelter_routes
     shelters=ShelterService(registry,ROOT/'runtime/shelter_events.jsonl')
+    from app.contradictions.service import ContradictionService
+    from app.contradictions import routes as contradiction_routes
+    contradictions=ContradictionService(registry)
     from app.landing.service import LandingService
     from app.landing import routes as landing_routes
     landing=LandingService(registry,shelters,ROOT/'runtime/landing_events.jsonl',callback_client)
+    landing.road_routing=True
+    from app.volunteers.service import VolunteerService  # F6: volunteer boat intake (pending until a human verifies)
+    from app.volunteers import routes as volunteer_routes
+    volunteers=VolunteerService(registry.path.parent/'volunteers_events.jsonl',registry,callback_client)
     server=original_server(host,port,sample=offline,pipeline=pipeline)
     from app.replay import routes as replay_routes
     BaseHandler=server.RequestHandlerClass
@@ -52,6 +61,20 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     class Handler(BaseHandler):
         def do_GET(self):
             path=urlsplit(self.path).path
+            if path.startswith('/api/cases/') and path.endswith('/route') and len(path.split('/'))==5:
+                try:
+                    query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
+                    if set(query)!={'unit','date'} or any(len(v)!=1 or not v[0] for v in query.values()):
+                        raise ValueError('Informe uma unidade e uma data YYYY-MM-DD.')
+                    day=routing_day(query['date'][0])
+                    from app.fleet.snapshot import read as routing_snapshot
+                    c,units=routing_snapshot(service,path.split('/')[3],day)
+                    unit=next((u for u in units if u['id']==query['unit'][0]),None)
+                    if unit is None: raise KeyError(query['unit'][0])
+                    return self.send_json(200,case_route(c,unit,day))
+                except KeyError: return self.send_json(404,{'error':'Caso ou unidade não encontrado.'})
+                except (ValueError,TypeError) as exc: return self.send_json(400,{'error':str(exc)})
+                except OSError: return self.send_json(503,{'error':'Malha local indisponível; REVISAR acesso.'})
             if path == '/api/flow':
                 from app.flow.routes import handle as flow_handle
                 return flow_handle(self,registry,parse_qs(urlsplit(self.path).query,keep_blank_values=True))
@@ -74,7 +97,12 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                     return self.send_json(200,service.assets(cid,query.get('date',[(c.get('replay_time') or c['received_at'])[:10]])[0]))
                 except KeyError: return self.send_json(404,{'error':'Caso não encontrado.'})
                 except (ValueError,TypeError) as exc: return self.send_json(400,{'error':str(exc)})
+            if path.startswith('/api/volunteers'): return volunteer_routes.handle(self,volunteers,'GET',registry.read)
+            if path.startswith('/api/contradictions'): return contradiction_routes.handle(self,contradictions,'GET')
             if path.startswith('/api/shelters'): return shelter_routes.handle(self,shelters,'GET')
+            if path=='/api/reroutes' or (path.startswith('/api/missions/') and path.endswith('/chain')):
+                from app.missions.chain_routes import handle
+                return handle(self,service,'GET')
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'GET')
             if path in ('/api/evals','/api/provenance'):
                 from app import provenance
@@ -120,7 +148,12 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                 from app.memory.routes import handle
                 return handle(self,registry,'POST')
             if path.startswith('/api/landing/') or (path.startswith('/api/cases/') and path.endswith('/landing/choice')): return landing_routes.handle(self,landing,'POST')
+            if path.startswith('/api/volunteers'): return volunteer_routes.handle(self,volunteers,'POST')
+            if path.startswith('/api/contradictions'): return contradiction_routes.handle(self,contradictions,'POST')
             if path.startswith('/api/shelters'): return shelter_routes.handle(self,shelters,'POST')
+            if path.startswith('/api/reroutes/'):
+                from app.missions.chain_routes import handle
+                return handle(self,service,'POST')
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'POST')
             if path.startswith('/api/redteam'): return redteam_handle(self,redteam,'POST')
             if path.startswith('/api/replay'): return replay_routes.handle(self,server.replay,'POST')
@@ -177,6 +210,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     server.missions=service
     server.shelters=shelters
     server.landing=landing
+    server.volunteers=volunteers
     server.feedback=feedback
     server.callback=callback
     server.supervisor=supervisor
