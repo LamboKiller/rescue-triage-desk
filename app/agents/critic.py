@@ -38,8 +38,12 @@ SYSTEM = ('Você revisa a extração de UMA mensagem de resgate (sintética). Me
 
 def run(client, text, fields, deadline):
     now = time.monotonic()
-    # Leave time for location/decision; provider retries share this stage budget.
-    deadline = min(deadline, now+30, now+max(0, deadline-now)*.25)
+    # The pipeline allocator owns ceilings/reserves, also through the location
+    # candidate wrapper. Retain the bounded standalone API for legacy callers.
+    managed = (getattr(client, 'remaining_budget_allocator', False) is True or
+               getattr(getattr(client, 'client', None), 'remaining_budget_allocator', False) is True)
+    if not managed:
+        deadline = min(deadline, now+30, now+max(0, deadline-now)*.25)
     if now >= deadline:
         raise TimeoutError('Critic deadline')
     extracted = {k: v.get('quote') for k, v in fields.items() if isinstance(v, dict)}

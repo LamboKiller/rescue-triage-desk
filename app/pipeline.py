@@ -29,19 +29,37 @@ from app.routing import apply_route, finish_route, animal_rescue
 
 
 class StageBudget:
-    """One message deadline, fixed stage shares, cumulative across retries.
+    """Remaining message time, with per-call ceilings and deterministic reserve.
 
-    Shares total 100%; unused time stays reserved for deterministic checks. The
-    shared Nightshift transport retains streaming, thinking and its token limit.
-    A timed-out provider cannot block this worker or deliver a late accepted fact.
+    Orbit, 26 Oct 2026: BRIEF_LIVEFIX.md, live2 (78438ef) / holdout_cases.
+    Seconds per successful call: role       live2 median/p90  holdout median/p90
+                                intake       5.9/17.0          7.4/29.0
+                                critic       7.9/22.5         17.0/24.3
+                                revision     8.2/12.8          3.9/28.1
+                                location     5.1/18.6          8.1/32.0
+                                hazard       5.1/13.5          3.7/4.6
+    Use the larger median / p90. Unmeasured ID reviewers borrow critic's
+    conservative thresholds (a proxy, not measured latency). Location's ceiling
+    applies per tool turn; other agent retries share their first call's ceiling.
+    Every call also shares the hard message deadline; skipped stages donate time.
+    Streaming, thinking, tokens, and rejection of late responses remain unchanged.
     """
-    SHARES = dict(intake=.27, critic=.12, revision=.12, location=.23,
-                  credibility=.06, arbiter=.10, hazard=.07, duplicate_reviewer=.03)
+    remaining_budget_allocator = True
+    RESERVE_SECONDS = 2.
+    MEDIANS = dict(intake=7.4, critic=17., revision=8.2, location=8.1,
+                   location_critic=17., hazard=5.1, credibility=17., arbiter=17.,
+                   duplicate_reviewer=17.)
+    CEILINGS = dict(intake=29., critic=24.3, revision=28.1, location=32.,
+                    location_critic=24.3, hazard=13.5, credibility=24.3, arbiter=24.3,
+                    duplicate_reviewer=24.3)
 
     def __init__(self, client, deadline, seconds, emit=None, *, trace=None, message_id=None):
         self.client, self.deadline, self.seconds, self.emit = client, deadline, seconds, emit
+        self.deadline = min(deadline, time.monotonic()+seconds)
+        self.reserve = min(self.RESERVE_SECONDS, seconds*.25)
         self.trace, self.message_id, self.receipts = trace, message_id, []
         self.ends, self.records, self.eligibility = {}, [], {}
+        self.attempts = {}
 
     def __getattr__(self, key):
         return getattr(self.client, key)
@@ -61,10 +79,21 @@ class StageBudget:
         stage = ('location' if role.startswith('location') else 'credibility' if role == 'credibility_reviewer'
                  else 'hazard' if role == 'hazard_critic' else role)
         if role == 'critic' and 'location' in self.ends:
-            stage = 'location'
+            stage = 'location_critic'
         now = time.monotonic()
-        end = self.ends.setdefault(stage, min(self.deadline, now+self.seconds*self.SHARES.get(stage, .05)))
-        end = min(end, deadline, self.deadline)
+        remaining = min(deadline, self.deadline-self.reserve)-now
+        if stage != 'location' and stage in self.ends:
+            remaining = min(remaining, self.ends[stage]-now)
+        optional = stage != 'intake' and (stage != 'location' or self.attempts.get(stage, 0) > 0)
+        if optional and remaining < self.MEDIANS.get(stage, self.MEDIANS['critic']):
+            self.record(stage, 'skipped', reason='insufficient_budget', availability='stage_unavailable',
+                        remaining_seconds=round(max(0, remaining), 4))
+            raise TimeoutError('stage_unavailable: '+stage)
+        ceiling = self.CEILINGS.get(stage, self.CEILINGS['critic'])
+        if stage == 'location' or stage not in self.ends:
+            self.ends[stage] = now+ceiling
+        end = min(self.ends[stage], deadline, self.deadline-self.reserve)
+        self.attempts[stage] = self.attempts.get(stage, 0)+1
         pool = None
         try:
             if now >= end:
@@ -90,17 +119,19 @@ class StageBudget:
             if time.monotonic() >= end:
                 raise TimeoutError('Late stage response: '+stage)
             self.record(stage, 'ran', seconds=round(time.monotonic()-now, 4),
-                        allowance_seconds=round(self.seconds*self.SHARES.get(stage,.05), 4))
+                        allowance_seconds=round(max(0, end-now), 4))
             return output, meta
         except TimeoutError:
-            self.record(stage, 'code_fallback', reason='stage_over_budget', seconds=round(time.monotonic()-now, 4))
+            self.record(stage, 'code_fallback', reason='stage_over_budget', availability='stage_unavailable',
+                        seconds=round(time.monotonic()-now, 4))
             raise
         finally:
             if pool:
                 pool.shutdown(wait=False, cancel_futures=True)
 
     def snapshot(self):
-        return dict(message_seconds=self.seconds, stage_seconds={k:round(v*self.seconds,4) for k,v in self.SHARES.items()},
+        return dict(message_seconds=self.seconds, allocator='remaining_budget',
+                    reserve_seconds=self.reserve, stage_seconds=dict(self.CEILINGS),
                     eligibility=dict(self.eligibility), stages=list(self.records))
 
 
@@ -280,8 +311,10 @@ class Pipeline:
                             review_degraded = True
                             if state(message['text'])['not_a_rescue']:
                                 agent_warnings.append('critic indisponível; classificação determinística preservada.')
-                            else:
+                            elif not isinstance(exc, TimeoutError):
                                 errors.append('critic_failed:'+safe_error(exc))
+                            else:
+                                agent_warnings.append('stage_unavailable: critic; revisão humana obrigatória.')
                             review, meta = {'objections': []}, None
                         if meta is not None:
                             calls.append(meta)
@@ -313,6 +346,8 @@ class Pipeline:
                 fields, history, conflicts, changes, review, metas = merge(
                     previous, fields, message, agent_client, deadline, True)
                 reply_reasons = critic.uncertainty('\n'.join(m['text'] for m in history), fields, unsupported)
+                if not reply_fields:
+                    reply_reasons.append('empty_reply_extraction')
                 if conflicts:
                     reply_reasons.append('dialogue_contradiction')
                 budget.eligibility['critic'] = bool(reply_reasons)
@@ -470,11 +505,12 @@ class Pipeline:
             if isinstance(client,Nightshift):
                 case['calls']=list(budget.receipts)
             if previous is not None and 'hazard_critic' in case['agents'] and not isinstance(case['hazard_review'], dict):
-                case['complete'] = False
-                case['errors'].append('hazard_critic_failed')
+                case['agent_warnings'].append('stage_unavailable: hazard; verificações determinísticas preservadas.')
             arbiter.attach(case, agent_client if not self.sample and ablation == 'full' else None,
                            deadline, trace=trace, emit=emit)
             case['latency_budget'] = budget.snapshot()
+            case['stage_unavailable'] = sorted({r['stage'] for r in budget.records
+                                                if r.get('availability') == 'stage_unavailable'})
             if isinstance(client, Nightshift):
                 case['calls'] = list(budget.receipts)
             if any(r['status'] == 'code_fallback' and r.get('reason') == 'stage_over_budget' for r in budget.records):

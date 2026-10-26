@@ -40,6 +40,11 @@ def collect(case):
     initial = initial.get('fields', {}) if isinstance(initial, dict) else case.get('initial_fields', {})
     review = agents.get('critic')
     for i, obj in enumerate(review.get('objections', []) if isinstance(review, dict) else []):
+        # Missing service / malformed objections are not opposing factual claims.
+        if (not isinstance(obj, dict) or obj.get('reason') not in
+                ('unsupported', 'overstated', 'missed', 'negated') or
+                not obj.get('quote') or obj['quote'] not in text):
+            continue
         field = obj.get('field', '')
         old, current = initial.get(field), fields.get(field)
         if old is None and current is None:
@@ -71,7 +76,8 @@ def collect(case):
     if isinstance(location, dict):
         protected = location.get('retained_deterministic')
         policy = location.get('policy_answer')
-        if protected and policy and policy.get('candidate_id') != protected['answer'].get('candidate_id'):
+        if (protected and policy and policy.get('candidate_id') and
+                policy.get('candidate_id') != protected['answer'].get('candidate_id')):
             add('location', [
                 _claim('location:code', 'code_lookup', 'location', protected['answer'].get('candidate_id'),
                        fields.get('street', {}).get('quote', ''), protected['answer'].get('candidate_id')),

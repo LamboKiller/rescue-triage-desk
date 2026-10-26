@@ -204,7 +204,9 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
     Existing strict JSON parsing, streaming, thinking and token defaults apply.
     """
     started = time.monotonic()
-    deadline = min(deadline, started+60, started+max(0, deadline-started)*.75)
+    # The pipeline allocator already reserves deterministic time per message.
+    if getattr(client, 'remaining_budget_allocator', False) is not True:
+        deadline = min(deadline, started+60, started+max(0, deadline-started)*.75)
     result = dict(location_path='agent', answer={'candidate_id': None, 'precision': 'area', 'evidence': []},
                   steps=[], tool_steps=0, objections=[], revision=False, fallback=False, critic=None)
     metas, history = [], []
