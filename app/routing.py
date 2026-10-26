@@ -57,6 +57,11 @@ def apply_route(case, rows):
         route = 'not_a_request_or_injection'
         result.update(decision='REVIEW_REQUIRED',
                       decision_reason='Instrução suspeita no texto; revisão humana obrigatória.')
+    elif rescue['not_a_rescue'] and case.get('complete') and not case.get('errors'):
+        route = 'not_a_rescue'
+        note = ' critic indisponível; revisão humana necessária.' if case.get('review_degraded') else ''
+        result.update(decision='REVIEW_REQUIRED', questions=[],
+                      decision_reason='Sem pessoas precisando de resgate; encaminhar para revisão humana.'+note)
     elif failure:
         route = 'agent_failure'
         result.update(decision='REVIEW_REQUIRED', decision_reason='Falha na análise automática; revisão humana obrigatória.')
@@ -86,7 +91,7 @@ def apply_route(case, rows):
         route = 'incomplete' if fields else 'not_a_request_or_injection'
     elif lm.get('status') == 'resolved' and not lm.get('context_only'):
         route = 'landmark'
-    if route in ('out_of_area', 'not_a_request_or_injection', 'not_a_rescue'):
+    if route in ('out_of_area', 'not_a_request_or_injection'):
         result['questions'] = ['Pode confirmar o pedido e o município para encaminhamento humano?']
     case['route'] = {'id':route, 'label_pt':LABELS[route], 'reason_pt':result['decision_reason'], 'steps':[]}
     case.pop('incident_outside_text', None)
@@ -119,3 +124,11 @@ def finish_route(case):
     steps.append({'stage':'hazard_critic', 'status':'ran' if ran else 'failed' if failed else 'skipped',
                   'reason_pt':'Revisão registrada.' if ran else 'Crítica indisponível.' if failed else
                   'Modo offline.' if offline else 'Decisão: '+case['result']['decision']})
+    for row in case.get('latency_budget', {}).get('stages', []):
+        if row['status'] in ('skipped', 'code_fallback'):
+            steps.append({'stage':row['stage'], 'status':row['status'],
+                          'reason_pt':row.get('reason', 'Orçamento por etapa.'), 'source':'stage_budget'})
+    for event in case.get('arbitration', []):
+        steps.append({'stage':'arbitration', 'status':'escalated' if event['verdict']=='ESCALATE' else 'resolved',
+                      'reason_pt':event.get('rule') or event['method'], 'conflict_id':event['id'],
+                      'claims':event['claims'], 'verdict':event['verdict'], 'receipt':event.get('receipt')})

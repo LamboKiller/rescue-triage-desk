@@ -97,6 +97,16 @@ def key(text):
     return tuple(t[0] for t in tokens(text))
 
 
+def incident_cities(index, scoped, streets):
+    """City assertions for victims, excluding caller and street-name spans."""
+    cities = {**{_plain(c): c for c in ('Porto Alegre', 'Canoas', 'São Leopoldo', 'Eldorado do Sul', 'Guaíba', 'Novo Hamburgo')},
+              **index.cities, 'poa': 'Porto Alegre'}
+    name_spans = streets + index.hits(scoped, index.bairros)
+    return {h[2] for h in municipality_mentions(scoped, name_spans)} | {display for city, display in cities.items()
+            for m in re.finditer(r'\b'+re.escape(city)+r'\b', scoped)
+            if not any(a <= m.start() and b >= m.end() for a, b, _ in streets)}
+
+
 class IncidentIndex:
     def __init__(self, streets, landmarks):
         self.streets = {}

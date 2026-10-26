@@ -8,7 +8,7 @@ from pathlib import Path
 import time
 import unittest
 from unittest.mock import patch
-from app.agents import location
+from app.agents import intake, location
 from app.geo.incident import IncidentIndex
 from app.pipeline import Pipeline
 from app.engines.world_model.registry import Registry
@@ -121,22 +121,29 @@ class BudgetTests(unittest.TestCase):
             def call(self, role, system, payload, deadline):
                 self.roles.append(role)
                 if role == 'intake':
-                    self.remaining.append(deadline-time.monotonic())
-                    time.sleep(.3)
                     return {'people': '2 pessoas', 'street': 'Rua Aurora', 'number': '473',
                             'municipality': 'Canoas'}, {'role': role}
                 return {'objections': []}, {'role': role}
         reader = Reader()
+        run_intake = intake.run
+        def delayed_intake(client, text, deadline, objections=None):
+            # Observe the message deadline, before StageBudget caps the call.
+            reader.remaining.append(deadline-time.monotonic())
+            # Worker time outside the provider stage still consumes this message's budget.
+            time.sleep(.3)
+            return run_intake(client, text, deadline, objections)
         scratch = Scratch()
         self.addCleanup(scratch.cleanup)
-        with patch('app.pipeline.hazard_critic.attach'), contextlib.redirect_stdout(io.StringIO()):
+        with patch('app.pipeline.intake.run', side_effect=delayed_intake), \
+                patch('app.pipeline.hazard_critic.attach'), contextlib.redirect_stdout(io.StringIO()):
             output = Pipeline(Registry(Path(scratch.name)/'events.jsonl'), source=Source(),
                               client=reader, budget_seconds=.8, max_workers=1).run({
                 'replay_time': REPLAY, 'messages': [dict(message_id=str(i),
                     text='2 pessoas na Rua Aurora 473 em Canoas.') for i in range(4)]})
         self.assertTrue(all(c['complete'] for c in output['cases']))
+        self.assertEqual(len(reader.remaining), 4)
         self.assertTrue(all(r > .6 for r in reader.remaining))
-        self.assertEqual(reader.roles.count('critic'), 4)
+        self.assertEqual(reader.roles.count('critic'), 0)
         self.assertNotIn('revision', reader.roles)
         self.assertNotIn('location_agent', reader.roles)
 
@@ -172,9 +179,19 @@ class BudgetTests(unittest.TestCase):
                     return {'people': '2 pessoas', 'street': 'Rua Aurora', 'number': '935',
                             'municipality': 'Canoas'}, {'role': role}
                 return {'objections': []}, {'role': role}
+        remaining = []
+        run_intake = intake.run
+        def delayed_intake(client, text, deadline, objections=None):
+            remaining.append(deadline-time.monotonic())
+            if 'lento' in text:
+                # Force the message deadline itself to expire, independently of
+                # the earlier provider-stage fallback introduced by A1L.
+                time.sleep(.4)
+            return run_intake(client, text, deadline, objections)
         scratch = Scratch()
         self.addCleanup(scratch.cleanup)
-        with patch('app.pipeline.hazard_critic.attach'), contextlib.redirect_stdout(io.StringIO()):
+        with patch('app.pipeline.intake.run', side_effect=delayed_intake), \
+                patch('app.pipeline.hazard_critic.attach'), contextlib.redirect_stdout(io.StringIO()):
             output = Pipeline(Registry(Path(scratch.name)/'events.jsonl'), source=Source(),
                               client=Reader(), budget_seconds=.25, max_workers=1).run({
                 'replay_time': REPLAY, 'messages': [dict(message_id=str(i),
@@ -184,6 +201,8 @@ class BudgetTests(unittest.TestCase):
         self.assertIn('message_deadline', cases['0']['errors'])
         self.assertGreater(cases['0']['seconds'], .2)
         self.assertTrue(cases['1']['complete'])
+        self.assertEqual(len(remaining), 2)
+        self.assertTrue(all(r > .2 for r in remaining))
 
 
 def runner_module():

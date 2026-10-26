@@ -52,7 +52,10 @@ def to_fields(raw):
         else:
             value = quote
         fields[name] = {'value': value, 'quote': quote}
-    return {'fields': fields, 'model_quotes': raw}
+    result = {'fields': fields, 'model_quotes': raw}
+    if 'confidence' in raw:
+        result['confidence'] = raw['confidence']
+    return result
 
 
 def run(client, text, deadline, objections=None):

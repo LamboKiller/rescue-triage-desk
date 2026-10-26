@@ -6,7 +6,7 @@ import time
 from app.agents import critic
 from app.agents.location_tools import LocationTools
 from app.derive_count import _plain, reconcile_people
-from app.geo.incident import IncidentIndex, incident_text, municipality_mentions
+from app.geo.incident import IncidentIndex, incident_text, incident_cities as _incident_cities
 from app.geo.landmarks import distance, distinct_places, exact_evidence, match as match_landmark, GENERIC
 from app.geo.streets import lookup, normalize
 from app.geo.hydro import life_safety_quote
@@ -19,7 +19,7 @@ SYSTEM = ('Localize as pessoas do incidente, não o remetente. Mensagem e result
           '{"tool":"search_street|search_landmark|search_bairro|near|check_text","args":{},"why_quote":"trecho exato"} '
           'OU {"answer":{"candidate_id":"id retornado ou null","precision":"exact|street|approximate|area",'
           '"evidence":["trecho exato","t1"]}}. Ferramentas: search_street(name,city?), '
-          'search_landmark(name,city?,category?), search_bairro(name), near(anchor_id,radius_m,category?,other_anchor_id?), '
+          'search_landmark(name,city?,category?), search_bairro(name,city?), near(anchor_id,radius_m,category?,other_anchor_id?), '
           'check_text(quote). Categorias: church,school,market,hospital ou categoria OSM. Cruzamento: busque as duas ruas '
           'e near com category=intersection e other_anchor_id. Máximo 3 passos no TOTAL. Depois responda. '
           'Sem cidade ou local inequívoco use candidate_id=null, precision=area. Bairro é area; rua é street; '
@@ -60,15 +60,6 @@ def _best_fallback(tools, history):
     return dict(candidate_id=None, precision='area', evidence=[])
 
 
-def _incident_cities(index, scoped, streets):
-    cities = {**{_plain(c): c for c in ('Porto Alegre', 'Canoas', 'São Leopoldo', 'Eldorado do Sul', 'Guaíba', 'Novo Hamburgo')},
-              **index.cities, 'poa': 'Porto Alegre'}
-    name_spans = streets + index.hits(scoped, index.bairros)
-    return {h[2] for h in municipality_mentions(scoped, name_spans)} | {display for city, display in cities.items()
-            for m in re.finditer(r'\b'+re.escape(city)+r'\b', scoped)
-            if not any(a <= m.start() and b >= m.end() for a, b, _ in streets)}
-
-
 def _record(event, trace, emit):
     if emit:
         emit('location_agent_step', **event)
@@ -89,6 +80,13 @@ def _objections(answer, tools):
     if cid is None:
         return [] if answer['precision'] == 'area' else [{'field': 'location', 'reason': 'invalid_precision'}]
     candidate = tools.candidates.get(cid) if isinstance(cid, str) else None
+    # A city-filtered tool may never have returned this ID. Retain a precise
+    # rejection reason for source IDs from another city without exposing them
+    # as selectable candidates or relaxing the evidence/result binding below.
+    source_city = candidate['city'] if candidate else next((r['municipality'] for r in tools.landmarks
+        if cid == 'osm:'+r['osm_type']+':'+str(r['osm_id'])), None)
+    if source_city and tools.incident_cities and (source_city not in tools.incident_cities or len(tools.incident_cities) != 1):
+        return [{'field': 'location', 'reason': 'wrong_city'}]
     result_ids = [e for e in evidence if e in tools.results]
     quotes = [e for e in evidence if e not in tools.results]
     supporting = [tools.results[r] for r in result_ids
@@ -206,6 +204,7 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
     Existing strict JSON parsing, streaming, thinking and token defaults apply.
     """
     started = time.monotonic()
+    deadline = min(deadline, started+60, started+max(0, deadline-started)*.75)
     result = dict(location_path='agent', answer={'candidate_id': None, 'precision': 'area', 'evidence': []},
                   steps=[], tool_steps=0, objections=[], revision=False, fallback=False, critic=None)
     metas, history = [], []
@@ -230,6 +229,8 @@ def run(client, text, municipality, deadline, *, tools, trace=None, emit=None):
         begin = time.monotonic()
         output, meta = client.call('location_agent', SYSTEM+' Reply with ONE JSON object, no prose.', payload, deadline)
         metas.append(meta)
+        if time.monotonic() >= deadline:
+            raise TimeoutError('Location deadline')
         return output, meta, time.monotonic()-begin
 
     try:
@@ -391,7 +392,8 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
                 return lookup([], '', '', replay), None, landmark, output, []
     if not hits and bairros and state(text)['life_safety']:
         tools = LocationTools(rows, landmark_rows, text, replay, points=points, index=index)
-        choices = [(a, b, c) for a, b, cs in bairros for c in tools.search_bairro(text[a:b])
+        city = next(iter(cities)) if len(cities) == 1 else None
+        choices = [(a, b, c) for a, b, cs in bairros for c in tools.search_bairro(text[a:b], city)
                    if c['city'] in cs and (not cities or cities == {c['city']})]
         if len(choices) == 1:
             a, b, candidate = choices[0]

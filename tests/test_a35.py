@@ -92,8 +92,8 @@ class CallbackExtendedTests(unittest.TestCase):
         self.assertEqual(intake.call_args.args[1], text)
         self.assertEqual(case['result']['decision'],'SEND_CANDIDATE')
         critic_calls=[c for c in client.call.call_args_list if c.args[0]=='critic']
-        self.assertEqual(len(critic_calls),1)
-        self.assertIn(self.case['text'],critic_calls[0].args[2])
+        self.assertEqual(len(critic_calls),0)
+        self.assertFalse(case['latency_budget']['eligibility']['critic'])
         self.assertTrue(any(c.args[0]=='hazard_critic' for c in client.call.call_args_list))
         self.case=case
         client.call.side_effect=TimeoutError('failed critic')

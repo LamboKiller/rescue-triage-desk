@@ -9,7 +9,7 @@ import math
 import re
 from difflib import SequenceMatcher
 from app.derive_count import _plain
-from app.geo.incident import IncidentIndex, incident_text, key
+from app.geo.incident import IncidentIndex, incident_text, incident_cities, key
 from app.geo.landmarks import CATEGORIES, distance, distinct_places, normalize as place_normalize
 from app.geo.streets import normalize
 
@@ -47,6 +47,8 @@ class LocationTools:
         self.text, self.replay = text, replay
         self.scoped = incident_text(text)
         self.index = index or IncidentIndex(streets, landmarks)
+        street_spans = self.index.hits(self.scoped, self.index.streets, self.index.max_words)
+        self.incident_cities = incident_cities(self.index, self.scoped, street_spans)
         self.points = {(normalize(r['display_name']), normalize(r['municipality'])): r for r in points}
         self.candidates, self.results = {}, {}
         self._landmark_rows = None
@@ -131,12 +133,22 @@ class LocationTools:
         return [self._place(r, s) for s, r in sorted(hits, key=lambda x: (-x[0], x[1]['municipality'], x[1]['name']))
                 if s >= best-.06][:12]
 
-    def search_bairro(self, name):
+    def _city(self, city):
+        if len(self.incident_cities) == 1:
+            stated = next(iter(self.incident_cities))
+            if city and normalize(city) != normalize(stated):
+                raise ValueError('Search city contradicts incident')
+            return stated
+        return city
+
+    def search_bairro(self, name, city=None):
         keys = [(k, cs) for k, cs in self.index.bairros.items() if similarity(name, ' '.join(k)) >= .88]
         hits = []
         for k, cities in keys:
-            for city in sorted(cities):
-                rows = [r for r in self.landmarks if r['municipality'] == city and (
+            for municipality in sorted(cities):
+                if city and normalize(city) != normalize(municipality):
+                    continue
+                rows = [r for r in self.landmarks if r['municipality'] == municipality and (
                     key(r.get('neighbourhood', '')) == k or r['category'] in ('place:suburb', 'place:neighbourhood')
                     and k in [key(r['name'])]+[key(a) for a in re.split(r'[|;]', r.get('alt_names', ''))])]
                 if not rows:
@@ -145,12 +157,14 @@ class LocationTools:
                 anchors = named or rows
                 lat = sum(float(r['lat']) for r in anchors)/len(anchors)
                 lon = sum(float(r['lon']) for r in anchors)/len(anchors)
-                hits.append(self._remember(dict(candidate_id=identity('bairro', city, ' '.join(k)), kind='bairro',
-                    name=named[0]['name'] if named else ' '.join(k), city=city, municipality=city, precision='area',
+                hits.append(self._remember(dict(candidate_id=identity('bairro', municipality, ' '.join(k)), kind='bairro',
+                    name=named[0]['name'] if named else ' '.join(k), city=municipality, municipality=municipality, precision='area',
                     score=round(similarity(name, ' '.join(k)), 4), lat=lat, lon=lon,
                     bounds=None, geometry_kind='catalogue_centroid' if named else 'member_centroid',
                     source='incident_bairro_catalogue', **self._water({}, 'in_water_'))))
-        return sorted(hits, key=lambda c: (-c['score'], c['city'], c['name']))[:12]
+        best = max((c['score'] for c in hits), default=0)
+        return sorted((c for c in hits if c['score'] >= best-.06),
+                      key=lambda c: (-c['score'], c['city'], c['name']))[:12]
 
     def near(self, anchor_id, radius_m, category=None, other_anchor_id=None):
         if isinstance(radius_m, bool) or not isinstance(radius_m, (int, float)) or not math.isfinite(radius_m) or not 0 < radius_m <= 2000:
@@ -198,6 +212,9 @@ class LocationTools:
             raise ValueError('Unknown tool or arguments')
         if tool.startswith('search_') and (not isinstance(args.get('name'), str) or not supported_name(args['name'], why_quote)):
             raise ValueError('Search name unsupported by quote')
+        if tool.startswith('search_'):
+            city = self._city(args.get('city'))
+            args = {**args, **({'city': city} if city else {})}
         if tool in ('search_street', 'search_landmark') and normalize(args['name']) in {
                 normalize(c) for c in self.index.cities.values()}:
             designators = r'\b(?:rua|avenida|av|travessa|estrada|estacao|hospital|igreja|escola|colegio|mercado|rodoviaria)\b'

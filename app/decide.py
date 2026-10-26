@@ -40,7 +40,8 @@ def decide(fields, location, replay_time, received_at, complete=True, cross_loca
             names = [r['name'] + (' ('+r['neighbourhood']+')' if r.get('neighbourhood') else '') for r in lm['candidates']]
             questions.append('É '+ ' ou '.join(names) +'?')
         else:
-            questions.append('Qual o nome do lugar/bairro?')
+            questions.append('Qual é a rua, cruzamento ou referência dentro do lugar/bairro informado?' if fields.get('landmark', {}).get('quote')
+                             else 'Qual o nome do lugar/bairro?')
     elif not location['found'] and not resolved:
         questions.append('Qual é a rua e o município exatos?')
     exact_cross = bool(v('cross_street') and cross_location and cross_location['found'])
