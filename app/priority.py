@@ -11,6 +11,54 @@ VERTICAL_POINTS={'roof':(20,'No telhado / laje'),'attic_forro':(20,'No forro / s
 VERTICAL_WATER_BONUS={'roof':10,'attic_forro':10,'upper_floor':5}
 WEIGHTS={'medical_urgent':35,'structural_risk':35,'water_rising':25,'infant':20,'stretcher_or_bedridden':20,'wheelchair':15,'pregnant':15}
 
+# MS medical lane. Time-to-harm = hours WITHOUT the support before serious harm becomes likely. These are OPERATIONAL
+# ESTIMATES (estimativa operacional) for ordering a queue, not clinical thresholds; they are never inputs to SEND/CALLBACK
+# and a clinician/SAMU regulation overrides them. Lower bound first; sort key is the lower bound.
+MEDICAL_BASIS='estimativa operacional (ordem de fila); validar com regulacao medica / SAMU'
+MEDICAL_TIME_TO_HARM={
+    'oxygen':{'label_pt':'Oxigenio / ventilacao domiciliar','hours':(1,6),'why_pt':'cilindro/concentrador sem energia ou carga esgota em poucas horas'},
+    'pregnancy_labor':{'label_pt':'Gestante em trabalho de parto / sangramento','hours':(1,6),'why_pt':'parto pode ocorrer a qualquer momento; sem equipe'},
+    'wound_trauma':{'label_pt':'Ferimento / trauma','hours':(1,8),'why_pt':'hemorragia, infeccao em agua contaminada'},
+    'newborn':{'label_pt':'Recem-nascido','hours':(2,12),'why_pt':'termorregulacao e alimentacao frageis'},
+    'insulin':{'label_pt':'Insulina / diabetes','hours':(12,24),'why_pt':'sem insulina a descompensacao surge em ate ~1 dia'},
+    'bedridden':{'label_pt':'Pessoa acamada','hours':(12,48),'why_pt':'dependente de cuidador; risco por agua, frio e escaras'},
+    'dialysis':{'label_pt':'Dialise / hemodialise','hours':(24,72),'why_pt':'sessao perdida acumula toxinas e liquido em 1-3 dias'},
+    'medication_other':{'label_pt':'Medicacao de uso continuo','hours':(24,72),'why_pt':'depende do medicamento; confirmar qual'}}
+
+
+def medical_needs(case,feedback=True):
+    """One row per medical need, quote-backed, sorted by shortest time-to-harm. Never invents a need without a quote."""
+    from app.agents.needs import scan_medical
+    msgs=texts(case)+([f['text'] for f in case.get('feedback',[]) if not f.get('conflicts')] if feedback else [])
+    seen={};rows=[]
+    for r in list(case.get('operational_needs',{}).get('medical',[]))+scan_medical(msgs):
+        need=r.get('medical_need')
+        if need not in MEDICAL_TIME_TO_HARM or need in seen or not r.get('quote'): continue
+        seen[need]=1;t=MEDICAL_TIME_TO_HARM[need]
+        rows.append({'medical_need':need,'label_pt':t['label_pt'],'quote':r['quote'],'message_index':r.get('message_index'),
+                     'hours_low':t['hours'][0],'hours_high':t['hours'][1],'basis':MEDICAL_BASIS,'why_pt':t['why_pt']})
+    return sorted(rows,key=lambda r:(r['hours_low'],r['hours_high'],r['medical_need']))
+
+
+def medical_view(case,now):
+    """Card payload: needs + remaining hours against the shortest window, counted from when the message arrived."""
+    rows=medical_needs(case)
+    if not rows: return None
+    waited=hours(now,case['received_at']) if timestamp(case['received_at'])<=timestamp(now) else 0
+    first=rows[0]
+    return {'needs':rows,'time_to_harm_hours':[first['hours_low'],first['hours_high']],'waited_hours':round(waited,2),
+            'window_exceeded':waited>=first['hours_high'],'window_note_pt':'janela estimada ate dano, a partir da mensagem; '+MEDICAL_BASIS}
+
+
+def medical_queue(cases,now=None):
+    """'Fila medica': only cases with a quoted medical need, shortest remaining window first. Order only; no decision changes."""
+    rows=[]
+    for c in queue(cases,now):
+        m=c.get('medical')
+        if m: rows.append(c)
+    return sorted(rows,key=lambda c:(c['medical']['time_to_harm_hours'][0]-c['medical']['waited_hours'],
+                                     c['medical']['time_to_harm_hours'][1],-c['live_priority']['score'],c['case_id']))
+
 
 def threshold():
     n=float(setting('STALE_HOURS','6'))
@@ -63,6 +111,8 @@ def score(case,now,depth_history=None):
     vulnerable=max([v(k) if type(v(k)) is int else 0 for k in ('children','elderly','disabled')])
     add('Pessoas vulneraveis (categorias podem se sobrepor)',5*min(10,max(0,vulnerable)))
     add('Tempo de espera em horas (limite 24)',min(24,int(hours(now,case['received_at']))))
+    med=medical_needs(case)
+    for m in med: reasons.append({'reason_pt':'Necessidade medica: '+m['label_pt']+' - dano provavel em ~'+str(m['hours_low'])+'-'+str(m['hours_high'])+' h sem apoio ('+MEDICAL_BASIS.split(';')[0]+'); "'+m['quote']+'"','points':0,'medical_need':m['medical_need']})
     stale=stale_info(case,now)['stale'];add('Sem atualizacao; retorno necessario',8 if stale else 0)
     add('Local aproximado; confirmar ponto exato',-3 if case.get('result',{}).get('location_approximate') else 0)
     # Only dated observations available on the replay day may influence score.
@@ -85,6 +135,6 @@ def queue(cases,now=None):
     out=[]
     for case in cases:
         c=copy.deepcopy(case);clock=now or c['replay_time']
-        c['stale_info']=stale_info(c,clock);c['live_priority']=score(c,clock,dated_depth(c,clock))
+        c['stale_info']=stale_info(c,clock);c['live_priority']=score(c,clock,dated_depth(c,clock));c['medical']=medical_view(c,clock)
         c['result']['priority']=c['live_priority']['score'];out.append(c)
     return sorted(out,key=lambda c:(-c['live_priority']['score'],c['received_at'],c['case_id']))

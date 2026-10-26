@@ -50,6 +50,13 @@ def build_card(case):
                      +' / restantes '+use('incident_state.people_remaining.value')+'; relatos '+use('incident_state.report_count')
                      +'; remetente '+use('incident_state.sender_role.value')+'.')
     lines.append('Profundidade (estimativa): faixa '+use('hazards.depth_band')+'; data '+use('hazards.depth_observed_date')+'.')
+    try:  # MS: medical lane - card text only; never changes the decision
+        from app.priority import medical_needs
+        for m in medical_needs(case):
+            facts.append({'path':'medical.'+m['medical_need'],'value':m['quote']})
+            lines.append('Necessidade médica: '+m['label_pt']+' ("'+m['quote']+'"); dano provável em ~'+str(m['hours_low'])+'-'+str(m['hours_high'])+' h sem apoio (estimativa operacional). Levar/confirmar apoio compatível.')
+    except Exception:
+        pass
     chosen = case.get('approved_asset') or case.get('proposed_asset')
     fleet = case.get('fleet',[])
     idx = next((i for i,r in enumerate(fleet) if r['asset']==chosen), None)

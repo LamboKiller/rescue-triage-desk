@@ -118,6 +118,7 @@ def fallback(messages):
             groups.append({'quote':quote,'message_index':i,'group_quote':group,'count_quote':match[1]})
     out=validate({'needs':needs,'count_by_group':groups},messages)
     out.update(scan_context(messages))
+    out['medical']=scan_medical(messages)
     return out
 
 
@@ -158,6 +159,34 @@ def pick_sender(rows):
     order=('crew','volunteer_repost','third_party_elsewhere','on_site')
     best=min(rows or [],key=lambda r:(order.index(r['role']),r['message_index']),default=None)
     return dict(best) if best else None
+
+
+# MS: medical-need lane. Exact quotes (negated mentions skipped); the time-to-harm table lives in app/priority.py.
+MEDICAL_NEEDS = ('oxygen','dialysis','insulin','pregnancy_labor','bedridden','newborn','wound_trauma','medication_other')
+MEDICAL_PATTERNS = {
+    'oxygen': r'oxigenio|concentrador de oxigenio|cilindro de oxigenio|respirador|ventilador mecanico|\bcpap\b|\bbipap\b|falta de ar|dificuldade (?:para|de) respirar',
+    'dialysis': r'hemodialise|dialise|dialitic\w*|\bhemodialis\w*|clinica de rim',
+    'insulin': r'insulina|diabetic\w*|diabetes',
+    'pregnancy_labor': r'trabalho de parto|em labor|contracoes|bolsa (?:estourou|rompeu)|(?:vai|vou) ganhar (?:o )?bebe|ganhando (?:o )?bebe|gestante.{0,30}(?:sangr\w*|dor(?:es)? forte|contrac\w*)',
+    'bedridden': r'acamad\w*|preso (?:a|na) cama|cama hospitalar|nao (?:consegue|pode) (?:andar|se levantar|se mexer)|precisa de maca',
+    'newborn': r'recem[ -]nascid\w*|bebe (?:de|com) (?:\d+|um|uma|dois|duas|tres) (?:dias?|semanas?)|nasceu (?:hoje|ontem|anteontem)|neonat\w*',
+    'wound_trauma': r'ferid[oa]s?|ferimento\w*|sangrando|sangramento|hemorragia|fratura\w*|quebrou (?:a |o )?(?:perna|braco|costela|bacia)|queimadura\w*|corte profundo|choque eletrico|traumatismo',
+    'medication_other': r'medicamento\w*|medicacao|remedios? (?:controlad\w*|de uso continuo|do coracao|da pressao)|anticonvulsiv\w*|epilep\w*|marcapasso|quimioterapia|\bremedio\b'}
+# Lacking a drug/device IS the need (sem insulina); only injuries are negated (nao ha feridos).
+_MED_NEG = r'\b(?:nao ha|nao tem|nenhum[ae]?|sem|ninguem)\s+(?:\w+\s+){0,2}$'
+
+
+def scan_medical(messages):
+    """Keyword floor for medical needs: [{medical_need, quote, message_index}] with exact original quotes."""
+    found=[]
+    for i,text in enumerate(messages):
+        plain,offsets=_plain(text)
+        for need,pattern in MEDICAL_PATTERNS.items():
+            for match in re.finditer(pattern,plain):
+                if match.end()<=match.start(): continue
+                if need=='wound_trauma' and re.search(_MED_NEG,plain[max(0,match.start()-24):match.start()]): continue
+                found.append({'medical_need':need,'quote':text[offsets[match.start()]:offsets[match.end()-1]+1],'message_index':i})
+    return found
 
 
 class NeedsExtractor:

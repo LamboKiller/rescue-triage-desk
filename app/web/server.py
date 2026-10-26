@@ -34,6 +34,9 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
         from app.llm.nightshift import Nightshift
         callback_client=pipeline.client or Nightshift(ROOT/'runtime/callback_trace.jsonl')
     callback=CallbackService(registry,pipeline,callback_client,ROOT/'runtime/callback_log.jsonl')
+    from app.shelters.service import ShelterService
+    from app.shelters import routes as shelter_routes
+    shelters=ShelterService(registry,ROOT/'runtime/shelter_events.jsonl')
     server=original_server(host,port,sample=offline,pipeline=pipeline)
     from app.replay import routes as replay_routes
     BaseHandler=server.RequestHandlerClass
@@ -41,6 +44,9 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     class Handler(BaseHandler):
         def do_GET(self):
             path=urlsplit(self.path).path
+            if path == '/api/flow':
+                from app.flow.routes import handle as flow_handle
+                return flow_handle(self,registry,parse_qs(urlsplit(self.path).query,keep_blank_values=True))
             if path == '/api/memory':
                 from app.memory.routes import handle
                 return handle(self,registry,'GET')
@@ -50,6 +56,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                     self.send_json(200,callback.view(path.split('/')[3],refresh='refresh' in query,expand='expand' in query));return
                 except KeyError: self.send_json(404,{'error':'Caso não encontrado.'});return
                 except Exception: self.send_json(500,{'error':'Falha ao montar o retorno.'});return
+            if path.startswith('/api/shelters'): return shelter_routes.handle(self,shelters,'GET')
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'GET')
             if path.startswith('/api/redteam'): return redteam_handle(self,redteam,'GET')
             if path.startswith('/api/replay'): return replay_routes.handle(self,server.replay,'GET')
@@ -87,6 +94,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
             if path == '/api/memory':
                 from app.memory.routes import handle
                 return handle(self,registry,'POST')
+            if path.startswith('/api/shelters'): return shelter_routes.handle(self,shelters,'POST')
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'POST')
             if path.startswith('/api/redteam'): return redteam_handle(self,redteam,'POST')
             if path.startswith('/api/replay'): return replay_routes.handle(self,server.replay,'POST')
@@ -114,10 +122,12 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                     result=register(registry,request)
                 elif case_feedback:
                     result=feedback.submit(path.split('/')[3],request)
+                    shelters.ingest_feedback(request.get('text'),request.get('actor'),request.get('received_at'),path.split('/')[3],None,request.get('source','crew'))
                 elif case_callback:
                     result=callback.reply(path.split('/')[3],request)
                 elif path.startswith('/api/missions/') and path.endswith('/feedback') and len(path.split('/'))==5:
                     result=service.feedback(path.split('/')[3],request,feedback)
+                    shelters.ingest_feedback(request.get('text'),request.get('actor'),request.get('received_at'),request.get('case_id'),path.split('/')[3],request.get('source','crew'))
                 elif path=='/api/missions':
                     result=service.approve(request)
                 elif path.startswith('/api/missions/') and path.endswith('/cancel') and len(path.split('/'))==5:
@@ -139,6 +149,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
             except Exception: self.send_json(500,{'error':'Falha interna no planejamento.'})
     server.RequestHandlerClass=Handler
     server.missions=service
+    server.shelters=shelters
     server.feedback=feedback
     server.callback=callback
     server.supervisor=supervisor
