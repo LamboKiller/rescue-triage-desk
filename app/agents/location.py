@@ -435,10 +435,16 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
         if not _objections(answer, tools):
             source = dict(quote=quote, alias_row=evidence['alias_row'],
                           osm_type=candidate['osm_type'], osm_id=candidate['osm_id'])
+            stated_landmark = fields.get('landmark', {}).copy()
+            if not (stated_landmark.get('value') and
+                    tools_check_quote(stated_landmark.get('quote'), scoped) and
+                    _plain(quote) in _plain(stated_landmark['quote'])):
+                stated_landmark = dict(value=quote, quote=quote)
             for k in ('street', 'cross_street', 'number', 'landmark'):
                 fields.pop(k, None)
-            for k, value in (('municipality', candidate['city']), ('landmark', candidate['name'])):
-                fields[k] = dict(value=value, quote=quote, derived=True, source='deterministic_alias')
+            fields['municipality'] = dict(value=candidate['city'], quote=quote,
+                                          derived=True, source='deterministic_alias')
+            fields['landmark'] = stated_landmark
             landmark = dict(status='resolved', matched=candidate, candidates=[candidate], requested=True,
                             reason='Exact catalogue evidence.', **tools._water(places[0], 'in_water_'))
             output = dict(location_path='deterministic_alias', precision='approximate', candidate=candidate,
@@ -517,8 +523,7 @@ def locate(rows, landmark_rows, fields, text, replay, client, deadline, *, index
         answer = dict(candidate_id=candidate['candidate_id'], precision='approximate',
                       evidence=[incident_landmark, 't1'])
         if not _objections(answer, tools):
-            fields['landmark'] = dict(value=candidate['name'], quote=incident_landmark,
-                                      derived=True, source='rule:landmark_context')
+            # The catalogue name belongs in fallback.matched; keep caller evidence.
             output = dict(location_path='deterministic_context', precision='approximate',
                           candidate=candidate, answer=answer, objections=[], tool_steps=0,
                           steps=[dict(tool='landmark_lookup', args=dict(name=incident_landmark,

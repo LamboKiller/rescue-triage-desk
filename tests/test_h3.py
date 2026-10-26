@@ -75,7 +75,6 @@ class IncidentTests(unittest.TestCase):
 
     def test_non_rescue_goes_to_separate_review_queue(self):
         for text in ('Só há 2 gatos na Rua Brasil 42 em Canoas; nenhuma pessoa está em risco.',
-                     'As pessoas já foram resgatadas; ficaram apenas cachorros na Avenida Brasil em Porto Alegre.',
                      'Qual horário para entregar doações de cobertores no abrigo?',
                      'Onde consigo comprar mantimentos para os voluntários?',
                      'Vocês informam se a estrada está aberta para viajar amanhã?'):
@@ -87,11 +86,12 @@ class IncidentTests(unittest.TestCase):
     def test_animals_only_without_explicit_absence_of_people(self):
         for text in ('Preciso resgatar meus gatos na Rua Brasil 67 em Canoas.',
                      'Socorro para dois cachorros no quintal da Avenida Brasil em Porto Alegre.',
-                     'Alguém salva os animais ilhados na Estrada do Conde em Eldorado do Sul?'):
+                     'Alguém salva os animais ilhados na Estrada do Conde em Eldorado do Sul?',
+                     'As pessoas já foram resgatadas; ficaram apenas cachorros na Avenida Brasil em Porto Alegre.'):
             with self.subTest(text=text):
                 c = self.run_case(text)
                 self.assertEqual(c['result']['decision'], 'REVIEW_REQUIRED')
-                self.assertEqual(c['route']['id'], 'not_a_rescue')
+                self.assertEqual(c['route']['id'], 'incomplete')
 
     def test_uninjured_people_are_still_a_rescue(self):
         for text in ('Nenhuma pessoa ferida, mas 2 pessoas ilhadas no telhado da Rua Brasil 78 em Canoas.',

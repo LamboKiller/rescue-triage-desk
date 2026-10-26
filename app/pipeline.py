@@ -25,7 +25,7 @@ from app.geo.incident import IncidentIndex
 from app.rescue_state import guard_fields, state
 from app.llm.nightshift import Nightshift, TRACE_LOCK
 from app.redact import redact, redact_data
-from app.routing import apply_route, finish_route
+from app.routing import apply_route, finish_route, animal_rescue
 
 
 class StageBudget:
@@ -357,6 +357,8 @@ class Pipeline:
                                           'derived': True, 'source': 'rule:canonical_municipality'}
             outside_text = incident_index.resolve(fields, message['text'])
             rescue_state = guard_fields(fields, message['text'])
+            if animal_rescue(message['text']):
+                rescue_state['not_a_rescue'] = False
             # Yussef 24/10: counting is code. A single written total wins; else sender + listed people (flagged).
             if not get('people'):
                 derived = written_total(message['text']) or derive_people(message['text'])

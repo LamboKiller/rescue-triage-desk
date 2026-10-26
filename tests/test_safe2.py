@@ -125,10 +125,12 @@ class Safe2(unittest.TestCase):
         reconcile_people(same, 'Somos 3 pessoas, corrigindo: 4 pessoas.')
         self.assertTrue(same['people'].get('confirm'))
 
-    def test_people_already_out_leaving_only_animals_is_not_a_rescue(self):
+    def test_people_already_out_leaving_animals_in_danger_needs_review(self):
         for text in ('Meu pai mora na Rua Boreal 41 em Canoas, ele já saiu, ficaram só 3 cavalos na água.',
                      'Gatos presos na Rua Boreal 41 em Canoas, as pessoas da casa já saíram.'):
-            self.assertEqual(self.case(text)['route']['id'], 'not_a_rescue')
+            case = self.case(text)
+            self.assertEqual(case['route']['id'], 'incomplete')
+            self.assertEqual(case['result']['decision'], 'REVIEW_REQUIRED')
         self.assertNotEqual(self.case('Ela já saiu mas o pai ainda está preso com os cachorros na Rua Boreal 41 em Canoas.')['route']['id'], 'not_a_rescue')
 
     def test_filhas_is_not_island_danger(self):

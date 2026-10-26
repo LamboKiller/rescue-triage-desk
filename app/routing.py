@@ -2,7 +2,7 @@
 import re
 from app.derive_count import INJECTION, _plain, completed_rescue_quote, REMAINING
 from app.geo.incident import incident_text, rs_municipalities, municipality_mentions
-from app.rescue_state import state
+from app.rescue_state import ANIMALS, state
 
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
 OUTSIDE = re.compile(r'\b(?:'+'|'.join(map(re.escape, sorted(set(rs_municipalities()) - COVERED, key=len, reverse=True)))+
@@ -12,6 +12,14 @@ LABELS = {'street':'Rua identificada', 'landmark':'Ponto de referência', 'ambig
           'not_a_rescue':'Sem pessoas para resgatar — revisão humana',
           'already_rescued':'Resgate relatado', 'not_a_request_or_injection':'Sem pedido verificável ou instrução suspeita',
           'out_of_area':'Fora da área atendida', 'agent_failure':'Falha na análise', 'incomplete':'Dados incompletos'}
+
+
+def animal_rescue(text):
+    """Animal danger still needs rescue review even when no people remain."""
+    status = state(text)
+    normalized = _plain(text)
+    danger = status['life_safety'] or re.search(r'\b(?:na agua|alag\w*|inund\w*|enchente)\b', normalized)
+    return bool(status['not_a_rescue'] and danger and ANIMALS.search(normalized))
 
 
 def apply_route(case, rows):
@@ -57,7 +65,7 @@ def apply_route(case, rows):
         route = 'not_a_request_or_injection'
         result.update(decision='REVIEW_REQUIRED',
                       decision_reason='Instrução suspeita no texto; revisão humana obrigatória.')
-    elif rescue['not_a_rescue'] and case.get('complete') and not case.get('errors'):
+    elif rescue['not_a_rescue'] and not animal_rescue(case['text']) and case.get('complete') and not case.get('errors'):
         route = 'not_a_rescue'
         note = ' critic indisponível; revisão humana necessária.' if case.get('review_degraded') else ''
         result.update(decision='REVIEW_REQUIRED', questions=[],
@@ -65,6 +73,10 @@ def apply_route(case, rows):
     elif failure:
         route = 'agent_failure'
         result.update(decision='REVIEW_REQUIRED', decision_reason='Falha na análise automática; revisão humana obrigatória.')
+    elif animal_rescue(case['text']):
+        route = 'incomplete'
+        result.update(decision='REVIEW_REQUIRED',
+                      decision_reason='Animais precisando de resgate; revisão humana obrigatória.')
     elif rescue['not_a_rescue']:
         route = 'not_a_rescue'
         result.update(decision='REVIEW_REQUIRED',
