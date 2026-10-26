@@ -15,10 +15,15 @@ from app.pipeline import Pipeline
 def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeline=None,inventory=None,radius_m=600):
     from run import create_server as original_server
     offline=sample_mode() if sample is None else sample
+    demo_units=None
+    if offline and inventory is None:
+        from app.fleet.assets import demo_inventory
+        demo_units=demo_inventory()
     registry=pipeline.registry if pipeline else Registry(registry_path or ROOT/'runtime/events.jsonl')
     pipeline=pipeline or Pipeline(registry,sample=offline)
     from app.missions.client import MissionClient
     service=MissionService(registry,inventory,None if offline else pipeline.client or MissionClient(ROOT/'runtime/mission_trace.jsonl'),radius_m)
+    if demo_units is not None: service.allocation_inventory=demo_units
     from app.feedback import FeedbackService
     feedback=FeedbackService(registry,None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/feedback_trace.jsonl'))
     from app.supervisor.service import SupervisorService
@@ -37,6 +42,9 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     from app.shelters.service import ShelterService
     from app.shelters import routes as shelter_routes
     shelters=ShelterService(registry,ROOT/'runtime/shelter_events.jsonl')
+    from app.landing.service import LandingService
+    from app.landing import routes as landing_routes
+    landing=LandingService(registry,shelters,ROOT/'runtime/landing_events.jsonl',callback_client)
     server=original_server(host,port,sample=offline,pipeline=pipeline)
     from app.replay import routes as replay_routes
     BaseHandler=server.RequestHandlerClass
@@ -56,8 +64,21 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                     self.send_json(200,callback.view(path.split('/')[3],refresh='refresh' in query,expand='expand' in query));return
                 except KeyError: self.send_json(404,{'error':'Caso não encontrado.'});return
                 except Exception: self.send_json(500,{'error':'Falha ao montar o retorno.'});return
+            if path.startswith('/api/cases/') and path.endswith('/landing') and len(path.split('/'))==5: return landing_routes.handle(self,landing,'GET')
+            if path.startswith('/api/cases/') and path.endswith('/assets') and len(path.split('/'))==5:
+                try:
+                    cid=path.split('/')[3];query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
+                    if 'date' in query and len(query['date'])!=1: raise ValueError('Informe exatamente uma data.')
+                    c=registry.read(cid)
+                    if c is None: raise KeyError(cid)
+                    return self.send_json(200,service.assets(cid,query.get('date',[(c.get('replay_time') or c['received_at'])[:10]])[0]))
+                except KeyError: return self.send_json(404,{'error':'Caso não encontrado.'})
+                except (ValueError,TypeError) as exc: return self.send_json(400,{'error':str(exc)})
             if path.startswith('/api/shelters'): return shelter_routes.handle(self,shelters,'GET')
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'GET')
+            if path in ('/api/evals','/api/provenance'):
+                from app import provenance
+                return self.send_json(200,provenance.evals_view() if path=='/api/evals' else provenance.table())
             if path.startswith('/api/redteam'): return redteam_handle(self,redteam,'GET')
             if path.startswith('/api/replay'): return replay_routes.handle(self,server.replay,'GET')
             if path not in ('/api/resources','/api/cases') and not path.startswith('/api/missions'): return super().do_GET()
@@ -65,8 +86,12 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                 if path=='/api/resources':
                     from app.resources import read
                     from app.fleet import document
+                    from app.fleet.assets import normalize, RULE_TYPES
                     self.send_json(200,{'resources':read(registry),'types':{k:v.get('label_pt',k) for k,v in document()['assets'].items()},
-                        'verification_fields':document()['verification_fields']});return
+                        'verification_fields':document()['verification_fields'],
+                        'typed_resources':[normalize(u)
+                            for u in resource_inventory(registry,service.allocation_inventory)
+                            if u.get('type') in RULE_TYPES]});return
                 if path=='/api/cases':
                     from app.priority import queue
                     from app.decide import timestamp
@@ -94,6 +119,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
             if path == '/api/memory':
                 from app.memory.routes import handle
                 return handle(self,registry,'POST')
+            if path.startswith('/api/landing/') or (path.startswith('/api/cases/') and path.endswith('/landing/choice')): return landing_routes.handle(self,landing,'POST')
             if path.startswith('/api/shelters'): return shelter_routes.handle(self,shelters,'POST')
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'POST')
             if path.startswith('/api/redteam'): return redteam_handle(self,redteam,'POST')
@@ -150,6 +176,7 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     server.RequestHandlerClass=Handler
     server.missions=service
     server.shelters=shelters
+    server.landing=landing
     server.feedback=feedback
     server.callback=callback
     server.supervisor=supervisor
@@ -166,9 +193,9 @@ def main():
     p.add_argument('--port',type=int,default=int(setting('PORT','8080')))
     p.add_argument('--inventory',type=Path);p.add_argument('--radius-m',type=float,default=600)
     args=p.parse_args()
-    inventory=json.loads(args.inventory.read_text(encoding='utf-8-sig')) if args.inventory else []
+    inventory=json.loads(args.inventory.read_text(encoding='utf-8-sig')) if args.inventory else None
     from app.missions.planner import inventory_units
-    inventory_units(inventory,'9999-12-31')
+    inventory_units(inventory or [],'9999-12-31')
     server=create_server(args.host,args.port,args.sample or sample_mode(),inventory=inventory,radius_m=args.radius_m)
     print('Mission desk: http://localhost:'+str(server.server_port)+'/v2',flush=True)
     try: server.serve_forever()

@@ -8,10 +8,13 @@ from app.redact import redact
 def validate(unit):
     if not isinstance(unit,dict): raise ValueError('Informe um recurso.')
     out=copy.deepcopy(unit)
+    if 'type' in out:
+        from app.fleet.assets import normalize
+        out=normalize(out)
     for key in ('id','crew','base','source','observed_date'):
         if not isinstance(out.get(key),str) or not out[key].strip() or len(out[key])>500: raise ValueError('Informe '+key+'.')
     if out.get('asset') not in document()['assets']: raise ValueError('Tipo fora das regras da frota.')
-    if out.get('status') not in ('available','assigned','maintenance'): raise ValueError('Estado de recurso invalido.')
+    if out.get('status') not in ('available','assigned','maintenance','out_of_service'): raise ValueError('Estado de recurso invalido.')
     if date.fromisoformat(out['observed_date']).isoformat()!=out['observed_date']: raise ValueError('Data invalida.')
     cap=out.get('capacity')
     if cap is not None and (type(cap) is not int or cap<=0): raise ValueError('Capacidade deve ser positiva ou desconhecida.')
@@ -20,7 +23,7 @@ def validate(unit):
     if not isinstance(flags,dict) or any(k not in document()['verification_fields'] or v is not None and type(v) is not bool for k,v in flags.items()): raise ValueError('Verificacoes de frota invalidas.')
     if type(out.get('synthetic',False)) is not bool: raise ValueError('synthetic deve ser booleano.')
     out['capacity_basis']='rescue_passengers_after_crew_and_equipment'
-    out['capacity']=cap;out['available']=out['status']=='available'
+    out['capacity']=cap;out['available']=out['status']=='available' and out.get('type')!='helicoptero'
     return out
 
 

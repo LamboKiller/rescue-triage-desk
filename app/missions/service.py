@@ -30,8 +30,50 @@ def replay_cases(cases,day):
 class MissionService:
     def __init__(self,registry,inventory=None,client=None,radius_m=600):
         self.registry=registry;self.inventory=copy.deepcopy(inventory or [])
+        from app.fleet.assets import normalize
+        self.inventory=[normalize(u) if isinstance(u,dict) and 'type' in u else u for u in self.inventory]
+        self.allocation_inventory=self.inventory
         self.client=client;self.extractor=NeedsExtractor(client);self.radius_m=radius_m
         self.cache={};self.briefs={};self.lock=threading.Lock()
+        self.allocation_briefs={}
+
+    def assets(self,case_id,day):
+        from app.resources import inventory
+        from app.fleet.assets import normalize, RULE_TYPES
+        from app.fleet.allocation import allocate, explain as explain_allocation, prepare_mission_case, allocation_plan_checks
+        from .planner import eligible_cases, build_plan
+        day_value(day)
+        with self.lock:
+            from app.fleet.snapshot import read as allocation_snapshot
+            c,units=allocation_snapshot(self,case_id,day)
+            prepared=eligible_cases([c],day,self.extractor,time.monotonic()+90)
+            if prepared: c=prepared[0]
+            result=allocate(c,units,day)
+            key=fingerprint(result)
+            if key not in self.allocation_briefs:
+                self.allocation_briefs[key]=explain_allocation(result,self.client,time.monotonic()+90)
+                if len(self.allocation_briefs)>128:
+                    self.allocation_briefs={key:self.allocation_briefs[key]}
+            result.update(copy.deepcopy(self.allocation_briefs[key]))
+            for row in result['top3']:
+                row['approval_blockers']=list(row['approval_holds'])
+                if not prepared:
+                    row['approval_blockers'].append('Caso não é candidato SEND disponível nesta data.')
+                    continue
+                u=next(u for u in units if u['id']==row['id'])
+                plan=build_plan([prepare_mission_case(c,u,day)],day,[u],self.radius_m)
+                allocation_plan_checks(plan,row)
+                plan['allocation_selection']={'case_id':case_id,'unit_id':u['id'],'rank':row['rank'],'override_reason':None,
+                    'confirmation_checklist':copy.deepcopy(row['confirmation_checklist']),'checklist_confirmations':{}}
+                plan['proposal_id']=fingerprint(plan)
+                row['approval_blockers']+=plan['blocking_reasons']
+                row['proposal_id']=plan['proposal_id']
+                row['expected_versions']={case_id:c['version']}
+                self.cache[plan['proposal_id']]=copy.deepcopy(plan)
+            if len(self.cache)>2048:
+                keep={r.get('proposal_id') for r in result['top3']}
+                self.cache={k:v for k,v in self.cache.items() if k in keep}
+            return result
 
     def proposals(self,day):
         day_value(day)
@@ -57,6 +99,20 @@ class MissionService:
         if not isinstance(request,dict): raise ValueError('Envie um objeto JSON.')
         pid=request.get('proposal_id');plan=copy.deepcopy(self.cache.get(pid)) if isinstance(pid,str) else None
         if plan is None: raise Conflict('Proposta desconhecida ou expirada; gere e revise uma nova proposta.')
+        if 'allocation_selection' in plan:
+            from app.redact import redact
+            selection=plan['allocation_selection']
+            reason=request.get('override_reason')
+            if selection['rank']>1 and (not isinstance(reason,str) or not reason.strip() or len(reason)>500):
+                raise ValueError('Justifique a escolha fora da primeira posição.')
+            from app.fleet.allocation import validate_confirmations
+            confirmations=copy.deepcopy(request.get('checklist_confirmations',{}))
+            validate_confirmations(selection.get('confirmation_checklist',[]),confirmations)
+            for answer in confirmations.values():
+                if isinstance(answer,dict): answer['override_reason']=redact(answer['override_reason'].strip())
+            selection['checklist_confirmations']=confirmations
+            selection['override_reason']=redact(reason.strip()) if isinstance(reason,str) else None
+            plan['proposal_id']=fingerprint(plan)
         expected={s['case_id']:s['expected_version'] for s in plan['stops']}
         supplied=request.get('expected_versions')
         if not isinstance(supplied,dict) or supplied!=expected or any(type(v) is not int for v in supplied.values()):
@@ -65,8 +121,10 @@ class MissionService:
         if cid not in expected: raise Conflict('Caso não pertence à proposta.')
         if case_id and request.get('expected_version')!=expected[cid]: raise Conflict('Versão do caso alterada.')
         self.registry.action(cid,'approve_mission',expected[cid],request.get('actor'),human=True,
-            mission=plan,mission_inventory=__import__('app.resources',fromlist=['inventory']).inventory(self.registry,self.inventory),caution_acknowledged=request.get('caution_acknowledged',False))
-        return self.detail(pid)
+            mission=plan,mission_inventory=__import__('app.resources',fromlist=['inventory']).inventory(self.registry,
+                __import__('app.fleet.assets',fromlist=['replay_inventory']).replay_inventory(self.allocation_inventory,plan['date'])
+                if 'allocation_selection' in plan else self.inventory),caution_acknowledged=request.get('caution_acknowledged',False))
+        return self.detail(plan['proposal_id'])
 
     def cancel(self,mid,request,case_id=None):
         detail=self.detail(mid);versions=request.get('expected_versions')

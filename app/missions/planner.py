@@ -10,6 +10,7 @@ from app.fleet.evaluator import evaluate
 
 LIFE = ('structural_risk','medical_urgent','water_rising','infant','stretcher_or_bedridden')
 PASSENGER_ROLES = {'passenger_transport','conditional_passenger_transport',
+                   'medical_transport',
                    'technical_and_medical_extraction','passenger_transport_at_verified_landing_site'}
 
 
@@ -79,7 +80,10 @@ def known_capacity(unit):
     return n if type(n) is int and n>0 and unit.get('capacity_basis')=='rescue_passengers_after_crew_and_equipment' else None
 
 
-def allows(case,unit):
+def allows(case,unit,day=None):
+    if unit.get('type'):
+        from app.fleet.allocation import allocate
+        if not allocate(case,[unit],day or case['replay_time'][:10])['top3']: return False
     asset=unit.get('asset');doc=document()
     if asset not in doc['assets'] or doc['assets'][asset]['role'] not in PASSENGER_ROLES: return False
     rows={r['asset']:r for r in case.get('fleet',[])}
@@ -103,7 +107,7 @@ def choices(cases,inventory,day):
     units=inventory_units(inventory,day)
     usable={}
     for u in units:
-        if all(allows(c,u) for c in cases): usable.setdefault(u['asset'],[]).append(u)
+        if all(allows(c,u,day) for c in cases): usable.setdefault(u['asset'],[]).append(u)
     return usable
 
 
@@ -225,7 +229,14 @@ def check_plan(plan,cases,inventory):
             validated=validate(supplied,texts(c))
             if not tags(c)<=set(n['tag'] for n in validated['needs']): return ['Necessidade conhecida foi removida do plano.']
             c['operational_needs']=copy.deepcopy(supplied)
+        if 'allocation_selection' in plan:
+            from app.fleet.allocation import selected_inventory
+            inventory=selected_inventory(plan,selected,inventory)
         fresh=build_plan(selected,plan['date'],inventory,plan['radius_m'])
+        if 'allocation_selection' in plan:
+            from app.fleet.allocation import allocate, allocation_plan_checks
+            row=next(r for r in allocate(selected[0],inventory,plan['date'])['top3'] if r['id']==plan['allocation_selection']['unit_id'])
+            allocation_plan_checks(fresh,row)
         reasons=list(fresh['blocking_reasons'])
         labels={'stops':'paradas, requisitos ou versões','asset':'tipo de recurso','asset_count':'quantidade de recursos',
                 'units':'inventário','people':'contagem de pessoas','capacity':'capacidade','trips':'quantidade de viagens',

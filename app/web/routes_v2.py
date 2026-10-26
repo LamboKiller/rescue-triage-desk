@@ -102,6 +102,8 @@ def _file(handler, root, name):
 
 def handle_get(handler, path, query):
     """Return False for routes owned by the original server; True when served."""
+    if path == '/v2/fleet.js':
+        return _file(handler, UI, 'fleet.js')
     if path == '/v2/memory.js':
         return _file(handler, UI, 'memory.js')
     if path == '/api/depth' and ('lon' in query or 'lat' in query):
@@ -182,6 +184,6 @@ def handle_get(handler, path, query):
             return _file(handler, MAP / folder, name[len(prefix):])
     if name == '/v2/map/MANIFEST.md':
         return _file(handler, MAP, 'MANIFEST.md')
-    if name in ('/v2/app.js', '/v2/map.js', '/v2/missions.js', '/v2/feedback.js', '/v2/callback.js', '/v2/supervisor.js', '/v2/redteam.js', '/v2/timeline.js', '/v2/flow.js', '/v2/shelters.js', '/v2/styles.css') or name.startswith('/v2/vendor/'):
+    if name in ('/v2/app.js', '/v2/map.js', '/v2/missions.js', '/v2/feedback.js', '/v2/callback.js', '/v2/supervisor.js', '/v2/redteam.js', '/v2/timeline.js', '/v2/flow.js', '/v2/shelters.js', '/v2/landing.js', '/v2/evals.js', '/v2/styles.css') or name.startswith('/v2/vendor/'):
         return _file(handler, UI, name[len('/v2/'):])
     return _missing(handler)

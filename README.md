@@ -200,8 +200,8 @@ observation date ≤ D. Unknown ≠ dry or safe.
 
 | Layer | Source | Licence | Observed vs published | Kind |
 |---|---|---|---|---|
-| Streets (12,586 rows) | OpenStreetMap, D1 snapshot 2024-06-15 | ODbL 1.0 | Snapshot after the event | retrospective stand-in |
-| Named landmarks (4,201) | OSM Overpass, 2026-10-24 | ODbL 1.0 | Snapshot 2.5 years after | retrospective stand-in |
+| Streets (12,586 rows) | OpenStreetMap, D1 snapshot 2024-06-15 | ODbL 1.0 | Snapshot after the event; features pre-date it | pre-event content, post-event snapshot |
+| Named landmarks (4,201) | OSM Overpass, 2026-10-24 | ODbL 1.0 | Snapshot 2.5 years after; features pre-date it | pre-event content, post-event snapshot |
 | Observed flood extent, 6 and 8 May | Possantti et al. (UFRGS), Zenodo 14617475 / 11164049 | CC BY 4.0 per source brief (record page shows no licence id) | Observed 2024-05-06/08; per-layer publication unknown (earliest record version 2024-05-09) | retrospective stand-in |
 | Flood delineation | Copernicus EMS EMSN194 | EU/Copernicus attribution; per-product terms unverified | Observed May 2024; published later | retrospective stand-in |
 | HAND depth grids (20 m, ±1 m) | Copernicus EMS EMSN194 WaterDepth v01 | XML terms conflict, unresolved | Observed 6/8 May; created 2024-06-12; publication not documented | retrospective stand-in (water image stays ineligible until publication is documented) |
@@ -215,6 +215,35 @@ observation date ≤ D. Unknown ≠ dry or safe.
 | Landmark aliases (24) | Hand-curated `data/landmark_aliases.csv` | MIT (own work) | Curated Oct 2026 | declared; retrospective |
 | Fleet dispatch rules | Authored research baseline `data/fleet/dispatch_rules.json` (v1.0.0-research) | MIT; citations inside | Not a validated SOP | own work |
 | Messages and shift inventory | Synthetic: generator, hand-written, red team | MIT | Fictional; flagged `synthetic` | synthetic |
+
+Declared in one place, `app/provenance.py` (served at `/api/provenance`; the map layer menu, popups, case cards and the Evals tab read it).
+Four kinds: pre-event, live-equivalent, retrospective, simulated. Agents may only use a record whose observed/published time is <= the replay time (`usable_at`, tested).
+
+<!-- provenance-table:start -->
+| Layer | Kind | Source | Time rule |
+|---|---|---|---|
+| Ruas (`streets`) | pre-event | OpenStreetMap (snapshot taken 2024-06-15) | Features pre-date the event; the extract is later |
+| Pontos de referência (`landmarks`) | pre-event | OSM Overpass + hand-curated aliases | Features pre-date the event; the extract is later |
+| Abrigos (OSM) (`shelters_osm`) | pre-event | OpenStreetMap | Facility existence only; occupancy comes from snapshots |
+| Setores / municípios (`ibge`) | pre-event | IBGE Censo 2022 | Census 2022 |
+| Terreno (`terrain`) | pre-event | Skadi / SRTM | Year 2000 |
+| Inundação observada (`flood`) | retrospective stand-in | Possantti et al. (UFRGS) / EMSN194 | Observed 6 and 8 May; published later |
+| Profundidade (HAND) (`depth`) | retrospective stand-in | Copernicus EMS EMSN194 + HAND | Observed 6/8 May; grids created 2024-06-12 |
+| Bombas (`pumps`) | retrospective stand-in | UFRGS crisis layers | Daily status table |
+| Diques (`levees`) | retrospective stand-in | UFRGS crisis layers | Static |
+| Abrigos (ocupação) (`shelters`) | retrospective stand-in | UFRGS shelter snapshots | Snapshots from 8 May |
+| Prédios (`buildings`) | retrospective stand-in | OSM + Microsoft + Google Open Buildings | Releases 2023-2026 |
+| Fotos de enchente (`photos`) | retrospective stand-in | Wikimedia Commons | Post-event illustration only |
+| Bloqueios (`closures`) | live-equivalent | DNIT / DMAE / prefeitura bulletins | Per-record published_at; corridor is an unverified candidate |
+| Infraestrutura (`events`) | live-equivalent | DMAE / prefeitura bulletins | Per-record observed_at and published_at |
+| Mensagens recebidas (`messages`) | live-equivalent | Citizen channel (as received) | received_at |
+| Relatos de equipe (`crew_reports`) | live-equivalent | Crew report with timestamp | Row time t |
+| Relatos do operador (`operator_reports`) | live-equivalent | Operator action with timestamp | Row time t |
+| Respostas simuladas (`citizen_replies`) | simulated | [SIMULADO] callback simulator | Scripted; refuses cases without truth record |
+| Mensagens sintéticas (`synthetic_messages`) | simulated | Generator / hand-written / red team | Fictional; flagged synthetic |
+| Pedidos (`cases`) | simulated | Synthetic messages analysed by this system | Derived; each case carries its message kind |
+| Raio de 1 km (`ring`) | live-equivalent | Computed from the case position | Computed, not an observation |
+<!-- provenance-table:end -->
 
 Full credits and hazard-layer notes: [`data/ATTRIBUTION.md`](data/ATTRIBUTION.md), `data/map3d/MANIFEST.md`.
 The supplied backup lacks the promised D1–D3 manifests, so layer-level licence lineage is incomplete (listed as a gap in the checklist).
