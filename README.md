@@ -222,6 +222,7 @@ Four kinds: pre-event, live-equivalent, retrospective, simulated. Agents may onl
 <!-- provenance-table:start -->
 | Layer | Kind | Source | Time rule |
 |---|---|---|---|
+| Cobertura estimada (`coverage`) | retrospective stand-in | Open cases + sourced fleet reports + local routing/HAND; synthetic units flagged | Derived at replay date; retrospective depth and unproven routes remain estimates |
 | Ruas (`streets`) | pre-event | OpenStreetMap (snapshot taken 2024-06-15) | Features pre-date the event; the extract is later |
 | Pontos de referência (`landmarks`) | pre-event | OSM Overpass + hand-curated aliases | Features pre-date the event; the extract is later |
 | Abrigos (OSM) (`shelters_osm`) | pre-event | OpenStreetMap | Facility existence only; occupancy comes from snapshots |

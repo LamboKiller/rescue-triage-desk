@@ -56,7 +56,7 @@ class Registry:
         if self.path.exists():
             for line in self.path.read_text(encoding='utf-8').splitlines():
                 event = json.loads(line)  # Fail closed on damaged log; never silently skip.
-                if event['kind'] == 'place_memory':
+                if event['kind'] in ('place_memory', 'unit_status'):
                     continue
                 if event['kind'] in ('resource', 'supervisor', 'contradiction'):  # supervisor ticks/decisions are journal-only, never case state
                     continue
@@ -253,7 +253,7 @@ class Registry:
             cases, _ = self._read()
             return copy.deepcopy(cases.get(case_id) if case_id else sorted(cases.values(), key=lambda c: -c['result']['priority']))
 
-    def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False, target_case_id=None, target_expected_version=None, mission=None, mission_inventory=None, mission_id=None, expected_versions=None):
+    def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False, target_case_id=None, target_expected_version=None, mission=None, mission_inventory=None, mission_id=None, expected_versions=None, event_at=None):
         if not human:
             raise PermissionError('Ação exclusiva de operador humano.')
         if not isinstance(actor, str) or not actor.strip() or len(actor) > 120:
@@ -270,7 +270,7 @@ class Registry:
             if action in ('approve_mission', 'cancel_mission'):
                 from app.missions.actions import apply
                 return apply(self, cases, case, action, actor, mission, mission_inventory,
-                             mission_id, expected_versions, caution_acknowledged)
+                             mission_id, expected_versions, caution_acknowledged, event_at)
             if case['status'].startswith('ASSIGNED:'):
                 raise Conflict('Caso em missão; cancele a missão antes de outra ação.')
             if action == 'unlink_report':  # target_case_id carries the repost's message_id

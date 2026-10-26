@@ -533,12 +533,14 @@ def _stats(g, latest):
     return out
 
 
-def _build_all(journal_path, callback_log, redteam_rows, now):
+def _build_all(journal_path, callback_log, redteam_rows, now, journal_lines=None):
     g = Graph()
     ctx = {'last_ts': {}, 'last_case': {}, 'callbacks': {}, 'missions': {}, 'alerts': {}, 'memory': {}, 'ticks': []}
     seq = 0
-    p = Path(journal_path)
-    lines = p.read_text(encoding='utf-8', errors='replace').splitlines() if p.is_file() else []
+    if journal_lines is None:
+        p = Path(journal_path)
+        journal_lines = p.read_text(encoding='utf-8', errors='replace').splitlines() if p.is_file() else []
+    lines = journal_lines
     for line in lines:
         seq += 1
         try:
@@ -620,7 +622,7 @@ def _parse_since(since):
     return cur
 
 
-def build_flow(journal_path, *, case_id=None, since=None, callback_log=None, redteam_dir=None, redteam_eval_dir=None, now=None, use_cache=True):
+def build_flow(journal_path, *, case_id=None, since=None, callback_log=None, redteam_dir=None, redteam_eval_dir=None, now=None, use_cache=True, journal_lines=None):
     """Return {nodes, edges, loops, open_loops, stats, cursor, clock}. `since` ("j:N,r:M" or int) keeps only newer edges/loops."""
     now = now if now is not None else datetime.now(timezone.utc).timestamp()
     rt = None
@@ -628,11 +630,12 @@ def build_flow(journal_path, *, case_id=None, since=None, callback_log=None, red
         rt = (Path(redteam_dir) if redteam_dir else None, Path(redteam_eval_dir) if redteam_eval_dir else None)
     key = (str(journal_path), _stamp(journal_path), _stamp(callback_log),
            tuple(_stamp(Path(d)/f) for d, f in ((rt[0], 'declarations.jsonl'), (rt[0], 'results.jsonl'), (rt[1], 'proposed.jsonl'), (rt[1], 'regression.jsonl')) if d) if rt else None)
+    use_cache = use_cache and journal_lines is None
     full = _CACHE.get(key) if use_cache else None
     if full is None:
         rows = ([_jsonl(rt[0]/'declarations.jsonl'), _jsonl(rt[0]/'results.jsonl')] if rt and rt[0] else [[], []]) + \
                ([_jsonl(rt[1]/'proposed.jsonl'), _jsonl(rt[1]/'regression.jsonl')] if rt and rt[1] else [[], []])
-        full = _build_all(journal_path, _jsonl(callback_log) if callback_log else [], rows, now)
+        full = _build_all(journal_path, _jsonl(callback_log) if callback_log else [], rows, now, journal_lines)
         if use_cache:
             _CACHE.clear()
             _CACHE[key] = full

@@ -71,4 +71,5 @@ def read_unlocked(registry):
 
 def inventory(registry,legacy=None):
     stored=read(registry);ids={u['id'] for u in stored}
-    return stored+[copy.deepcopy(u) for u in legacy or [] if u['id'] not in ids]
+    from app.unit_status import overlay_inventory
+    return overlay_inventory(registry,stored+[copy.deepcopy(u) for u in legacy or [] if u['id'] not in ids])

@@ -13,9 +13,9 @@ from app.missions.planner import distance, point
 
 CLOSED = ('RESCUED', 'NOT_FOUND', 'field_confirmed')
 SEND = ('SEND', 'SEND_CANDIDATE')
-ACTIONS = ('create_mission_proposal', 'trigger_callback', 'reprioritise', 'request_resources')
+ACTIONS = ('create_mission_proposal', 'trigger_callback', 'reprioritise', 'request_resources', 'acknowledge_unit')
 ACTION_LABEL_PT = {'create_mission_proposal': 'Gerar proposta de missão', 'trigger_callback': 'Acionar retorno (callback)',
-                   'reprioritise': 'Repriorizar fila', 'request_resources': 'Solicitar recursos'}
+                   'reprioritise': 'Repriorizar fila', 'request_resources': 'Solicitar recursos', 'acknowledge_unit': 'Ciente; contatar equipe'}
 ALLOWED = {'cluster_growth': ('create_mission_proposal', 'request_resources', 'reprioritise'),
            'stale_send': ('trigger_callback', 'reprioritise'),
            'idle_resources': ('create_mission_proposal',),

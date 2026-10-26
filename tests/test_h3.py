@@ -199,10 +199,10 @@ class IncidentTests(unittest.TestCase):
         self.assertEqual(check['status'], 'resolved')
         self.assertEqual(check['matched']['name'], 'Capela Nossa Senhora dos Navegantes')
 
-    def test_batch_overlaps_four_messages_and_preserves_all_registry_cases(self):
+    def test_batch_overlaps_two_messages_and_preserves_all_registry_cases(self):
         scratch = Scratch()
         self.addCleanup(scratch.cleanup)
-        gate = threading.Barrier(4)
+        gate = threading.Barrier(2)
         lock = threading.Lock()
         active = maximum = entered = 0
         class Reader:
@@ -212,7 +212,7 @@ class IncidentTests(unittest.TestCase):
                     with lock:
                         active += 1
                         entered += 1
-                        first = entered <= 4
+                        first = entered <= 2
                         maximum = max(maximum, active)
                     if first:
                         gate.wait(timeout=10)
@@ -227,7 +227,7 @@ class IncidentTests(unittest.TestCase):
             output = pipeline.run({'replay_time': TIME, 'messages': [
                 {'message_id': 'batch-'+str(i), 'received_at': TIME,
                  'text': f'2 pessoas na Rua Brasil, número {67+i}, Canoas.'} for i in range(15)]})
-        self.assertEqual(maximum, 4)
+        self.assertEqual(maximum, 2)
         self.assertEqual(len(output['cases']), 15)
         self.assertEqual(len(registry.read()), 15)
         self.assertTrue(all(c['complete'] for c in output['cases']))

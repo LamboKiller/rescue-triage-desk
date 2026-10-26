@@ -28,11 +28,19 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     service.routing_distance=FleetDistance
     from app.feedback import FeedbackService
     feedback=FeedbackService(registry,None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/feedback_trace.jsonl'))
+    from app.unit_status import UnitStatusService
+    from app.unit_status_routes import handle as unit_status_handle
+    def unit_interval(name, default):
+        try: return max(1, int(setting(name, str(default))))
+        except ValueError: return default
+    unit_status=UnitStatusService(registry,lambda:__import__('app.resources',fromlist=['inventory']).inventory(registry,service.allocation_inventory),
+        feedback.extractor,unit_interval('UNIT_STATUS_GRACE_MIN',20),unit_interval('UNIT_STATUS_IDLE_MIN',40))
     from app.supervisor.service import SupervisorService
     from app.supervisor import routes as supervisor_routes
     from app.resources import inventory as resource_inventory
     supervisor=SupervisorService(registry,lambda:resource_inventory(registry,inventory),service.proposals,
         None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/supervisor_trace.jsonl'))
+    supervisor.unit_status=unit_status
     from app.redteam.service import RedTeamService, handle as redteam_handle
     redteam=RedTeamService(offline=offline)
     from app.callback.service import CallbackService
@@ -44,23 +52,42 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     from app.shelters.service import ShelterService
     from app.shelters import routes as shelter_routes
     shelters=ShelterService(registry,ROOT/'runtime/shelter_events.jsonl')
+    from app.reunite.service import Reunite
+    reunite=Reunite(registry,shelters,ROOT/'runtime/reunite_events.jsonl')
     from app.contradictions.service import ContradictionService
     from app.contradictions import routes as contradiction_routes
     contradictions=ContradictionService(registry)
     from app.landing.service import LandingService
     from app.landing import routes as landing_routes
     landing=LandingService(registry,shelters,ROOT/'runtime/landing_events.jsonl',callback_client)
+    landing.unit_status=unit_status
+    unit_status.landing_events=lambda:landing.store.events
     landing.road_routing=True
     from app.volunteers.service import VolunteerService  # F6: volunteer boat intake (pending until a human verifies)
     from app.volunteers import routes as volunteer_routes
     volunteers=VolunteerService(registry.path.parent/'volunteers_events.jsonl',registry,callback_client)
+    from app.handover.service import HandoverService  # N4: shift handover; model summary only on demand, never on the triage path
+    from app.handover import routes as handover_routes
+    handover=HandoverService(registry,ROOT/'runtime/handover_events.jsonl',None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/handover_trace.jsonl'),
+        shelters=shelters,supervisor=supervisor,missions=service,volunteers=volunteers,contradictions=contradictions,
+        unit_status_fn=lambda now:[{'id':'unit:'+u['unit_id'],'text_pt':f"Unidade {u['unit_id']}: {u['label_pt']}; fonte {u['source'] or 'sem relato'}; horário {u['status_at'] or 'desconhecido'}."} for u in unit_status.view(now)['units']])
     server=original_server(host,port,sample=offline,pipeline=pipeline)
     from app.replay import routes as replay_routes
     BaseHandler=server.RequestHandlerClass
 
+    from app.coverage import CoverageService
+    coverage=CoverageService(service)
+
     class Handler(BaseHandler):
         def do_GET(self):
             path=urlsplit(self.path).path
+            if path.startswith('/api/units/'): return unit_status_handle(self,unit_status,'GET')
+            if path == '/api/coverage':
+                try:
+                    query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
+                    if set(query)!={'date'} or len(query['date'])!=1: raise ValueError('Informe uma data ISO.')
+                    return self.send_json(200,coverage.view(query['date'][0]))
+                except (ValueError,TypeError) as exc: return self.send_json(400,{'error':str(exc)})
             if path.startswith('/api/cases/') and path.endswith('/route') and len(path.split('/'))==5:
                 try:
                     query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
@@ -75,9 +102,13 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                 except KeyError: return self.send_json(404,{'error':'Caso ou unidade não encontrado.'})
                 except (ValueError,TypeError) as exc: return self.send_json(400,{'error':str(exc)})
                 except OSError: return self.send_json(503,{'error':'Malha local indisponível; REVISAR acesso.'})
+            if path == '/api/handover': return handover_routes.handle(self,handover,'GET')
             if path == '/api/flow':
                 from app.flow.routes import handle as flow_handle
                 return flow_handle(self,registry,parse_qs(urlsplit(self.path).query,keep_blank_values=True))
+            if path.startswith('/api/reunite'):  # N5: on-demand matcher, never on the triage path
+                from app.reunite import routes as reunite_routes
+                return reunite_routes.handle(self,reunite,'GET')
             if path == '/api/memory':
                 from app.memory.routes import handle
                 return handle(self,registry,'GET')
@@ -144,6 +175,11 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
 
         def do_POST(self):
             path=urlsplit(self.path).path
+            if path == '/api/handover': return handover_routes.handle(self,handover,'POST')
+            if path.startswith('/api/units/'): return unit_status_handle(self,unit_status,'POST')
+            if path.startswith('/api/reunite'):
+                from app.reunite import routes as reunite_routes
+                return reunite_routes.handle(self,reunite,'POST')
             if path == '/api/memory':
                 from app.memory.routes import handle
                 return handle(self,registry,'POST')
@@ -212,8 +248,10 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     server.landing=landing
     server.volunteers=volunteers
     server.feedback=feedback
+    server.unit_status=unit_status
     server.callback=callback
     server.supervisor=supervisor
+    server.handover=handover
     server.redteam=redteam
     from app.replay.routes import ReplayController
     server.pipeline=pipeline

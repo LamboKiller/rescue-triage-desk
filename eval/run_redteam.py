@@ -24,11 +24,16 @@ def main(argv=None):
     args = p.parse_args(argv)
     store = harness.Store(runtime_dir=args.runtime_dir or harness.RUNTIME_DIR)
     client = None
+    pipeline_client = None
     if args.live:
         load_env()
         from app.missions.client import MissionClient
+        from app.llm.nightshift import Nightshift
         client = MissionClient(ROOT/'runtime/redteam/attacker_trace.jsonl')
-    runner = harness.make_runner(offline=not args.live)
+        pipeline_client = Nightshift(ROOT/'runtime/redteam/pipeline_trace.jsonl')
+    # Production Pipeline defaults: 60s per started message, at most two workers.
+    # Attacker finishes declaring before the runner; judge_all judges only finished cases.
+    runner = harness.make_runner(offline=not args.live, client=pipeline_client)
     if args.replay:
         rows = harness.replay_regression(store, runner)
         print(json.dumps({'mode': 'live' if args.live else 'offline', 'replay': rows}, ensure_ascii=False, indent=2))

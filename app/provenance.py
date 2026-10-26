@@ -24,6 +24,7 @@ KINDS = {
 
 # id -> (map layer key or None, label_pt, kind, source, observed/published rule)
 LAYERS = {
+    'coverage': ('coverage', 'Cobertura estimada', 'retrospective', 'Open cases + sourced fleet reports + local routing/HAND; synthetic units flagged', 'Derived at replay date; retrospective depth and unproven routes remain estimates'),
     'streets': (None, 'Ruas', 'pre_event', 'OpenStreetMap (snapshot taken 2024-06-15)', 'Features pre-date the event; the extract is later'),
     'landmarks': (None, 'Pontos de referência', 'pre_event', 'OSM Overpass + hand-curated aliases', 'Features pre-date the event; the extract is later'),
     'shelters_osm': (None, 'Abrigos (OSM)', 'pre_event', 'OpenStreetMap', 'Facility existence only; occupancy comes from snapshots'),

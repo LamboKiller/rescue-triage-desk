@@ -23,4 +23,6 @@ def read(service,case_id,day):
                if u.get('type') in RULE_TYPES or u.get('asset') in RULE_TYPES.values()]
         for u in units:
             if u['id'] in reserved: u.update(status='assigned',available=False)
+        from app.unit_status import overlay_inventory
+        units=overlay_inventory(registry,units,locked=True)
         return copy.deepcopy(case),units

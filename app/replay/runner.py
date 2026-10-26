@@ -216,7 +216,7 @@ class ReplayRunner:
         self.emit('mission_proposed', 'mission', case_id=cid, message_id=row['ref'], **info)
         if plan.get('blocking_reasons'):
             return self.emit('mission_blocked', 'mission', case_id=cid, message_id=row['ref'], reason='; '.join(plan['blocking_reasons'])[:400])
-        request = {'proposal_id': plan['proposal_id'], 'actor': OPERATOR, 'caution_acknowledged': bool(row.get('acknowledge_caution')),
+        request = {'proposal_id': plan['proposal_id'], 'actor': OPERATOR, 'received_at': self.iso(), 'caution_acknowledged': bool(row.get('acknowledge_caution')),
                    'expected_versions': {s['case_id']: s['expected_version'] for s in plan['stops']}}
         detail = self.desk.missions.approve(request)
         return self.emit('mission_approved', 'mission', scenario_input=True, case_id=cid, message_id=row['ref'], mission_id=detail['mission_id'],

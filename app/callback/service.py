@@ -82,11 +82,15 @@ class CallbackService:
         sent = (simulator.PREFIX if simulated else '')+text.strip()
         new = self.pipeline.reply(case_id, {'text': sent, 'received_at': received})
         items_after = compute_items(new)
+        # A3 preserves prior validated evidence on failure. Diagnostics must describe
+        # this reply attempt rather than the successful analysis it preserved.
+        analysis = new.get('reply_attempt') or new
         diff = {'decision': {'before': previous['result']['decision'], 'after': new['result']['decision'],
                              'changed': previous['result']['decision'] != new['result']['decision'],
                              'reason_after': new['result'].get('decision_reason')},
                 'version': {'before': previous['version'], 'after': new['version']},
-                'fields_changed': new.get('changes') or [], 'items': diff_items(items_before, items_after, asked_ids)}
+                'fields_changed': new.get('changes') or [], 'items': diff_items(items_before, items_after, asked_ids),
+                'analysis': {k: analysis.get(k) for k in ('complete', 'errors', 'latency_budget')}}
         out = {'case_id': case_id, 'simulated': simulated, 'reply_text': sent, 'diff': diff, 'items': items_after,
                'items_before': items_before, 'case': new}
         self._log({'case_id': case_id, 'simulated': simulated, 'version_before': previous['version'],

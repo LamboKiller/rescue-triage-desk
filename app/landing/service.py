@@ -21,7 +21,15 @@ class LandingService:
     def report(self, landing_id, kind, request):
         states = self.shelters.shelters.state(request.get('at') or '2100-01-01')
         known = {p['landing_id'] for p in self._points(states, (request.get('at') or '')[:10] or None)}
-        return self.store.add(lq.validate(landing_id, kind, request, known))
+        event=lq.validate(landing_id, kind, request, known)
+        if request.get('unit_id'):
+            uid=request['unit_id'];mid=request.get('mission_id')
+            if not hasattr(self,'unit_status'): raise ValueError('Vínculo de unidade indisponível.')
+            rows=self.unit_status.view(request['at'])['units']
+            row=next((r for r in rows if r['unit_id']==uid),None)
+            if not row or not mid or row['mission_id']!=mid: raise ValueError('Unidade não pertence à missão informada.')
+            event.update(unit_id=uid,mission_id=mid)
+        return self.store.add(event)
 
     def choice_of(self, case_id, now):
         from app.shelters.state import clock

@@ -40,9 +40,10 @@ def _evaluate_cached(rules_json, inputs_json, day):
     return evaluate(json.loads(rules_json),json.loads(inputs_json))
 
 
-def checked_rules(inputs,day):
-    return copy.deepcopy(_evaluate_cached(json.dumps(document(),sort_keys=True),
-        json.dumps(inputs,sort_keys=True),day))
+def checked_rules(inputs,day,asset=None):
+    checked=_evaluate_cached(json.dumps(document(),sort_keys=True),json.dumps(inputs,sort_keys=True),day)
+    # Callers inspecting one unit need only its detached verdict, not every asset's full rule trace.
+    return copy.deepcopy(checked['assets'][asset] if asset is not None else checked)
 
 
 def validate_confirmations(checklist, confirmations):
@@ -107,7 +108,7 @@ def allocate(case,inventory,day,distance_fn=None):
         # Explicit capability false always defeats legacy positive flags.
         attest.update(available=u['available'],stretcher_capable=u['stretcher'],night_capable=u['night_ok'])
         c['assigned_assets']={aid:attest}
-        checked=checked_rules(c,day)['assets'][aid]
+        checked=checked_rules(c,day,aid)
         reasons=[];blockers=[];checklist=[]
         def reason(code,text=None,blocking=False,confirm=False,severity=1):
             ids=[cf,uf]+hazard_ids

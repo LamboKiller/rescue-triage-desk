@@ -197,13 +197,24 @@ class RunnerUnitTests(unittest.TestCase):
 
 
 class LoopTests(unittest.TestCase):
+    def test_mission_approval_journal_uses_replay_time(self):
+        real = RealDesk(self)
+        runner = real.run(build({**BOAT}, msg('g1', 5,
+            '3 pessoas na rua brasil 140, canoas. agua na cintura e subindo'),
+            op(10, 'confirm_location', 'g1'), op(15, 'approve_mission', 'g1', acknowledge_caution=True)))
+        self.assertEqual(len(kinds(runner, 'mission_approved')), 1)
+        events = [json.loads(s) for s in real.registry.path.read_text(encoding='utf-8').splitlines()]
+        approval = next(e for e in events if e['kind'] == 'approve_mission')
+        self.assertEqual(approval['at'], DAY+'T08:15:00-03:00')
+
     def test_partial_feedback_requeues_and_the_next_mission_closes_the_loop(self):
         scenario = build(
             {**BOAT},
             msg('g1', 5, 'gnt tem 3 pessoas na rua brasil 140, canoas. agua na cintura e subindo, pfv'),
             op(10, 'confirm_location', 'g1'),
             op(15, 'approve_mission', 'g1', acknowledge_caution=True),
-            {'type': 'crew_report', 't': 25, 'ref': 'g1', 'scenario_input': True, 'text': 'pegamos 2, falta 1'},
+            {'type': 'crew_report', 't': 25, 'ref': 'g1', 'scenario_input': True,
+             'text': 'pegamos 2, falta 1. Desembarcamos no ponto da base. Unidade disponível.'},
             op(30, 'confirm_location', 'g1'),
             op(35, 'approve_mission', 'g1', acknowledge_caution=True),
             {'type': 'crew_report', 't': 50, 'ref': 'g1', 'scenario_input': True, 'text': 'pegamos o ultimo, resgatamos 1'},

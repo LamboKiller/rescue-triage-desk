@@ -62,6 +62,9 @@ class MissionService:
                     continue
                 u=next(u for u in units if u['id']==row['id'])
                 plan=build_plan([prepare_mission_case(c,u,day)],day,[u],self.radius_m)
+                # Preserve the allocator's computed travel estimate for progress supervision.
+                plan['eta_seconds']=row.get('eta_seconds')
+                plan['eta_basis_pt']=row.get('distance_basis_pt','Estimativa do alocador')
                 allocation_plan_checks(plan,row)
                 plan['allocation_selection']={'case_id':case_id,'unit_id':u['id'],'rank':row['rank'],'override_reason':None,
                     'confirmation_checklist':copy.deepcopy(row['confirmation_checklist']),'checklist_confirmations':{}}
@@ -123,7 +126,7 @@ class MissionService:
         self.registry.action(cid,'approve_mission',expected[cid],request.get('actor'),human=True,
             mission=plan,mission_inventory=__import__('app.resources',fromlist=['inventory']).inventory(self.registry,
                 __import__('app.fleet.assets',fromlist=['replay_inventory']).replay_inventory(self.allocation_inventory,plan['date'])
-                if 'allocation_selection' in plan else self.inventory),caution_acknowledged=request.get('caution_acknowledged',False))
+                if 'allocation_selection' in plan else self.inventory),caution_acknowledged=request.get('caution_acknowledged',False),event_at=request.get('received_at'))
         return self.detail(plan['proposal_id'])
 
     def cancel(self,mid,request,case_id=None):
@@ -133,7 +136,7 @@ class MissionService:
         if cid not in versions: raise ValueError('Versão do caso ausente.')
         if case_id and request.get('expected_version')!=versions[cid]: raise Conflict('Versão do caso alterada.')
         self.registry.action(cid,'cancel_mission',versions[cid],request.get('actor'),human=True,
-                             mission_id=mid,expected_versions=versions)
+                             mission_id=mid,expected_versions=versions,event_at=request.get('received_at'))
         return self.detail(mid)
 
     def feedback(self,mid,request,feedback_service):

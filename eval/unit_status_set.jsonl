@@ -1,0 +1,12 @@
+{"id":"normal-trip","mission":true,"steps":[{"time":"14:02","text":"Saímos da garagem.","want":"en_route"},{"time":"14:12","text":"Chegamos ao sobrado.","want":"on_scene"},{"time":"14:17","text":"Pegamos 3 moradores.","want":"on_scene"},{"time":"14:22","text":"Estamos voltando.","want":"returning"},{"time":"14:32","text":"Desembarcamos no cais municipal.","want":"unloading"},{"time":"14:37","text":"Equipe disponível.","want":"available"}],"now":"14:40","want":"available"}
+{"id":"silent-assigned","mission":true,"steps":[],"now":"14:31","want":"assigned","alerts":["unit_silent"]}
+{"id":"engine-stopped","mission":true,"steps":[{"time":"14:06","text":"O motor quebrou perto da ponte."}],"now":"14:50","want":"out_of_service","hint":true}
+{"id":"partial-pickup","mission":true,"steps":[{"time":"14:11","text":"Pegamos 3; restam 2 esperando na varanda."}],"now":"14:20","want":"on_scene"}
+{"id":"wrong-unit-body","steps":[{"time":"14:05","text":"Saímos para o atendimento.","unit_id":"boat-b"}],"now":"14:20","want":"unknown","errors":1}
+{"id":"late-departure","steps":[{"time":"14:20","text":"Chegamos ao galpão."},{"time":"14:05","text":"Partimos da base."}],"now":"14:25","want":"on_scene"}
+{"id":"idle-scene","mission":true,"steps":[{"time":"14:08","text":"Chegamos à escola."},{"time":"14:30","text":"Pegamos 1 morador."}],"now":"14:49","want":"on_scene","alerts":["unit_idle"]}
+{"id":"negation","steps":[{"time":"14:04","text":"Não saímos. Talvez voltando mais tarde."}],"now":"14:40","want":"unknown"}
+{"id":"future-report-hidden","steps":[{"time":"14:55","text":"Chegamos ao mercado."}],"now":"14:25","want":"unknown"}
+{"id":"operator-return","steps":[{"time":"14:13","source":"operator","status":"returning"}],"now":"14:20","want":"returning"}
+{"id":"silence-boundary","mission":true,"steps":[{"time":"14:03","text":"Saímos da sede."}],"now":"14:30","want":"en_route"}
+{"id":"unrelated-chatter","steps":[{"time":"14:05","text":"O rádio está com a equipe."}],"now":"14:40","want":"unknown"}

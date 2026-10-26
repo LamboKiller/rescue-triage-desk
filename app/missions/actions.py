@@ -10,14 +10,22 @@ def reserved_units(cases,exclude=None):
             and c.get('mission_id')!=exclude for u in (c.get('mission') or {}).get('units',[])}
 
 
-def apply(registry,cases,case,action,actor,plan,inventory,mission_id,versions,caution):
+def apply(registry,cases,case,action,actor,plan,inventory,mission_id,versions,caution,event_at=None):
     actor=redact(actor.strip())
+    from app.decide import timestamp
+    from app.unit_status import clock
+    at=event_at or clock()
+    timestamp(at)
+    if event_at and timestamp(at)<timestamp(case['received_at']):
+        raise ValueError('Ação anterior ao pedido; confira o relógio do replay.')
     if action=='approve_mission':
         if not isinstance(plan,dict) or not isinstance(inventory,list):
             raise ValueError('Informe proposta calculada e inventário documentado.')
         from app.resources import read_unlocked
         stored=read_unlocked(registry);ids_stored={u['id'] for u in stored}
         inventory=stored+[u for u in inventory if u['id'] not in ids_stored]
+        from app.unit_status import overlay_inventory
+        inventory=overlay_inventory(registry,inventory,locked=True)
         reasons=check_plan(plan,list(cases.values()),inventory)
         if reasons: raise Conflict(' '.join(reasons))
         ids=[s['case_id'] for s in plan['stops']]
@@ -37,7 +45,7 @@ def apply(registry,cases,case,action,actor,plan,inventory,mission_id,versions,ca
                      mission_before=before,mission_stop_done=False,version=c['version']+1,approved_asset=plan['asset'],
                      caution_acknowledgement={'asset':plan['asset'],'acknowledged':True,'actor':actor,'mission_id':mission_id})
             c['actions'].append({'action':action,'actor':actor,'version':c['version'],
-                                'mission_id':mission_id,'mission':copy.deepcopy(plan),'cautions_acknowledged':True})
+                                'mission_id':mission_id,'mission':copy.deepcopy(plan),'cautions_acknowledged':True,'at':at})
             projections.append(c)
     else:
         if not isinstance(mission_id,str) or case.get('status')!='ASSIGNED:'+mission_id:
@@ -56,8 +64,8 @@ def apply(registry,cases,case,action,actor,plan,inventory,mission_id,versions,ca
             if not c.get('mission_stop_done'): c.update(c['mission_before'])
             c['version']+=1
             for k in ('mission_id','mission','mission_before'): c.pop(k,None)
-            c['actions'].append({'action':action,'actor':actor,'version':c['version'],'mission_id':mission_id})
+            c['actions'].append({'action':action,'actor':actor,'version':c['version'],'mission_id':mission_id,'at':at})
             projections.append(c)
-    registry._append({'schema_version':1,'kind':action,'case_id':case['case_id'],
+    registry._append({'schema_version':1,'kind':action,'at':at,'case_id':case['case_id'],
                       'actor':actor,'mission_id':mission_id,'projections':projections})
     return copy.deepcopy(registry._read()[0][case['case_id']])

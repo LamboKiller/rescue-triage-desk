@@ -50,13 +50,15 @@ def evaluate(live=False, path=SET):
     rows, flagged_rejects = [], 0
     totals = dict(resolvable=0, resolved=0, questions=0, decision_ok=0, decision_before_ok=0, items_before_ok=0, invented=0,
                   unmapped=0, model_ok=0, model_rejected=0, templates=0, simulated_labelled=0, replied=0, existing_questions=0)
+    live_client = None
+    if live:
+        from app.llm.nightshift import Nightshift
+        live_client = Nightshift(ROOT/'runtime'/'callback_trace.jsonl')
     for rec in records:
         with scratch() as folder:
-            pipe = Pipeline(Registry(Path(folder)/'events.jsonl'), sample=not live)
+            pipe = Pipeline(Registry(Path(folder)/'events.jsonl'), sample=not live, client=live_client)
             if live:
-                from app.llm.nightshift import Nightshift
-                client = Nightshift(ROOT/'runtime'/'callback_trace.jsonl')
-                pipe.client = pipe.client or client
+                client = live_client
             else:
                 client = ScriptedPlanner()
             service = CallbackService(pipe.registry, pipe, client, records=by_id)
@@ -77,6 +79,7 @@ def evaluate(live=False, path=SET):
                     plan = view['plan']
                     questions = plan['questions']
                     row.update(decision_before=case['result']['decision'], items_before=[i['id'] for i in items],
+                               analysis_before={k: case.get(k) for k in ('complete', 'errors', 'latency_budget')},
                                existing_questions=len(case['result'].get('questions') or []),
                                questions=[q['text_pt'] for q in questions], plan_source=plan['source'],
                                fallback_reason=plan['fallback_reason'], deferred=plan['deferred'])
@@ -99,6 +102,7 @@ def evaluate(live=False, path=SET):
                         totals['resolvable'] += d['items']['resolvable_before']
                         totals['resolved'] += len(d['items']['resolved'])
                         row.update(reply=out['reply_text'], decision_after=d['decision']['after'], resolved=d['items']['resolved'],
+                                   analysis_after=d['analysis'],
                                    remaining=d['items']['remaining'], new_items=d['items']['new'], fields_changed=[c['field'] for c in d['fields_changed']])
                         totals['decision_ok'] += d['decision']['after'] == rec['expect']['decision_after']
                     else:

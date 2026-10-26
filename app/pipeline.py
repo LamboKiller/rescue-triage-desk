@@ -84,7 +84,7 @@ class StageBudget:
         remaining = min(deadline, self.deadline-self.reserve)-now
         if stage != 'location' and stage in self.ends:
             remaining = min(remaining, self.ends[stage]-now)
-        optional = stage != 'intake' and (stage != 'location' or self.attempts.get(stage, 0) > 0)
+        optional = stage not in ('intake', 'location') or self.attempts.get(stage, 0) > 0
         if optional and remaining < self.MEDIANS.get(stage, self.MEDIANS['critic']):
             self.record(stage, 'skipped', reason='insufficient_budget', availability='stage_unavailable',
                         remaining_seconds=round(max(0, remaining), 4))
@@ -94,6 +94,7 @@ class StageBudget:
             self.ends[stage] = now+ceiling
         end = min(self.ends[stage], deadline, self.deadline-self.reserve)
         self.attempts[stage] = self.attempts.get(stage, 0)+1
+        queue = {'seconds': 0.}
         pool = None
         try:
             if now >= end:
@@ -104,6 +105,13 @@ class StageBudget:
                 # back to the message worker, including unsuccessful attempts.
                 if isinstance(self.client, Nightshift):
                     self.client.start_message(self.message_id or 'stage')
+                    self.client.local.minimum_seconds = self.MEDIANS.get(stage, self.MEDIANS['critic'])
+                    def queued(seconds, admitted):
+                        queue['seconds'] = seconds
+                        self.record(stage, 'provider_queue', queue_seconds=round(seconds, 4),
+                                    admitted=admitted,
+                                    **({} if admitted else dict(availability='stage_unavailable')))
+                    self.client.local.queue_observer = queued
                 try:
                     value, error = self.client.call(role, system, payload, end), None
                 except Exception as exc:
@@ -119,10 +127,12 @@ class StageBudget:
             if time.monotonic() >= end:
                 raise TimeoutError('Late stage response: '+stage)
             self.record(stage, 'ran', seconds=round(time.monotonic()-now, 4),
+                        queue_seconds=round(queue['seconds'], 4),
                         allowance_seconds=round(max(0, end-now), 4))
             return output, meta
         except TimeoutError:
             self.record(stage, 'code_fallback', reason='stage_over_budget', availability='stage_unavailable',
+                        queue_seconds=round(queue['seconds'], 4),
                         seconds=round(time.monotonic()-now, 4))
             raise
         finally:
@@ -173,12 +183,12 @@ def validate_request(request):
 
 
 class Pipeline:
-    def __init__(self, registry, sample=False, source=None, client=None, budget_seconds=60, max_workers=4):
+    def __init__(self, registry, sample=False, source=None, client=None, budget_seconds=60, max_workers=2):
         self.registry, self.sample = registry, sample
         self.source = source or (LocalSource() if sample else ZetarisSource())
         self.client = client
         self.budget_seconds = min(480, budget_seconds)
-        self.max_workers = max(1, min(4, max_workers))
+        self.max_workers = max(1, min(2, max_workers))
         self.run_lock = threading.Lock()
         get_data()  # Build the shared local grid once, before per-case timing.
 
@@ -609,6 +619,7 @@ class Pipeline:
                     failure.pop(key, None)
                 failure.update(messages=reply_messages(previous, messages[0]), received_at=messages[0]['received_at'],
                     replay_time=replay, parent_version=previous['version'], complete=False,
+                    latency_budget=case.get('latency_budget'), stage_unavailable=case.get('stage_unavailable', []),
                     errors=case['errors'], changes=[], route=case['route'],
                     reply_attempt={k:case.get(k) for k in ('agents','calls','errors','run_id','complete','latency_budget','arbitration')},
                     change_summary_pt='Falha na resposta; análise anterior preservada para revisão.')
@@ -617,6 +628,9 @@ class Pipeline:
             cases = [self.registry.append_reply(previous['case_id'], previous['version'], case)]
         else:
             cases = [self.registry.ingest(case) for case in results]
+        if self.sample:  # Offline harnesses remove scratch registries immediately on return.
+            from app.contradictions.service import wait_all
+            wait_all()
         summary = {'run_id': run_id, 'mode': 'sample_offline' if self.sample else ablation,
                    'synthetic': True, 'seconds': round(time.monotonic()-started, 3),
                    'partial': any(not c['complete'] for c in results), 'cases': cases}

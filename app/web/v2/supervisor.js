@@ -1,7 +1,7 @@
 'use strict';
 window.DeskSupervisor=(()=>{
  let ctx=null,data=null,open=false;
- const KIND={cluster_growth:'Aglomeração',stale_send:'SEND/ASSIGNED parado',idle_resources:'Recurso ocioso',rising_depth:'Água subindo',callback_aging:'Retorno envelhecendo',mission_feedback:'Missão sem retorno'};
+ const KIND={unit_silent:'Meio sem notícia',unit_idle:'Meio parado',cluster_growth:'Aglomeração',stale_send:'SEND/ASSIGNED parado',idle_resources:'Recurso ocioso',rising_depth:'Água subindo',callback_aging:'Retorno envelhecendo',mission_feedback:'Missão sem retorno'};
  const CHECK={model_reviewed:'Modelo (validado)',deterministic_only:'supervisor_check: deterministic_only',no_findings:'Nada a alertar'};
  const hhmm=t=>String(t).slice(11,16);
  function badge(text,cls){const b=ctx.el('span',text,'sup-badge '+cls);return b;}

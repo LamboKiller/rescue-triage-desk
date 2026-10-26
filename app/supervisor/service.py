@@ -69,6 +69,12 @@ class SupervisorService:
     @staticmethod
     def recheck(alert, by_id, current):
         orig = set(alert['case_ids'])
+        if alert['kind'] in ('unit_silent','unit_idle'):
+            present=alert['finding_id'] in current
+            return {'alert_id':alert['alert_id'],'outcome':'still_open' if present else 'resolved',
+                    'remaining_case_ids':sorted(orig) if present else [],
+                    'delta':{'before':1,'after':int(present),'removed_case_ids':[]},
+                    'delta_pt':'Condição da unidade ainda presente' if present else 'Novo relato ou estado resolveu o achado'}
         if alert['kind'] == 'cluster_growth':
             left = sorted(c for c in orig if c in by_id and D.is_open(by_id[c]) and not by_id[c].get('status', '').startswith('ASSIGNED:')
                           and by_id[c].get('status') not in ADDRESSED)
@@ -92,6 +98,8 @@ class SupervisorService:
             st = self.state()
             cases = self.registry.read()
             findings, seen = D.detect(cases, now, self.inventory_fn(), self.cfg, st['first_seen'], st['callback_times'])
+            if hasattr(self, 'unit_status'):
+                findings = self.unit_status.findings(now) + findings
             by_id = {c['case_id']: c for c in seen}
             current = {f['id']: f for f in findings}
             rechecks = [self.recheck(a, by_id, current) for a in st['alerts'].values()
@@ -179,7 +187,10 @@ class SupervisorService:
     def execute(self, alert, actor, when):
         """Calls the existing human-facing API for the action; the supervisor never approves anything."""
         action, results = alert['action'], []
-        if action == 'trigger_callback':
+        if action == 'acknowledge_unit':
+            results = [{'ok': True, 'resource_ids': alert['resource_ids'], 'mission_ids': alert['mission_ids']}]
+            summary = 'Ciência registrada; confirmar contato com a equipe e revisar missão.'
+        elif action == 'trigger_callback':
             for cid in alert['case_ids'][:5]:
                 case = self.registry.read(cid)
                 if not case or case.get('status') in ('callback_requested',) or case.get('status', '').startswith('ASSIGNED:') or not D.is_open(case):
