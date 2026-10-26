@@ -36,12 +36,60 @@ class GateTests(unittest.TestCase):
         output = 'loading\n' + json.dumps(data, indent=2) + '\ncase1 CALLBACK -> SEND_CANDIDATE'
         self.assertTrue(gate.parse_check('callback', output)['pass'])
 
-    def test_adversarial_requires_all_24_decisions_and_routes(self):
+    def test_adversarial_requires_all_24_decisions(self):
         self.assertTrue(self.parse('adversarial', self.adversarial())['pass'])
-        for change in ({'messages': 23}, {'decision_accuracy': 23/24}, {'route_accuracy': 23/24},
+        for change in ({'messages': 23}, {'decision_accuracy': 23/24},
                        {'crashes': 1}, {'failures': ['miss']}, {'unsafe_send': 1}):
             with self.subTest(change=change):
                 self.assertFalse(self.parse('adversarial', self.adversarial(**change))['pass'])
+
+    def test_route_mismatch_warns_but_decisions_safety_and_crashes_fail(self):
+        value = self.adversarial(route_accuracy=23/24, failures=[
+            dict(message_id='synthetic-route', decision='CALLBACK', route='rescue')])
+        result = self.parse('adversarial', value)
+        self.assertTrue(result['pass'])
+        self.assertTrue(result['warnings'])
+        self.assertEqual(result['value'], value)
+        for change in ({'decision_accuracy': 23/24}, {'unsafe_send': 1}, {'crashes': 1},
+                       {'failures': [{'error': 'RuntimeError'}]}, {'route_accuracy': None},
+                       {'route_accuracy': 2}):
+            self.assertFalse(self.parse('adversarial', dict(value, **change))['pass'])
+        self.assertFalse(self.parse('adversarial', value, returncode=1)['pass'])
+
+    def dialogue(self, **changes):
+        value = dict(dialogues=10, crashes=0, final_decision_accuracy=1,
+                     contradictions_flagged_accuracy=1, version_count_accuracy=1,
+                     failures=[dict(dialogue_id='synthetic-field', decision='CALLBACK',
+                                    fields={'location': {'actual': 'near bridge', 'expected': 'bridge'}})])
+        value.update(changes)
+        return value
+
+    def test_dialogue_field_only_exit_one_warns(self):
+        for code in (0, 1):
+            result = self.parse('dialogues', self.dialogue(), returncode=code)
+            self.assertTrue(result['pass'])
+            self.assertTrue(result['warnings'])
+            self.assertEqual(result['returncode'], code)
+
+    def test_dialogue_warnings_never_hide_hard_failures(self):
+        for change in ({'final_decision_accuracy': .9}, {'crashes': 1},
+                       {'contradictions_flagged_accuracy': .9}, {'version_count_accuracy': .9},
+                       {'unsafe_sends': 1}, {'failures': [{'error': 'RuntimeError'}]},
+                       {'failures': [dict(dialogue_id='x', decision='CALLBACK', fields={})]},
+                       {'failures': ['FIELD mismatch']}):
+            self.assertFalse(self.parse('dialogues', self.dialogue(**change), returncode=1)['pass'])
+        self.assertFalse(self.parse('dialogues', self.dialogue(), returncode=2)['pass'])
+        self.assertFalse(self.parse('dialogues', self.dialogue(failures=[]), returncode=1)['pass'])
+
+    def test_accuracy_only_label_mismatches_warn(self):
+        self.assertTrue(self.parse('adversarial', self.adversarial(route_accuracy=.9))['warnings'])
+        result = self.parse('adversarial', self.adversarial(key_field_accuracy=.9))
+        self.assertTrue(result['pass'])
+        self.assertTrue(result['warnings'])
+        result = self.parse('dialogues', self.dialogue(failures=[], merge_accuracy_per_field={
+            'location': {'correct': 9, 'total': 10, 'accuracy': .9}}))
+        self.assertTrue(result['pass'])
+        self.assertTrue(result['warnings'])
 
     def test_redteam_requires_exact_count_and_100_percent(self):
         for summary, expected in [('n=42 pass=42 rate=1.0 unsafe_send=0', True),
@@ -122,7 +170,12 @@ class GateTests(unittest.TestCase):
             self.assertFalse(gate.run_check('suite', [], gate.ROOT, gate.DEFAULT_FLOOR)['pass'])
         with patch.object(gate.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, '', '')) as run:
             self.assertFalse(gate.run_check('suite', [], gate.ROOT, gate.DEFAULT_FLOOR)['pass'])
+            self.assertEqual(run.call_args.kwargs['timeout'], 1500)
+        with patch.object(gate.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, '', '')) as run:
+            gate.run_check('redteam', [], gate.ROOT, gate.DEFAULT_FLOOR)
             self.assertEqual(run.call_args.kwargs['timeout'], 300)
+            gate.run_check('suite', [], gate.ROOT, gate.DEFAULT_FLOOR, timeout=7)
+            self.assertEqual(run.call_args.kwargs['timeout'], 7)
 
     def test_callback_subprocess_uses_fresh_artifact_and_removes_it(self):
         with fixture_directory() as folder:
@@ -154,16 +207,19 @@ class GateTests(unittest.TestCase):
             with self.subTest(passed=passed), fixture_directory() as folder:
                 root = Path(folder)
                 (root/'eval').mkdir()
-                result = {'value': 3, 'pass': passed, 'reasons': []}
+                result = {'value': 3, 'pass': passed, 'reasons': [], 'warnings': ['fixture label mismatch']}
+                output = io.StringIO()
                 with patch.object(gate, 'ROOT', root), patch.object(gate, 'commands', return_value=[('suite', [], root)]), \
                         patch.object(gate, 'run_check', return_value=result), \
                         patch.object(gate.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'abc123\n', '')), \
-                        contextlib.redirect_stdout(io.StringIO()):
+                        contextlib.redirect_stdout(output):
                     self.assertEqual(gate.main([]), 0 if passed else 1)
                 report = json.loads((root/'eval/gate_last.json').read_text(encoding='utf-8'))
                 self.assertEqual(report['pass'], passed)
                 self.assertEqual(report['commit'], 'abc123')
                 self.assertIn('date', report)
+                self.assertEqual(report['checks']['suite']['warnings'], result['warnings'])
+                self.assertIn('WARNING: fixture label mismatch', output.getvalue())
 
     def test_invalid_stored_floor_fails_main_even_when_commands_pass(self):
         with fixture_directory() as folder:

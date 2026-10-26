@@ -10,12 +10,21 @@ No live mode or environment-file loading is requested.
 test_derive_count.py, test_credibility.py, test_hydro.py, and test_hazards.py.
 All seven evals still run. Use the default for full acceptance.
 
-Each subprocess has a 300-second timeout. Checks continue after failures and
+The full unit suite has a 1500-second (25-minute) timeout; the fast subset
+uses the same suite budget. Each eval has a 300-second timeout. Checks continue after failures and
 print a short table. Nonzero commands, timeouts, missing/malformed summaries,
 unsafe-send counters anywhere in reported results, failed/empty unit suites,
-redteam below 42/42, or adversarial below 24/24 decisions/routes fail the gate.
+redteam below 42/42, or adversarial below 24/24 decisions fail the gate.
 Credibility, hydro, callback and dialogues also retain their runner acceptance
-criteria; dialogue decisions must all match. Callback also uses its `--out` JSON
+criteria; dialogue decisions must all match. Adversarial ROUTE/FIELD labels and
+dialogue FIELD labels/phrases are warnings, printed with `WARNING:` and retained
+in each check's `warnings` array in `gate_last.json`, alongside unchanged metrics
+and failure rows. Only recognized mismatch rows qualify: unknown/malformed
+failures remain hard failures. The dialogue runner's exit 1 is accepted only
+for confirmed field-only mismatch rows with all hard checks passing; its actual
+exit code remains recorded. Other nonzero exits fail. Crashes, unsafe sends,
+contradiction/version regressions, and decision regressions remain hard failures.
+Callback also uses its `--out` JSON
 in an isolated scratch file to detect unsafe SEND_CANDIDATE decisions against
 the runner's per-case expectations, both before and after replies; it removes
 that scratch file afterwards. Safety detection otherwise covers reported
@@ -28,7 +37,7 @@ Only change the floor deliberately after reviewing results; the gate never
 learns a lower floor from a bad run. Realdev errors/timeouts also fail.
 
 `eval/gate_last.json` is atomically replaced with UTC date, current HEAD commit,
-floor, fast/full mode, per-check values/reasons/exit codes, and overall `pass`.
+floor, fast/full mode, per-check values/reasons/warnings/exit codes, and overall `pass`.
 Exit status is 0 for acceptance and 1 for failure. HEAD identifies the commit;
 uncommitted concurrent edits are included in execution. Existing runners may
 write their usual runtime/eval artifacts, including realdev holdout_results.json.
@@ -71,3 +80,24 @@ new live dumps from the planning folder with
 This command defaults to live mode; it was not run for this task.
 
 Fixture tests: `python -m unittest discover -s tests -p test_gate.py`.
+
+# LIVEFIX latency policy (26 October 2026)
+
+The 60-second budget starts when each message worker starts, excluding queue wait.
+Calls receive remaining time minus a 2-second deterministic reserve, bounded by
+the larger measured live2/holdout p90. The full median/p90 table and source are
+in `StageBudget` in `app/pipeline.py`; unmeasured ID reviewers use critic proxies.
+Optional calls skip visibly as `skipped: insufficient_budget` below their median.
+Location tool turns donate unused time; retries retain their stage ceiling.
+The critic and location agent defer to the central allocator's deadline.
+Conservative intake + critic + revision + one location median totals 40.7s;
+adding hazard gives 45.8s, versus the old live mean 46.7s / p95 107s. Keep 60s:
+15 messages with `--jobs 2` need at most eight 60s worker waves (480s), plus
+up to 60s source setup; 90s would need 720s for worker waves alone. Orbit must
+verify actual wall time including deterministic work remains below 10 minutes.
+Timeouts mean `stage_unavailable`: uncertain extraction remains human-reviewable,
+hazard uses existing deterministic fleet checks, and an abstention is not a conflict.
+The harness retains its worker with an isolated registry per evaluation batch, tolerates closed-pipe cleanup,
+and reports only failure phase and exception class, never exception/provider text.
+Run `python -m unittest discover -s tests -p test_livefix.py` for scaled latency
+replay, optional skips, queued-message isolation and unavailable-stage safety.

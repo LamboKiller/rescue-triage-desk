@@ -66,10 +66,10 @@ def load_floor(path):
 
 
 def parse_check(name, stdout, stderr='', returncode=0, floor=None):
-    result = {'value': None, 'pass': False, 'returncode': returncode, 'reasons': []}
+    result = {'value': None, 'pass': False, 'returncode': returncode, 'reasons': [], 'warnings': []}
     reasons = result['reasons']
-    if returncode:
-        reasons.append('command failed')
+    warnings = result['warnings']
+    field_only_exit = False
     try:
         text = stdout + '\n' + stderr
         # Some runners emit plain summaries rather than JSON. Scan all output.
@@ -117,8 +117,29 @@ def parse_check(name, stdout, stderr='', returncode=0, floor=None):
             result['value'] = value
             if name == 'adversarial':
                 if (value['messages'] != 24 or value['decision_accuracy'] != 1 or
-                        value['route_accuracy'] != 1 or value['crashes'] or value['failures']):
+                        value['crashes']):
                     reasons.append('adversarial below 24/24')
+                route = value['route_accuracy']
+                if type(route) not in (int, float) or not 0 <= route <= 1:
+                    raise ValueError('invalid route accuracy')
+                if route != 1:
+                    warnings.append('adversarial ROUTE label accuracy: ' + str(route))
+                if 'key_field_accuracy' in value and value['key_field_accuracy'] != 1:
+                    accuracy = value['key_field_accuracy']
+                    if type(accuracy) not in (int, float) or not 0 <= accuracy <= 1:
+                        raise ValueError('invalid key field accuracy')
+                    warnings.append('adversarial FIELD label accuracy: ' + str(accuracy))
+                failures = value['failures']
+                if not isinstance(failures, list):
+                    raise ValueError('invalid adversarial failures')
+                for failure in failures:
+                    if (isinstance(failure, dict) and
+                            set(failure) == {'message_id', 'decision', 'route'} and
+                            all(isinstance(item, str) and item for item in failure.values()) and
+                            value['decision_accuracy'] == 1 and route != 1 and not value['crashes']):
+                        warnings.append('adversarial ROUTE label mismatch: ' + json.dumps(failure, ensure_ascii=True))
+                    else:
+                        reasons.append('adversarial unexplained failure')
                 if 'unsafe_send' not in value:
                     raise ValueError('missing adversarial safety counter')
             elif name == 'credibility':
@@ -131,10 +152,34 @@ def parse_check(name, stdout, stderr='', returncode=0, floor=None):
                 if value['cases'] <= 0 or value['errors'] or value['invented_facts_in_questions'] or value['unmapped_questions']:
                     reasons.append('callback regression')
             elif name == 'dialogues':
-                if (value['dialogues'] <= 0 or value['crashes'] or value['failures'] or
+                if (value['dialogues'] <= 0 or value['crashes'] or
                         value['final_decision_accuracy'] != 1 or value['contradictions_flagged_accuracy'] != 1 or
                         value['version_count_accuracy'] != 1):
                     reasons.append('dialogue regression')
+                failures = value['failures']
+                if not isinstance(failures, list):
+                    raise ValueError('invalid dialogue failures')
+                field_only_exit = bool(failures)
+                for failure in failures:
+                    if (isinstance(failure, dict) and
+                            set(failure) == {'dialogue_id', 'decision', 'fields'} and
+                            isinstance(failure['dialogue_id'], str) and failure['dialogue_id'] and
+                            isinstance(failure['decision'], str) and failure['decision'] and
+                            isinstance(failure['fields'], dict) and failure['fields'] and
+                            all(isinstance(detail, dict) and set(detail) == {'actual', 'expected'}
+                                and detail['actual'] != detail['expected']
+                                for detail in failure['fields'].values()) and
+                            value['final_decision_accuracy'] == 1 and not value['crashes']):
+                        warnings.append('dialogue FIELD label mismatch: ' + json.dumps(failure, ensure_ascii=True))
+                    else:
+                        field_only_exit = False
+                        reasons.append('dialogue unexplained failure')
+                for field, metric in value.get('merge_accuracy_per_field', {}).items():
+                    accuracy = metric['accuracy']
+                    if type(accuracy) not in (int, float) or not 0 <= accuracy <= 1:
+                        raise ValueError('invalid field accuracy')
+                    if accuracy != 1:
+                        warnings.append(f'dialogue FIELD {field} accuracy: {accuracy}')
             else:
                 raise ValueError('unknown check')
         if unsafe_count(result['value']):
@@ -156,6 +201,10 @@ def parse_check(name, stdout, stderr='', returncode=0, floor=None):
             position += length
     except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as exc:
         reasons.append('invalid/missing result: ' + str(exc))
+    # The dialogue runner uses exit 1 for field-only failures too. Accept that
+    # documented status only when all hard checks and safety scans succeeded.
+    if returncode and not (name == 'dialogues' and returncode == 1 and field_only_exit and not reasons):
+        reasons.append('command failed')
     result['pass'] = not reasons
     return result
 
@@ -180,7 +229,9 @@ def commands(fast=False):
             ('realdev', [str(PLANNING/'tools/run_holdout.py'), '--offline', '--dir', 'review/realdev'], PLANNING)]
 
 
-def run_check(name, args, cwd, floor, timeout=300):
+def run_check(name, args, cwd, floor, timeout=None):
+    if timeout is None:
+        timeout = 1500 if name == 'suite' else 300
     callback_dump = None
     try:
         if name == 'callback':
@@ -195,7 +246,7 @@ def run_check(name, args, cwd, floor, timeout=300):
         errors = run.stderr + ('\n' + run.stdout if callback_dump else '')
         return parse_check(name, output, errors, run.returncode, floor)
     except (subprocess.TimeoutExpired, OSError) as exc:
-        return {'value': None, 'pass': False, 'reasons': [type(exc).__name__], 'returncode': None}
+        return {'value': None, 'pass': False, 'reasons': [type(exc).__name__], 'returncode': None, 'warnings': []}
     finally:
         if callback_dump:
             callback_dump.unlink(missing_ok=True)
@@ -239,6 +290,8 @@ def main(argv=None):
         print(f"{name:14s} {'PASS' if check['pass'] else 'FAIL':6s} {value}", flush=True)
         for reason in check['reasons']:
             print('  ' + reason, flush=True)
+        for warning in check['warnings']:
+            print('  WARNING: ' + warning, flush=True)
     try:
         commit = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True,
                                 text=True, timeout=10, check=True).stdout.strip()

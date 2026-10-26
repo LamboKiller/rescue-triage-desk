@@ -1,8 +1,8 @@
 """MS: medical lane + shelter capacity/needs routing. Offline, no model calls, no network."""
 import json
-import tempfile
 import unittest
 from pathlib import Path
+from tests.support import Scratch
 
 NOW = '2024-05-08T12:00:00-03:00'
 
@@ -162,12 +162,13 @@ class ShelterState(unittest.TestCase):
 
     def test_persistence_roundtrip(self):
         from app.shelters.state import Shelters, Store
-        with tempfile.TemporaryDirectory() as d:
-            path = Path(d) / 'e.jsonl'
-            S = Shelters(places(), Store(path))
-            S.record(ev('vacancies', value=7))
-            S2 = Shelters(places(), Store(path))
-            self.assertEqual(row(S2, 'A')['remaining'], 7)
+        scratch = Scratch()
+        self.addCleanup(scratch.cleanup)
+        path = Path(scratch.name) / 'e.jsonl'
+        S = Shelters(places(), Store(path))
+        S.record(ev('vacancies', value=7))
+        S2 = Shelters(places(), Store(path))
+        self.assertEqual(row(S2, 'A')['remaining'], 7)
 
     def test_real_list_loads_and_has_snapshot_capacities(self):
         from app.shelters.state import Shelters, Store

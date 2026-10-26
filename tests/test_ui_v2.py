@@ -142,6 +142,7 @@ class UITests(unittest.TestCase):
         full_source = (routes_v2.UI / 'app.js').read_text(encoding='utf-8')
         source += full_source[full_source.index('function liveStep('):full_source.index('async function awaitRun(')]
         script = source + r'''
+global.window={}; // Browser global for optional integrations in the real UI.
 const assert=require('assert');
 const c={case_id:'x',version:2,status:'proposed',location_confirmed:true,result:{decision:'SEND_CANDIDATE',questions:[]},fields:{},fleet:[{asset:'boat',label_pt:'Barco',verdict:'caution',reasons_pt:['Equipe treinada']}]};
 assert.equal(primary(c).reason,'Escolha um meio');
