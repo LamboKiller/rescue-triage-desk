@@ -21,6 +21,7 @@ Evidence available in the repo: git history starts **2026-10-24 01:44 -0300** (`
 
 | Component | Licence | Location |
 |---|---|---|
+| F2 OSM road graph, cached source responses, HAND edge/launch estimates (built 2026-10-26; source dates retained) | ODbL 1.0 (OSM derivatives); Copernicus EMS EMSN194 depth terms unresolved as above | `data/roads/`, exact queries/download dates in `data/roads/ATTRIBUTION.md`; derived by `tools/prepare_roads.py` |
 | MapLibre GL JS (vendored) | BSD-3-Clause | `app/web/v2/vendor/maplibre-gl.js`, `.css` |
 | Noto Sans glyphs | SIL OFL 1.1 | `data/map3d/fonts/` (`OFL.txt`) |
 | Protomaps basemap extract, style, sprites | ODbL (data), BSD-3 (style), licence file in `data/map3d/sprites/LICENSE.txt` | `data/map3d/basemap.mbtiles`, `offline_style.json`, `sprites/` |

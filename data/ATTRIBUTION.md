@@ -1,5 +1,7 @@
 # Derived data attribution
 
+* F2 road graph and cached Overpass responses (`data/roads/`): © OpenStreetMap contributors, ODbL 1.0; per-city download dates and exact queries in `data/roads/ATTRIBUTION.md`. Current OSM geometry and May 6/8 HAND edge estimates are retrospective; unknown is not dry. Copernicus EMS EMSN194 credit and unresolved depth-product terms remain as declared below. Closure joins are unverified corridor candidates.
+
 Derived CSVs and simplified GeoJSON are distributed. Source packs D1–D3 were prepared 21–23 October 2026.
 The supplied backup contains no D1–D3 REPORT.md or manifest.json. Full manifest-based
 attribution could not be verified; do not describe it as complete. Available source

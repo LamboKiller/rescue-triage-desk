@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "coordinate_order": "lon,lat",
+  "graphs": [
+    {
+      "municipality": "Test City",
+      "nodes": {
+        "1": [
+          -51,
+          -30
+        ],
+        "2": [
+          -50.9998,
+          -30
+        ],
+        "4": [
+          -50.9994,
+          -30
+        ],
+        "5": [
+          -50.9998,
+          -29.9998
+        ]
+      },
+      "edges": [
+        {
+          "id": "10:0:1",
+          "osm_way_id": 10,
+          "u": "1",
+          "v": "2",
+          "municipality": "Test City",
+          "length_m": 19.26,
+          "polyline": [
+            [
+              -51,
+              -30
+            ],
+            [
+              -50.9998,
+              -30
+            ]
+          ],
+          "highway": "residential",
+          "oneway": "-1",
+          "bridge": null,
+          "tunnel": null,
+          "maxheight": null,
+          "surface": "asphalt",
+          "name": "Rua Teste",
+          "ref": null,
+          "access": null,
+          "vehicle": null,
+          "motor_vehicle": null,
+          "junction": null,
+          "layer": null,
+          "depth": {},
+          "closed_dates": [],
+          "closure_matches": []
+        },
+        {
+          "id": "10:1:3",
+          "osm_way_id": 10,
+          "u": "2",
+          "v": "4",
+          "municipality": "Test City",
+          "length_m": 38.52,
+          "polyline": [
+            [
+              -50.9998,
+              -30
+            ],
+            [
+              -50.9996,
+              -30
+            ],
+            [
+              -50.9994,
+              -30
+            ]
+          ],
+          "highway": "residential",
+          "oneway": "-1",
+          "bridge": null,
+          "tunnel": null,
+          "maxheight": null,
+          "surface": "asphalt",
+          "name": "Rua Teste",
+          "ref": null,
+          "access": null,
+          "vehicle": null,
+          "motor_vehicle": null,
+          "junction": null,
+          "layer": null,
+          "depth": {},
+          "closed_dates": [],
+          "closure_matches": []
+        },
+        {
+          "id": "20:0:1",
+          "osm_way_id": 20,
+          "u": "2",
+          "v": "5",
+          "municipality": "Test City",
+          "length_m": 22.24,
+          "polyline": [
+            [
+              -50.9998,
+              -30
+            ],
+            [
+              -50.9998,
+              -29.9998
+            ]
+          ],
+          "highway": "service",
+          "oneway": null,
+          "bridge": null,
+          "tunnel": null,
+          "maxheight": null,
+          "surface": null,
+          "name": "Acesso",
+          "ref": null,
+          "access": null,
+          "vehicle": null,
+          "motor_vehicle": null,
+          "junction": null,
+          "layer": null,
+          "depth": {},
+          "closed_dates": [],
+          "closure_matches": []
+        }
+      ]
+    }
+  ],
+  "launch_points": {}
+}
