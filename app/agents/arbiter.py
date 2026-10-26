@@ -28,6 +28,18 @@ def _claim(cid, source, field, value, quote='', source_id=None, **extra):
                 evidence=[dict(quote=quote, source_id=source_id or source+':'+field)], **extra)
 
 
+def _supports(field_quote, critic_quote):
+    """True when the revised field's own evidence covers the critic's quoted phrase."""
+    norm = lambda t: ' '.join(str(t or '').lower().split())
+    a, b = norm(field_quote), norm(critic_quote)
+    if not a or not b:
+        return False
+    if b in a or a in b:
+        return True
+    tokens = [t.strip('.,;:!?') for t in b.split() if len(t.strip('.,;:!?')) > 2]
+    return bool(tokens) and sum(t in a for t in tokens) / len(tokens) >= .6
+
+
 def collect(case):
     """Collect actual disagreements, preserving rejected proposals and source IDs."""
     text, fields, agents = case.get('text', ''), case.get('fields', {}), case.get('agents', {})
@@ -64,7 +76,8 @@ def collect(case):
             if checked:
                 context['current_claim'] = claims[-1]['id']
                 # Copying the exact missed phrase resolves extraction omission.
-                if obj.get('reason') == 'missed' and obj.get('quote') in current.get('quote', ''):
+                # LIVEFIX2: judged on the post-revision field, not the initial claim.
+                if obj.get('reason') == 'missed' and _supports(current.get('quote', ''), obj.get('quote')):
                     context['confirmed_revision'] = True
         elif accepted:
             context['current_claim'] = claims[0]['id']
