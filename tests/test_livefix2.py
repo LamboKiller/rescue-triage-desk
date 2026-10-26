@@ -24,6 +24,7 @@ def case(current, reason='missed', quote=PHRASE, field='people'):
                             critic=dict(objections=[dict(field=field, reason=reason, quote=quote)])))
 
 
+# LIVEFIX3: conflict tests use a decision-critical field (street); people/pets objections are warnings now.
 class RevisionAwareConflicts(unittest.TestCase):
     def run_case(self, c):
         client = Counter()
@@ -31,25 +32,25 @@ class RevisionAwareConflicts(unittest.TestCase):
         return client, c
 
     def test_revision_that_adds_the_missed_phrase_needs_no_arbiter(self):
-        c = case(dict(people=dict(value=3, quote='tres pessoas no telhado')))
+        c = case(dict(street=dict(value='tres pessoas no telhado', quote='tres pessoas no telhado')), field='street')
         client, c = self.run_case(c)
         self.assertEqual(client.roles, [])
         self.assertEqual(c['result']['decision'], 'SEND_CANDIDATE')
         self.assertEqual(c['arbitration'][0]['rule'], 'validated_missing_phrase')
 
     def test_partial_overlap_of_quote_counts_as_supported(self):
-        c = case(dict(people=dict(value=3, quote='em tres pessoas no telhado')))
+        c = case(dict(street=dict(value='tres pessoas no telhado', quote='em tres pessoas no telhado')), field='street')
         client, c = self.run_case(c)
         self.assertEqual(client.roles, [])
         self.assertEqual(c['result']['decision'], 'SEND_CANDIDATE')
 
     def test_failed_revision_keeps_conflict(self):
-        client, c = self.run_case(case({}))
+        client, c = self.run_case(case({}, field='street'))
         self.assertEqual(len(c['arbitration']), 1)
         self.assertEqual(c['result']['decision'], 'REVIEW_REQUIRED')
 
     def test_revision_contradicting_quote_keeps_conflict_and_never_sends_via_model(self):
-        c = case(dict(people=dict(value=1, quote='a agua subiu muito')))
+        c = case(dict(street=dict(value='Rua X', quote='a agua subiu muito')), field='street')
         client, c = self.run_case(c)
         self.assertEqual(client.roles, ['arbiter'])
         self.assertEqual(c['result']['decision'], 'REVIEW_REQUIRED')

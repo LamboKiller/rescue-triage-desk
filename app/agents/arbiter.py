@@ -40,6 +40,60 @@ def _supports(field_quote, critic_quote):
     return bool(tokens) and sum(t in a for t in tokens) / len(tokens) >= .6
 
 
+# LIVEFIX3: only decision-critical fields may open an intake/critic conflict.
+# Count and descriptive fields never change a decision, so an objection on them
+# becomes a card warning (see soft_objections / apply_soft) instead of a conflict.
+COUNT_FIELDS = {'people'}
+DESCRIPTIVE_FIELDS = {'children', 'elderly', 'disabled', 'pets', 'needs', 'medical', 'vulnerability',
+                      'vertical_level', 'sender_role', 'role', 'floor', 'level'}
+
+
+def _soft(obj):
+    return str(obj.get('field', '')) in COUNT_FIELDS | DESCRIPTIVE_FIELDS
+
+
+def _usable(obj, text):
+    return (isinstance(obj, dict) and obj.get('reason') in ('unsupported', 'overstated', 'missed', 'negated')
+            and obj.get('quote') and obj['quote'] in text)
+
+
+def soft_objections(case):
+    review = (case.get('agents') or {}).get('critic')
+    text = case.get('text', '')
+    return [o for o in (review.get('objections', []) if isinstance(review, dict) else [])
+            if _usable(o, text) and _soft(o)]
+
+
+def apply_soft(case):
+    """Turn count/descriptive objections into card warnings; the decision is never touched."""
+    from app.agents.counts import count
+    fields, out = case.setdefault('fields', {}), []
+    for obj in soft_objections(case):
+        field, quote = obj['field'], obj['quote']
+        cur = fields.get(field)
+        if field in COUNT_FIELDS:
+            if obj['reason'] == 'missed' and (cur and cur.get('value') is not None and _supports(cur.get('quote', ''), quote)):
+                continue
+            msg = 'contagem a confirmar: '+quote
+        else:
+            if obj['reason'] == 'missed' and not cur:
+                try:
+                    value = count(quote, field)
+                except Exception:
+                    value = None
+                cand = {field: dict(value=value, quote=quote, source='critic_quote')}
+                if value is not None and validate_fields({'fields': cand}, case.get('text', ''))[0]:
+                    fields[field] = cand[field]
+            elif obj['reason'] == 'missed' and cur and _supports(cur.get('quote', ''), quote):
+                continue
+            msg = 'campo %s a confirmar: %s' % (field, quote)
+        out.append(dict(field=field, reason=obj['reason'], quote=quote, warning=msg))
+        warnings = case.setdefault('result', {}).setdefault('warnings', [])
+        if msg not in warnings:
+            warnings.append(msg)
+    return out
+
+
 def collect(case):
     """Collect actual disagreements, preserving rejected proposals and source IDs."""
     text, fields, agents = case.get('text', ''), case.get('fields', {}), case.get('agents', {})
@@ -58,6 +112,8 @@ def collect(case):
                 not obj.get('quote') or obj['quote'] not in text):
             continue
         field = obj.get('field', '')
+        if _soft(obj):
+            continue
         old, current = initial.get(field), fields.get(field)
         if old is None and current is None:
             # A missed field is still an actionable, cited disagreement.
@@ -244,6 +300,7 @@ def apply_verdict(case, event):
 
 def attach(case, client=None, deadline=None, *, trace=None, emit=None):
     events = []
+    soft = apply_soft(case)
     for conflict in collect(case):
         event = apply_verdict(case, resolve(conflict, client, deadline))
         if event.get('call'):
@@ -259,7 +316,7 @@ def attach(case, client=None, deadline=None, *, trace=None, emit=None):
                     out.write(json.dumps({**event, 'kind':'arbitration', 'conflict_kind':event['kind'],
                                           'message_id':case.get('message_id')}, ensure_ascii=False)+'\n')
     case['arbitration'] = events
-    case.setdefault('agents', {})['arbiter'] = dict(conflicts=len(events), events=events)
+    case.setdefault('agents', {})['arbiter'] = dict(conflicts=len(events), events=events, soft_warnings=soft)
     if events and case.get('route'):
         case['route']['reason_pt'] = case['result']['decision_reason']
     return case
