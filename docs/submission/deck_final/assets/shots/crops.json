@@ -1,0 +1,194 @@
+{
+ "route_hero": {
+  "clip": "H6_fleet_route",
+  "t": 12.5,
+  "box": [
+   852,
+   165,
+   2000,
+   1026
+  ],
+  "size": [
+   1148,
+   861
+  ],
+  "scale": 1.0,
+  "why": "route map hero"
+ },
+ "boat_en": {
+  "clip": "H6_fleet_route",
+  "t": 26.0,
+  "box": [
+   2017,
+   345,
+   2543,
+   444
+  ],
+  "size": [
+   760,
+   143
+  ],
+  "scale": 1.445,
+  "why": "recommended boat header"
+ },
+ "case_header": {
+  "clip": "H6_fleet_route",
+  "t": 8.5,
+  "box": [
+   2008,
+   44,
+   2556,
+   142
+  ],
+  "size": [
+   1000,
+   179
+  ],
+  "scale": 1.825,
+  "why": "case header after reading"
+ },
+ "agents_graph": {
+  "clip": "H4_message_agents",
+  "t": 50.5,
+  "box": [
+   16,
+   226,
+   1690,
+   558
+  ],
+  "size": [
+   1728,
+   343
+  ],
+  "scale": 1.032,
+  "why": "live agent graph"
+ },
+ "receipt": {
+  "clip": "H4_message_agents",
+  "t": 53.0,
+  "box": [
+   176,
+   228,
+   378,
+   405
+  ],
+  "size": [
+   420,
+   368
+  ],
+  "scale": 2.079,
+  "why": "intake tooltip with receipt"
+ },
+ "callback_q": {
+  "clip": "S5_callback",
+  "t": 3.5,
+  "box": [
+   2008,
+   1007,
+   2556,
+   1101
+  ],
+  "size": [
+   760,
+   130
+  ],
+  "scale": 1.387,
+  "why": "callback main question"
+ },
+ "fleet": {
+  "clip": "H6_fleet_route",
+  "t": 8.5,
+  "box": [
+   2012,
+   326,
+   2548,
+   488
+  ],
+  "size": [
+   846,
+   256
+  ],
+  "scale": 1.578,
+  "why": "recommended boat"
+ },
+ "route": {
+  "clip": "H6_fleet_route",
+  "t": 26.0,
+  "box": [
+   610,
+   502,
+   1810,
+   902
+  ],
+  "size": [
+   846,
+   282
+  ],
+  "scale": 0.705,
+  "why": "route map"
+ },
+ "landing": {
+  "clip": "H6_fleet_route",
+  "t": 38.5,
+  "box": [
+   970,
+   640,
+   1590,
+   914
+  ],
+  "size": [
+   846,
+   374
+  ],
+  "scale": 1.365,
+  "why": "landing shelter ambulance"
+ },
+ "closed": {
+  "clip": "H10_closed",
+  "t": 24.0,
+  "box": [
+   2008,
+   44,
+   2556,
+   142
+  ],
+  "size": [
+   846,
+   151
+  ],
+  "scale": 1.544,
+  "why": "reported rescue closed"
+ },
+ "checklist": {
+  "clip": "H7_dispatch_record",
+  "t": 6.8,
+  "box": [
+   2017,
+   612,
+   2544,
+   815
+  ],
+  "size": [
+   846,
+   326
+  ],
+  "scale": 1.605,
+  "why": "checklist ticked"
+ },
+ "evidence": {
+  "clip": "H9_reroute",
+  "t": 5.0,
+  "box": [
+   2016,
+   760,
+   2550,
+   885
+  ],
+  "size": [
+   700,
+   164
+  ],
+  "scale": 1.311,
+  "why": "evidence quotes"
+ }
+}

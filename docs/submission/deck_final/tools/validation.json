@@ -1,0 +1,92 @@
+{
+ "fonts": [
+  "Inter 100 900",
+  "Inter Display 700"
+ ],
+ "checks": [
+  {
+   "id": "s01",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s02",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s03",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s04",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s05",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s06",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s07",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s08",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s09",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s10",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s11",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s12",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s13",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  },
+  {
+   "id": "s14",
+   "out": [],
+   "clipped": [],
+   "broken": []
+  }
+ ]
+}
