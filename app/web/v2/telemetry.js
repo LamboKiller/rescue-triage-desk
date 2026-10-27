@@ -2,7 +2,7 @@
 window.DeskTelemetry=(()=>{
   const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
   let data={units:[],pending:[],bindings:{}},overlay,svg,enabled=true,frame=0,started=0,size={width:1,height:1},error='',busy=null;
-  const markers=new Map(),age=r=>r.age_seconds==null?'sem fix':r.age_seconds<60?`${r.age_seconds} s`:`${Math.floor(r.age_seconds/60)} min`;
+  const markers=new Map(),age=r=>r.age_seconds==null?'sem fix':r.age_seconds>86400*30?'tempo de replay':r.age_seconds<60?`${r.age_seconds} s`:`${Math.floor(r.age_seconds/60)} min`;
   async function api(path,body){const r=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);const p=await r.json();if(!r.ok)throw Error(p.error||'Telemetria indisponível');return p;}
   function key(r){return r.unit_id+':'+r.source;}
   function label(r){return `${r.source==='simulated'?'[SIMULADO] ':''}${r.unit_id} · ${age(r)} · ${r.eta_label_pt||'ETA indisponível'}`;}
