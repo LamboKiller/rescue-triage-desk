@@ -10,7 +10,7 @@
 -- survive to the next call -- SHOW VIEWS IN OAH_S3 confirms only Schema Store Views created via
 -- the Zetaris UI's query_builder persist. tools/zetaris_usl.py --check therefore inlines this
 -- view's body as a CTE in the same call as each proving query, which is the only way to exercise
--- it through this REST client. See SPONSOR_GAPS.md for the full explanation.
+-- it through this REST client. See docs/submission/ZETARIS_USL.md for the full explanation.
 CREATE VIEW incident_context AS
 SELECT l.osm_type, l.osm_id, l.name AS landmark_name, l.category, l.municipality,
        l.street, l.housenumber, l.lat, l.lon,

@@ -1,0 +1,446 @@
+{
+  "views": {
+    "incident_context": [
+      {
+        "label": "rodoviaria landmarks with their municipality's flood exposure",
+        "sql": "SELECT * FROM (SELECT l.osm_type, l.osm_id, l.name AS landmark_name, l.category, l.municipality,\n       l.street, l.housenumber, l.lat, l.lon,\n       l.`in_water_2024-05-06` AS landmark_in_water_0506,\n       l.`in_water_2024-05-08` AS landmark_in_water_0508,\n       s.flooded_segments AS municipality_flooded_segments_0506,\n       s.total_segments AS municipality_total_segments\nFROM OAH_S3.landmarks_v4 l\nLEFT JOIN (\n  SELECT municipality,\n         SUM(CAST(segments AS INT)) AS total_segments,\n         SUM(CAST(`segments_in_water_2024-05-06` AS INT)) AS flooded_segments\n  FROM OAH_S3.streets_flood_v4\n  GROUP BY municipality\n) s ON l.municipality = s.municipality) v WHERE LOWER(landmark_name) LIKE '%rodoviaria%' OR LOWER(landmark_name) LIKE '%rodoviária%' LIMIT 5",
+        "headers": [
+          "osm_type",
+          "osm_id",
+          "landmark_name",
+          "category",
+          "municipality",
+          "street",
+          "housenumber",
+          "lat",
+          "lon",
+          "landmark_in_water_0506",
+          "landmark_in_water_0508",
+          "municipality_flooded_segments_0506",
+          "municipality_total_segments"
+        ],
+        "row_count": 5,
+        "sample": [
+          [
+            "node",
+            "1069994341",
+            "Estação Rodoviária Normélio Stabel",
+            "amenity:bus_station",
+            "Novo Hamburgo",
+            "Rua Três de Outubro",
+            "667",
+            "-29.7010175",
+            "-51.1359495",
+            "0",
+            "0",
+            "374",
+            "3456"
+          ],
+          [
+            "node",
+            "1246515526",
+            "Estação Rodoviária de Canoas",
+            "amenity:bus_station",
+            "Canoas",
+            "Avenida Getúlio Vargas",
+            "5001",
+            "-29.9216816",
+            "-51.1776315",
+            "0",
+            "0",
+            "1345",
+            "3632"
+          ],
+          [
+            "node",
+            "5317023250",
+            "Rodoviária",
+            "public_transport:station",
+            "Porto Alegre",
+            null,
+            null,
+            "-30.022194",
+            "-51.2198891",
+            "1",
+            "0",
+            "4514",
+            "19742"
+          ],
+          [
+            "way",
+            "37011006",
+            "Estação Rodoviária de São Leopoldo",
+            "amenity:bus_station",
+            "São Leopoldo",
+            "Avenida João Becker",
+            "665",
+            "-29.7603615",
+            "-51.1493019",
+            "1",
+            "0",
+            "1187",
+            "3171"
+          ],
+          [
+            "way",
+            "74033469",
+            "Sede da Polícia Rodoviária Federal no Rio Grande do Sul",
+            "amenity:police",
+            "Porto Alegre",
+            "Avenida dos Estados",
+            "1545",
+            "-29.984329",
+            "-51.1793263",
+            "1",
+            "0",
+            "4514",
+            "19742"
+          ]
+        ]
+      },
+      {
+        "label": "flooded landmarks in Canoas on 2024-05-06",
+        "sql": "SELECT * FROM (SELECT l.osm_type, l.osm_id, l.name AS landmark_name, l.category, l.municipality,\n       l.street, l.housenumber, l.lat, l.lon,\n       l.`in_water_2024-05-06` AS landmark_in_water_0506,\n       l.`in_water_2024-05-08` AS landmark_in_water_0508,\n       s.flooded_segments AS municipality_flooded_segments_0506,\n       s.total_segments AS municipality_total_segments\nFROM OAH_S3.landmarks_v4 l\nLEFT JOIN (\n  SELECT municipality,\n         SUM(CAST(segments AS INT)) AS total_segments,\n         SUM(CAST(`segments_in_water_2024-05-06` AS INT)) AS flooded_segments\n  FROM OAH_S3.streets_flood_v4\n  GROUP BY municipality\n) s ON l.municipality = s.municipality) v WHERE municipality='Canoas' AND landmark_in_water_0506='1' LIMIT 5",
+        "headers": [
+          "osm_type",
+          "osm_id",
+          "landmark_name",
+          "category",
+          "municipality",
+          "street",
+          "housenumber",
+          "lat",
+          "lon",
+          "landmark_in_water_0506",
+          "landmark_in_water_0508",
+          "municipality_flooded_segments_0506",
+          "municipality_total_segments"
+        ],
+        "row_count": 5,
+        "sample": [
+          [
+            "node",
+            "1138335049",
+            "Agafarma",
+            "amenity:pharmacy",
+            "Canoas",
+            null,
+            null,
+            "-29.9537466",
+            "-51.1761459",
+            "1",
+            "0",
+            "1345",
+            "3632"
+          ],
+          [
+            "node",
+            "1402816648",
+            "UniSuper",
+            "shop:supermarket",
+            "Canoas",
+            null,
+            null,
+            "-29.9576031",
+            "-51.1916159",
+            "1",
+            "0",
+            "1345",
+            "3632"
+          ],
+          [
+            "node",
+            "1439819264",
+            "UniSuper",
+            "shop:supermarket",
+            "Canoas",
+            null,
+            null,
+            "-29.9572215",
+            "-51.1858176",
+            "1",
+            "0",
+            "1345",
+            "3632"
+          ],
+          [
+            "node",
+            "1731020249",
+            "BR",
+            "amenity:fuel",
+            "Canoas",
+            "Avenida Guilherme Schell",
+            null,
+            "-29.9504723",
+            "-51.1772125",
+            "1",
+            "0",
+            "1345",
+            "3632"
+          ],
+          [
+            "node",
+            "1903130645",
+            "Posto Master",
+            "amenity:fuel",
+            "Canoas",
+            null,
+            null,
+            "-29.9602283",
+            "-51.1757662",
+            "1",
+            "0",
+            "1345",
+            "3632"
+          ]
+        ]
+      },
+      {
+        "label": "landmark count and flooded-segment total per municipality",
+        "sql": "SELECT municipality, COUNT(*) AS landmarks, MAX(municipality_flooded_segments_0506) AS flooded_segments FROM (SELECT l.osm_type, l.osm_id, l.name AS landmark_name, l.category, l.municipality,\n       l.street, l.housenumber, l.lat, l.lon,\n       l.`in_water_2024-05-06` AS landmark_in_water_0506,\n       l.`in_water_2024-05-08` AS landmark_in_water_0508,\n       s.flooded_segments AS municipality_flooded_segments_0506,\n       s.total_segments AS municipality_total_segments\nFROM OAH_S3.landmarks_v4 l\nLEFT JOIN (\n  SELECT municipality,\n         SUM(CAST(segments AS INT)) AS total_segments,\n         SUM(CAST(`segments_in_water_2024-05-06` AS INT)) AS flooded_segments\n  FROM OAH_S3.streets_flood_v4\n  GROUP BY municipality\n) s ON l.municipality = s.municipality) v GROUP BY municipality ORDER BY flooded_segments DESC LIMIT 6",
+        "headers": [
+          "municipality",
+          "landmarks",
+          "flooded_segments"
+        ],
+        "row_count": 6,
+        "sample": [
+          [
+            "Porto Alegre",
+            "2776",
+            "4514"
+          ],
+          [
+            "Canoas",
+            "590",
+            "1345"
+          ],
+          [
+            "São Leopoldo",
+            "312",
+            "1187"
+          ],
+          [
+            "Eldorado do Sul",
+            "71",
+            "452"
+          ],
+          [
+            "Novo Hamburgo",
+            "286",
+            "374"
+          ]
+        ]
+      }
+    ],
+    "asset_availability": [
+      {
+        "label": "pumps down on 2024-05-06",
+        "sql": "SELECT * FROM (SELECT p.source_fid, p.name AS asset_name, p.municipality, p.lat, p.lon,\n       d.date AS status_date, d.status,\n       CASE WHEN d.status = 'Inoperante' THEN 1 ELSE 0 END AS is_down\nFROM OAH_S3.pumps_v4 p\nJOIN OAH_S3.pump_status_daily_v4 d ON p.source_fid = d.source_fid) v WHERE status_date='2024-05-06' AND is_down=1 LIMIT 8",
+        "headers": [
+          "source_fid",
+          "asset_name",
+          "municipality",
+          "lat",
+          "lon",
+          "status_date",
+          "status",
+          "is_down"
+        ],
+        "row_count": 8,
+        "sample": [
+          [
+            "17",
+            "EBAP_PA_CB 04_Paque Nautico",
+            "Porto Alegre",
+            "-30.001938",
+            "-51.20759",
+            "2024-05-06",
+            "Inoperante",
+            "1"
+          ],
+          [
+            "19",
+            "EBAP_PA_CB 06_Trevo",
+            "Porto Alegre",
+            "-29.969828",
+            "-51.175691",
+            "2024-05-06",
+            "Inoperante",
+            "1"
+          ],
+          [
+            "21",
+            "EBAP_PA_CB_Vila Farrapos",
+            "Porto Alegre",
+            "-29.982631",
+            "-51.1975",
+            "2024-05-06",
+            "Inoperante",
+            "1"
+          ],
+          [
+            "25",
+            "EBAP_PA_CB 11B_Icarai_II",
+            "Porto Alegre",
+            "-30.092197",
+            "-51.24279",
+            "2024-05-06",
+            "Inoperante",
+            "1"
+          ],
+          [
+            "27",
+            "EBAP_PA_CB 13_Parque Marinha",
+            "Porto Alegre",
+            "-30.054607",
+            "-51.231951",
+            "2024-05-06",
+            "Inoperante",
+            "1"
+          ]
+        ]
+      },
+      {
+        "label": "down-days per municipality",
+        "sql": "SELECT municipality, SUM(is_down) AS down_days, COUNT(*) AS total_rows FROM (SELECT p.source_fid, p.name AS asset_name, p.municipality, p.lat, p.lon,\n       d.date AS status_date, d.status,\n       CASE WHEN d.status = 'Inoperante' THEN 1 ELSE 0 END AS is_down\nFROM OAH_S3.pumps_v4 p\nJOIN OAH_S3.pump_status_daily_v4 d ON p.source_fid = d.source_fid) v GROUP BY municipality ORDER BY down_days DESC",
+        "headers": [
+          "municipality",
+          "down_days",
+          "total_rows"
+        ],
+        "row_count": 5,
+        "sample": [
+          [
+            "Porto Alegre",
+            "264",
+            "598"
+          ],
+          [
+            "Cachoeirinha",
+            "0",
+            "52"
+          ],
+          [
+            "Canoas",
+            "0",
+            "156"
+          ],
+          [
+            "São Leopoldo",
+            "0",
+            "130"
+          ],
+          [
+            "Novo Hamburgo",
+            "0",
+            "52"
+          ]
+        ]
+      }
+    ],
+    "shelter_capacity": [
+      {
+        "label": "shelters currently over capacity, worst first",
+        "sql": "SELECT * FROM (SELECT id, municipality, facility_type, lat, lon, capacity, sheltered_people, vacancies, snapshot_local,\n       CASE WHEN capacity IS NOT NULL AND capacity <> '' AND sheltered_people IS NOT NULL AND sheltered_people <> ''\n            THEN CAST(sheltered_people AS DOUBLE) / CAST(capacity AS DOUBLE) END AS occupancy_rate,\n       CASE WHEN capacity IS NOT NULL AND capacity <> '' AND sheltered_people IS NOT NULL AND sheltered_people <> ''\n                 AND CAST(sheltered_people AS DOUBLE) > CAST(capacity AS DOUBLE)\n            THEN 1 ELSE 0 END AS over_capacity_flag\nFROM OAH_S3.shelters_v4) v WHERE over_capacity_flag=1 ORDER BY occupancy_rate DESC LIMIT 8",
+        "headers": [
+          "id",
+          "municipality",
+          "facility_type",
+          "lat",
+          "lon",
+          "capacity",
+          "sheltered_people",
+          "vacancies",
+          "snapshot_local",
+          "occupancy_rate",
+          "over_capacity_flag"
+        ],
+        "row_count": 8,
+        "sample": [
+          [
+            "7348",
+            null,
+            "shelter",
+            "-30.006",
+            "-51.162",
+            "1.0",
+            "75.0",
+            null,
+            "2024-05-24T20:00:00",
+            "75.0",
+            "1"
+          ],
+          [
+            "6358",
+            null,
+            "unspecified",
+            "-30.095",
+            "-51.243",
+            "1.0",
+            "72.0",
+            null,
+            "2024-05-23T21:00:00",
+            "72.0",
+            "1"
+          ],
+          [
+            "6948",
+            null,
+            "shelter",
+            "-30.095",
+            "-51.243",
+            "1.0",
+            "72.0",
+            null,
+            "2024-05-24T20:00:00",
+            "72.0",
+            "1"
+          ],
+          [
+            "6692",
+            null,
+            "shelter",
+            "-30.114",
+            "-51.214",
+            "33.0",
+            "2341.0",
+            null,
+            "2024-05-23T21:00:00",
+            "70.93939393939394",
+            "1"
+          ],
+          [
+            "6779",
+            null,
+            "shelter",
+            "-30.114",
+            "-51.214",
+            "33.0",
+            "2341.0",
+            null,
+            "2024-05-24T20:00:00",
+            "70.93939393939394",
+            "1"
+          ]
+        ]
+      }
+    ]
+  },
+  "data_quality": [
+    {
+      "sql": "SELECT COUNT(*) AS checked,\n       COUNT(*) FILTER (WHERE over_capacity_flag = 1) AS violations\nFROM (SELECT * FROM shelter_capacity) v\nWHERE capacity IS NOT NULL AND capacity <> ''",
+      "result": {
+        "checked": "734",
+        "violations": "62"
+      }
+    },
+    {
+      "sql": "SELECT COUNT(*) AS checked,\n       COUNT(*) FILTER (WHERE CAST(lat AS DOUBLE) NOT BETWEEN -34 AND -27\n                           OR CAST(lon AS DOUBLE) NOT BETWEEN -58 AND -49) AS violations\nFROM OAH_S3.landmarks_v4",
+      "result": {
+        "checked": "4201",
+        "violations": "0"
+      }
+    }
+  ]
+}

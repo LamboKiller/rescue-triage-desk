@@ -3,7 +3,7 @@
 Each function mirrors one view in sql/usl/*.sql exactly, so SAMPLE_MODE (LocalSource,
 offline CSVs) and connected mode (ZetarisSource, live Zetaris) compute the identical
 shape from the identical underlying rows. Not yet called from the pipeline, agents or
-web layer -- see docs/submission/SPONSOR_GAPS.md for why and where it would plug in.
+web layer -- see docs/submission/ZETARIS_USL.md for why and where it would plug in.
 """
 from app.config import sample_mode
 from app.data.source import LocalSource, ZetarisSource

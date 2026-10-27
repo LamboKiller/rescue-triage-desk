@@ -9,7 +9,7 @@ It never opens `.env*` files other than `.env.example`, and prints only
 masked evidence (path:line, rule, first 3 characters), never a full match.
 
     python tools/gate2_scan.py            # table + exit 1 on any FAIL
-    python tools/gate2_scan.py --md docs/submission/GATE2_SCAN.md
+    python tools/gate2_scan.py --md out/GATE2_SCAN.md
 """
 import argparse
 import datetime as dt
@@ -183,7 +183,7 @@ def main():
     if args.md:
         now = dt.datetime.now().strftime('%Y-%m-%d %H:%M')
         md = ['# Gate 2 safety scan', '',
-              f'Generated {now} (local time) by `python tools/gate2_scan.py --md docs/submission/GATE2_SCAN.md`. {head}.', '',
+              f'Generated {now} (local time) by `python tools/gate2_scan.py --md out/GATE2_SCAN.md`. {head}.', '',
               'Scope: every file Git would publish (tracked plus untracked-and-not-ignored). `.env` and other `.env.*` files are never opened. Evidence is masked (path:line + first 3 characters).', '']
         md += lines
         md += ['', f'**Overall: {"FAIL" if failed else "PASS"}**', '']
