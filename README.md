@@ -14,9 +14,26 @@ In May 2024 calls for help came in through dozens of WhatsApp groups, phone call
 
 <sub>29/30: live realdev sample, 27 Oct 02:36 (our dev set). 42/42: offline red-team set. 94/100: the two blind sets combined (sealed50 + holdout2, run once live at `6ba4233`), 6 unsafe SEND proposals out of 100; correctness on those sets was 34/50 and 29/50. Full breakdown, modes and commits in [Evaluations](#evaluations).</sub>
 
+## Quickstart for judges
+
+```bash
+docker build -t oah-submission .
+docker run --rm -p 8000:8000 -e SAMPLE_MODE=true oah-submission
+curl -X POST http://localhost:8000/run -H "Content-Type: application/json" -d @input_examples/example_1.json
+```
+
+- Wait for the log line `Mesa de triagem: http://localhost:8000; SAMPLE_MODE=True` (about 5–10 s) before the first `curl`; the first run can take ~20 s while data loads.
+- **Sample mode** (above) needs no `.env`, keys or network: HTTP 200 with structured JSON cases (`mode: sample_offline`); `input_examples/example_1..3.json` give different outputs (saved copies in `output_examples/`). A malformed body returns HTTP 400 with `{"error": ...}`, never a stack trace.
+- **Connected mode** (Nightshift/Nemotron + Zetaris on the host): `cp .env.example .env`, fill it, then
+  `docker run --rm -p 8000:8000 --env-file .env -e SAMPLE_MODE=false -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 oah-submission`
+  (`METERLESS_BASE_URL` / `METERLESS_RUNTIME_TOKEN` are accepted when the `NIGHTSHIFT_*` names are unset).
+- **Meterless engine test:** `python -m unittest discover -s tests -p test_engine_conformance.py -v`
+- **Traces:** one JSON line per agent step in `logs/run_<run_id>.jsonl` (inside the container: `/app/logs/`) and on stdout (`docker logs <container>`). In connected mode every Nightshift call line carries `role`, `requested_model`, routed `model` and `receipt`; in sample mode no model is called, so lines carry the agent `role` and stage only. See [Traces](#traces-model-and-receipt-per-call).
+- The image sets `RESCUE_OPEN_RUN=true` so `POST /run` (only that route) answers callers outside the container; set `RESCUE_OPERATOR_TOKEN` to require a Bearer token again.
+
 ## Submission
 
-Open Agent Hackathon 2026. A **retrospective replay of the May 2024 Rio Grande do Sul floods** (6 May 2024), not a deployed system; fleet and GPS are simulated and labelled.
+Open Agent Hackathon 2026, team **Orbital**. A **retrospective replay of the May 2024 Rio Grande do Sul floods** (6 May 2024), not a deployed system; fleet and GPS are simulated and labelled.
 
 - **Demo video:** VIDEO_LINK
 - **Deck:** [`docs/submission/deck_final/deck.pdf`](docs/submission/deck_final/deck.pdf)
@@ -48,7 +65,7 @@ curl -s -X POST http://localhost:8080/run -H "Content-Type: application/json" --
 No server needed for a one-shot run: `python run.py --sample --input examples/input_01.json` prints a run summary and the cases as JSON.
 Set `PORT=8097` (or any free port) if 8080 is taken. Verified on a clean tree on 27 Oct 2026: `GET /` and `GET /v2` return 200, all three example inputs return cases (outputs below).
 In this mode the agent panels say "unavailable offline": you see the regex baseline plus every deterministic check (place lookup, hazards, fleet, routing, decision), **not Nemotron**.
-The server binds `127.0.0.1` by default (`create_server(host='127.0.0.1')` in `run.py` and `app/web/server.py`; `python app/web/server.py` also takes `--host`; `run.py serve` reads `HOST`, which the Docker image sets to `0.0.0.0` so `-p 8080:8080` reaches it). Actor names are labels, not authentication: use fictional data and do not expose it to an untrusted network.
+The server binds `127.0.0.1` by default (`create_server(host='127.0.0.1')` in `run.py` and `app/web/server.py`; `python app/web/server.py` also takes `--host`; `run.py serve` reads `HOST`, which the Docker image sets to `0.0.0.0` so `-p 8000:8000` reaches it). Actor names are labels, not authentication: use fictional data and do not expose it to an untrusted network.
 
 
 ## Architecture
@@ -95,7 +112,7 @@ The Location agent's five tools are street/designator search, landmark aliases a
 | Hazard critic | agent | `app/agents/hazard_critic.py` | Writes cautions only from cited observations; code computes the observations |
 | Needs | agent | `app/agents/needs.py` | Tags vulnerable groups/equipment from quotes; code derives counts; visible `deterministic_only` fallback |
 | Duplicate reviewer | agent | `app/agents/duplicate_reviewer.py`, `app/duplicates.py` | Code proposes candidates; agent judges; human merges/unmerges (reversible) |
-| Callback planner | agent | `app/callback/` | ≤3 questions mapped to open items; invalid plan → visible code templates |
+| Callback planner | agent | `app/callback/` | ≤3 questions mapped to open items, asked back on the same channel the request came from (WhatsApp, SMS, phone, social); invalid plan → visible code templates |
 | Field feedback | agent | `app/feedback.py` | Reads crew reports (rescued / partial / not found) with exact quote; code updates counts |
 | Mission planner + brief | code + agent | `app/missions/` | Code groups, splits by capacity, vetoes unsafe assets; agent writes the brief; human approves |
 | Supervisor | code detectors + agent | `app/supervisor/` | Detectors cite fact ids; agent ranks/proposes one allowed action; next tick verifies |
@@ -147,18 +164,18 @@ Keep `NIGHTSHIFT_MAX_CONCURRENCY` low (default 2) and never lower `NIGHTSHIFT_MA
 ### Docker
 
 ```powershell
-docker build -t rescue-triage-desk .
-docker run --rm -p 8080:8080 rescue-triage-desk                    # SAMPLE_MODE=true is the image default
-docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false `
+docker build -t oah-submission .
+docker run --rm -p 8000:8000 -e SAMPLE_MODE=true oah-submission     # SAMPLE_MODE=true is also the image default
+docker run --rm -p 8000:8000 --env-file .env -e SAMPLE_MODE=false `
   -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 `
-  -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 rescue-triage-desk
+  -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 oah-submission
 ```
 
+The container listens on port 8000 (`ENV PORT=8000`, `EXPOSE 8000`); outside Docker `run.py serve` still defaults to 8080.
 `.dockerignore` keeps `.env`, `runtime/`, `logs/`, `.git`, review/report files and caches out of the image.
-Verified 27 Oct 2026 (Docker 28.3.0): `docker build -t rescue-triage-desk .` succeeds (image ~111 MB); in the container `GET /` and `GET /v2` return 200.
-Inside a container the request does not come from loopback, so operator actions such as `POST /run` need a token (by design, `app/operator_boundary.py`):
-`docker run --rm -p 8080:8080 -e RESCUE_OPERATOR_TOKEN=<choose-one> rescue-triage-desk`, then send `-H "Authorization: Bearer <choose-one>"`; this returned 200 with 3 cases for `examples/input_01.json` (`mode: sample_offline`), and 403 without the token.
-For the full interactive desk without a token, run it on the host (`python run.py serve --sample`). Container-to-host routing for connected mode is not verified end to end.
+Inside a container requests do not come from loopback. The image sets `RESCUE_OPEN_RUN=true`, which opens **only** `POST /run` to such callers (`app/operator_boundary.py`); case actions, telemetry and other POSTs still return 403 without loopback or a token. Set `-e RESCUE_OPERATOR_TOKEN=<choose-one>` to require `Authorization: Bearer <token>` on `/run` too.
+Verified 27 Oct 2026 (Docker 28.3.0), no `.env`: `docker run --rm -d -p 8000:8000 -e SAMPLE_MODE=true oah-submission`, then `POST /run` with `input_examples/example_1..3.json` returned HTTP 200 with 3, 2 and 1 cases (`mode: sample_offline`, different outputs); a malformed body returned HTTP 400 `{"error": "Pedido inválido: ..."}`; another POST route returned 403; `docker logs` showed one `run_summary` line per run and `/app/logs/run_<id>.jsonl` held per-agent lines (`role`: critic, location_agent, hazard_critic).
+For the full interactive desk (operator actions), run it on the host (`python run.py serve --sample`). Container-to-host routing for connected mode is not verified end to end.
 
 ## Usage: three sample inputs and their real outputs
 
@@ -375,12 +392,12 @@ Street ODbL obligations are separate from the MIT code.
 
 ## Pre-existing and third-party components
 
-Declared (with dates and owner attestation pending) in [`docs/submission/PRE_EXISTING_DECLARATION.md`](docs/submission/PRE_EXISTING_DECLARATION.md).
-In short: public D1–D3 source packs, the curated alias list, R3 red-team findings, `gen_proto.py` / `engine_proto.py` ideas, Gate 0
-Nightshift/Zetaris/S3 contracts and stdlib S3 signing, vendored **MapLibre GL JS** (`app/web/v2/vendor/`), **Noto Sans** glyphs (OFL),
+**Pre-existing components: none** (attested by team Orbital, 27 Oct 2026, [`docs/submission/PRE_EXISTING_DECLARATION.md`](docs/submission/PRE_EXISTING_DECLARATION.md)).
+All Arca code, design, data preparation and evaluations were created during the build window (22–27 Oct 2026; git history starts 24 Oct 2026).
+Reused only open-source libraries and public open datasets: vendored **MapLibre GL JS** (`app/web/v2/vendor/`), **Noto Sans** glyphs (OFL),
 Protomaps style and sprites, and OSM, Copernicus EMS, Wikimedia Commons, IBGE, UFRGS/Zenodo, Microsoft and Google building data as tabulated above.
 
-## Honest limitations
+## Limitations
 
 - **Depth and flood layers are retrospective.** Created or published after the event; replays label them and keep them out of contemporaneous priority. No data ≠ dry. Sampling can miss narrow crossings; no depth, shelter status or responder availability is established for a given hour.
 - **Dev sets are ours.** Realdev, dev2 and the challenge set were written or generated by the builders and guided development; none is real citizen traffic, so scores say nothing about real-message accuracy or responder benefit. The blind sets (sealed50 34/50, holdout2 29/50, `6ba4233`) score far below the dev sets: our development set was overfit.
@@ -391,6 +408,9 @@ Protomaps style and sprites, and OSM, Copernicus EMS, Wikimedia Commons, IBGE, U
 - **Offline ≠ model quality.** Scripted planners and `deterministic_only` fallbacks prove wiring and validators, not Nemotron.
 - A valid quote does not prove semantic truth; a street match cannot prove a house number; priority weights are a demo policy.
 - Trusted-operator demo: actor labels are not authentication; no TLS or role system; anyone with API access can assert a human action.
+- The Docker image opens `POST /run` to non-loopback callers (`RESCUE_OPEN_RUN=true`) so the judging curl works; do not publish that port on an untrusted network, or set `RESCUE_OPERATOR_TOKEN`.
+- Sample mode calls no model: its traces show agent roles and deterministic stages, not Nemotron output; per-call `model`/`receipt` lines exist only in connected mode.
+- Blind results are not "0 unsafe": sealed50 and holdout2 each had 3 unsafe SEND proposals (6/100), each still requiring human approval.
 
 Hazard data prep (offline, backup read-only): `python tools/prepare_hazards.py --backup C:/path/to/data-backup` (or set `RTD_BACKUP_DIR`).
 

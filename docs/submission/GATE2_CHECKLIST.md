@@ -17,7 +17,7 @@ Offline results were re-run on the working tree of 25 Oct (other agents were edi
 | 9 | README: setup, engine test, limitations | PASS | `README.md` sections Setup, Engine test, Evaluations, Data provenance, Honest limitations | Fill the `[TBD-live-number]` markers after live runs |
 | 10 | Timeouts + bounded retries; total run ≤ 10 min | PASS (offline) | 480 s response budget (`app/pipeline.py`), 75 s call timeout, ≤3 attempts, one JSON retry; `ContractTests.test_nightshift_502_three_attempts`, `RetryTests` | Live ≤10-minute 15-message batch: [TBD-live-number] |
 | 11 | No real personal data; public-repo safety | PASS (Orbit review 24 Oct) | Messages synthetic and flagged `synthetic`; masked-hit safety scan kept privately (not in repo; values never reproduced); `.gitignore` excludes `.env`, `runtime/`, `logs/*` except `logs/sample_trace.jsonl` | Yussef final look before `git push` |
-| 12 | Work before 21/10/2026 21:00 declared | NEEDS-YUSSEF | `docs/submission/PRE_EXISTING_DECLARATION.md` (inventory filled, dates/attestation pending); git history starts 2026-10-24 01:44 -0300 (`git log --reverse`), so everything earlier is external inventory | Confirm timezone, dates and authorship; sign |
+| 12 | Work before 21/10/2026 21:00 declared | PASS | `docs/submission/PRE_EXISTING_DECLARATION.md`: "Pre-existing components: none", attested by team Orbital, 27 Oct 2026; git history starts 2026-10-24 01:44 -0300 (`git log --reverse`); third-party open-source libraries and open datasets listed with licences (section B) | — |
 | 13 | Data lineage D1–D3 | GAP | `data/ATTRIBUTION.md`; README provenance table | Supply missing manifests/licences (flood/pump/levee/shelter layers, EMSN194 terms) |
 | 14 | Sponsor explanation (Zetaris, engine+feature+test, Nemotron role) | PASS (draft) | `docs/submission/SPONSOR_EXPLANATION.md` | Update with final agents list and live receipts |
 | 15 | 1–4 min demo video with one real Nightshift request | NEEDS-YUSSEF | README "Submission" (`VIDEO_LINK`) | Upload; replace `VIDEO_LINK` |
@@ -41,8 +41,8 @@ Offline results were re-run on the working tree of 25 Oct (other agents were edi
 # 1. Tests and engine evidence (offline)
 python -m unittest discover -s tests
 # 2. Docker (offline image)
-docker build -t rescue-triage-desk .
-docker run --rm -p 8080:8080 rescue-triage-desk
+docker build -t oah-submission .
+docker run --rm -p 8000:8000 -e SAMPLE_MODE=true oah-submission   # container port 8000; POST /run open via RESCUE_OPEN_RUN=true
 # 3. Zetaris v4 + smoke (needs services)
 python tools/load_zetaris.py --version v4
 python tools/smoke_live.py
@@ -59,7 +59,7 @@ python run.py serve
 Start-Process 'http://localhost:8080/v2'
 ```
 
-Connected container check: `docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 rescue-triage-desk`.
+Connected container check: `docker run --rm -p 8000:8000 --env-file .env -e SAMPLE_MODE=false -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 oah-submission`.
 Upload deck (`docs/submission/deck_final/deck.pdf`) and video to the organizer portal (URL not in the repo).
 
 ## Refresh 27 October 2026 (SUBMIT agent; docs/tooling only)
@@ -68,4 +68,4 @@ Upload deck (`docs/submission/deck_final/deck.pdf`) and video to the organizer p
 - `.env.example` now lists every setting name used in code (added `RESCUE_OPERATOR_TOKEN`, `RESCUE_DEVICE_TOKEN`, `RTD_VERIFIER`, `RTD_CONTRIBUTION_PATH`); `.gitignore` additionally covers `review/`, `data-backup/`, `.env.*`, `*_REPORT.md`, `.claude/`, `.codex/`.
 - Safety scan: `python tools/gate2_scan.py` (optional report: `--md out/GATE2_SCAN.md`, kept out of the repo). Re-run it right before `git push`.
 - Deck: final files in `docs/submission/deck_final/` (`deck.pdf`, `deck.pptx`, `deck.html`, speaker notes).
-- Still open for Yussef: record/upload video, retake screenshots from the connected build, fill `[TBD-sealed50]` / `[TBD-holdout2]`, docker build, sign the pre-existing declaration, submit URLs.
+- Still open for Yussef: record/upload video, retake screenshots from the connected build, fill `[TBD-sealed50]` / `[TBD-holdout2]`, docker build, submit URLs.
