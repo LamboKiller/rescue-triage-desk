@@ -14,6 +14,17 @@ In May 2024 calls for help came in through dozens of WhatsApp groups, phone call
 
 <sub>29/30: live realdev sample, 27 Oct 02:36 (our dev set). 42/42: offline red-team set. 94/100: the two blind sets combined (sealed50 + holdout2, kept sealed during development and run once live after the code freeze at `6ba4233`); the other 6 proposed a boat where a callback was expected, and each still stopped at the human dispatcher. Exact-match accuracy on those sets: 34/50 and 29/50, with most misses being extra caution. Full breakdown, modes and commits in [Evaluations](#evaluations).</sub>
 
+### Arca at work
+
+| | |
+|---|---|
+| ![Agents check each other, live on NVIDIA Nemotron](docs/img/s1.jpg) | ![Road route on real streets, then an estimated boat leg](docs/img/s2.jpg) |
+| **The agents read the call** and check each other, live on Nemotron via Nightshift | **Choosing the boat:** real streets to the water's edge, then the boat leg |
+| ![Dispatched with one click, 10 s to undo](docs/img/s3.jpg) | ![Every call on one city map](docs/img/s6.jpg) |
+| **A human dispatches** with one click (10 s to undo); every step goes to the World Model log | **Every call on one map** during a 60-call surge |
+
+![Eleven agents working around the clock; people make one decision: send the boat](docs/img/s7.jpg)
+
 ## Quickstart for judges
 
 ```bash
