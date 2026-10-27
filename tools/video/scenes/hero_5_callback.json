@@ -1,0 +1,58 @@
+{
+ "name": "Scene 5 — callback loop",
+ "actions": [
+  {
+   "do": "navigate",
+   "url": "/v2/?lang=en"
+  },
+  {
+   "do": "waitFor",
+   "selector": "#queue"
+  },
+  {
+   "do": "evaluate",
+   "expr": "select(S.cases.find(c=>c.text||true).case_id)",
+   "ms": 1500
+  },
+  {
+   "do": "clickText",
+   "selector": "[id^=tab-]",
+   "text": "Retorno",
+   "settleMs": 2500
+  },
+  {
+   "do": "mark",
+   "name": "question_visible"
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "2",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "mark",
+   "name": "reply_retriaged"
+  }
+ ],
+ "width": 1920,
+ "height": 1080,
+ "base": "{{base}}"
+}

@@ -1,0 +1,1 @@
+{"name":"motion-test-30","fps":30,"actions":[{"do":"eval","expr":"DeskPhotoTour.cameraPath({duration:6000});'motion start'"},{"do":"wait","ms":8500}]}

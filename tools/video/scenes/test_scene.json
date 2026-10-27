@@ -1,0 +1,14 @@
+{
+  "name": "test_scene",
+  "width": 1920,
+  "height": 1080,
+  "base": "http://127.0.0.1:8095",
+  "actions": [
+    {"do": "navigate", "url": "/v2/?lang=pt&tour=photos", "settleMs": 2500},
+    {"do": "waitFor", "selector": "#queue", "timeout": 30000},
+    {"do": "mark", "name": "desk_loaded"},
+    {"do": "click", "selector": "#live-open", "settleMs": 2500},
+    {"do": "mark", "name": "agents_view"},
+    {"do": "wait", "ms": 2500}
+  ]
+}

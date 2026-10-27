@@ -1,0 +1,1 @@
+{"name":"receipt","fps":30,"actions":[{"do":"click","selector":"button","text":"Ampliar"},{"do":"wait","ms":2500},{"do":"hover","selector":"#flow [data-node=intake]","name":"model_receipt"},{"do":"wait","ms":7500}]}

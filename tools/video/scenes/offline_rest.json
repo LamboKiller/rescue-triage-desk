@@ -1,0 +1,13 @@
+{"name":"offline-rest","fps":30,"actions":[
+{"do":"click","selector":"#back-dispatch"},{"do":"eval","expr":"select(S.cases[0].case_id);'selected'"},{"do":"wait","ms":3000},
+{"do":"eval","expr":"({tabs:[...document.querySelectorAll('[id^=tab-]')].map(e=>[e.id,e.textContent])})"},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","2","--workdir","out/video/viddesk01","--speed","1"]},
+{"do":"wait","ms":4000},{"do":"eval","expr":"select(S.cases[0].case_id);'refreshed'"},{"do":"wait","ms":1500},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","3","4","--workdir","out/video/viddesk01","--speed","1"]},
+{"do":"wait","ms":5000},{"do":"click","selector":"#supervisor-toggle"},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","5","6","--workdir","out/video/viddesk01","--speed","1"]},
+{"do":"wait","ms":3500},{"do":"click","selector":"#supervisor-toggle"},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","7","--workdir","out/video/viddesk01","--speed","1"]},
+{"do":"wait","ms":4000},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","8","--workdir","out/video/viddesk01","--speed","1"]},{"do":"wait","ms":4500}
+]}

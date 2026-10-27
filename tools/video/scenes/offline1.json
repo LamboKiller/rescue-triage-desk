@@ -1,0 +1,1 @@
+{"name":"offline1","fps":30,"actions":[{"do":"click","selector":"button","text":"Ampliar"},{"do":"wait","ms":1500},{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","1","--workdir","out/video/viddesk01","--speed","1"]},{"do":"wait","ms":4000}]}

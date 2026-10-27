@@ -1,0 +1,172 @@
+{
+ "_start": {
+  "3": 27.6
+ },
+ "3": [
+  {
+   "clip": "S4_hero_agents",
+   "a": "queue_empty+-2.6",
+   "b": "queue_empty",
+   "speed": 1.08
+  }
+ ],
+ "4": [
+  {
+   "clip": "S4_hero_agents",
+   "a": "agents_full+-1.0",
+   "b": "agents_full",
+   "speed": 1.0
+  },
+  {
+   "clip": "S4_hero_agents",
+   "a": "agents_full",
+   "b": "hero_end_step1",
+   "fit": true,
+   "badge": true
+  },
+  {
+   "clip": "S4_hero_agents",
+   "a": "node_detail_intake+-0.3",
+   "b": "node_detail_intake+2.7",
+   "speed": 1.0
+  },
+  {
+   "clip": "S4_hero_agents",
+   "a": "back_to_queue",
+   "b": "case_card+2.6",
+   "speed": 1.0
+  }
+ ],
+ "5": [
+  {
+   "clip": "S5_callback",
+   "a": "question_visible+-0.2",
+   "b": "question_visible+2.2",
+   "speed": 1.0
+  },
+  {
+   "clip": "S5_callback",
+   "a": "hero_start_step2",
+   "b": "hero_end_step2",
+   "fit": true,
+   "badge": true
+  },
+  {
+   "clip": "S5_callback",
+   "a": "retriaged+-0.3",
+   "b": "retriaged+2.0",
+   "speed": 1.0
+  }
+ ],
+ "6": [
+  {
+   "clip": "X_blocked_offline_S6_assets_route",
+   "a": "hero_end_step3+-32",
+   "b": "hero_end_step3",
+   "speed": 8,
+   "badge": true
+  },
+  {
+   "clip": "X_blocked_offline_S6_assets_route",
+   "a": "assets_ready",
+   "b": "route_drawn+0.8",
+   "speed": 1
+  },
+  {
+   "clip": "X_blocked_offline_S6_assets_route",
+   "a": "landing_options+-0.5",
+   "b": "landing_dialog+1.5",
+   "fit": true
+  },
+  {
+   "clip": "X_blocked_offline_S6_assets_route",
+   "a": "landing_chosen+-2.2",
+   "b": "landing_chosen+1.0",
+   "speed": 1
+  }
+ ],
+ "7": [
+  {
+   "clip": "X_blocked_offline_S7_boat_supervisor",
+   "a": "before",
+   "b": "after_gps",
+   "speed": 2
+  },
+  {
+   "clip": "X_blocked_offline_S7_boat_supervisor",
+   "a": "after_gps",
+   "b": "hero_end_step6",
+   "speed": 4,
+   "badge": true
+  },
+  {
+   "clip": "X_blocked_offline_S7_boat_supervisor",
+   "a": "supervisor_after+-2.0",
+   "b": "supervisor_after+1.5",
+   "fit": true
+  },
+  {
+   "clip": "X_blocked_offline_S7b_crew_closed",
+   "a": "closed+-3.0",
+   "b": "closed+1.5",
+   "speed": 1
+  }
+ ],
+ "8": [
+  {
+   "clip": "X_blocked_offline_S8_reroute",
+   "a": "hero_end_step7+-1.5",
+   "b": "reroute_approved+0.3",
+   "fit": true
+  }
+ ],
+ "9": [
+  {
+   "clip": "S9_surge",
+   "a": "surge_start+-0.5",
+   "b": "final_counters",
+   "fit": true
+  }
+ ],
+ "10": [
+  {
+   "clip": "S10_map_3d_photos",
+   "a": "map_2d",
+   "b": "tilt_done",
+   "speed": 2
+  },
+  {
+   "clip": "S10_map_3d_photos",
+   "a": "photo_cards+-0.5",
+   "b": "photo_cards#3+1.5",
+   "fit": true
+  }
+ ],
+ "_fb": {
+  "3": [
+   {
+    "clip": "live234",
+    "a": 0.0,
+    "b": 2.4,
+    "speed": 1.0
+   }
+  ],
+  "4": [
+   {
+    "clip": "live1",
+    "a": 2.0,
+    "b": 60.0,
+    "fit": true
+   }
+  ],
+  "5": [
+   {
+    "clip": "live234",
+    "a": 7.3,
+    "b": 46.8,
+    "fit": true,
+    "badge": true
+   }
+  ]
+ }
+}

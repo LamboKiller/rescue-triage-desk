@@ -1,0 +1,8 @@
+{"name":"live234","fps":30,"actions":[
+{"do":"click","selector":"#back-dispatch"},{"do":"eval","expr":"DeskReplay.set('2024-05-06',725);'12:05 replay'"},{"do":"wait","ms":2000},{"do":"eval","expr":"select(S.cases[0].case_id);'selected'"},{"do":"wait","ms":2000},{"do":"click","selector":"#tab-Retorno"},{"do":"wait","ms":3000},
+{"do":"run","args":["tools/demo_hero.py","--live","--url","http://127.0.0.1:8097","--only","2","--workdir","out/video/vidlive01","--speed","1"]},
+{"do":"wait","ms":4000},{"do":"eval","expr":"DeskReplay.set('2024-05-06',730);'12:10 replay'"},{"do":"wait","ms":1500},{"do":"click","selector":"#tab-Meios"},{"do":"wait","ms":3500},
+{"do":"run","args":["tools/demo_hero.py","--live","--url","http://127.0.0.1:8097","--only","3","--workdir","out/video/vidlive01","--speed","1"]},
+{"do":"wait","ms":4000},{"do":"click","selector":"#tab-Missões"},{"do":"wait","ms":5000},
+{"do":"run","args":["tools/demo_hero.py","--live","--url","http://127.0.0.1:8097","--only","4","--workdir","out/video/vidlive01","--speed","1"]},{"do":"wait","ms":4000}
+]}

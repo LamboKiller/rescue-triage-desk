@@ -1,0 +1,7 @@
+1
+00:00:00,500 --> 00:00:03,500
+Every request is read by agents — each claim carries an exact quote.
+
+2
+00:00:04,000 --> 00:00:07,500
+The desk, in sample mode, recorded over CDP.

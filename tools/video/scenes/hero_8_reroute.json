@@ -1,0 +1,76 @@
+{
+ "name": "Scene 8 — new P1 + reroute proposal (step 7), then step 8 closes the case",
+ "actions": [
+  {
+   "do": "navigate",
+   "url": "/v2/?lang=en"
+  },
+  {
+   "do": "waitFor",
+   "selector": "#queue"
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "7",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 2000
+  },
+  {
+   "do": "clickText",
+   "selector": "button",
+   "text": "Missões",
+   "settleMs": 3000
+  },
+  {
+   "do": "mark",
+   "name": "reroute_visible"
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "8",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "mark",
+   "name": "case_closed"
+  }
+ ],
+ "width": 1920,
+ "height": 1080,
+ "base": "{{base}}"
+}

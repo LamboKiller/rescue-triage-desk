@@ -1,0 +1,10 @@
+{
+  "fps": 30,
+  "size": [1920, 1080],
+  "segments": [
+    {"type": "card", "title": "May 2024 · Rio Grande do Sul", "lines": ["185 deaths", "478 of 497 municipalities", "2.4 million people affected", "Guaíba 5.35 m (1941: 4.76 m)"],
+     "footnote": "Sources: Defesa Civil RS; Wikipedia / official bulletins (to be confirmed by Orbit before publishing)", "duration": 9},
+    {"type": "clip", "file": "out/video/test_scene.mp4", "srt": "tools/video/captions_example.srt", "badge": "4× · real time 32 s"},
+    {"type": "list", "title": "Also built", "items": ["shift handover", "family reunification", "coverage gaps", "volunteer boats", "source contradictions", "red-team self-attack loop", "PT / EN", "offline SAMPLE_MODE", "surge mode"], "duration": 12}
+  ]
+}

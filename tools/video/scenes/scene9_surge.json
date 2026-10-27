@@ -1,0 +1,62 @@
+{
+ "name": "Scene 9 — surge, queue fills, 2D -> 3D with photo cards",
+ "actions": [
+  {
+   "do": "navigate",
+   "url": "/v2/?lang=en"
+  },
+  {
+   "do": "waitFor",
+   "selector": "#queue"
+  },
+  {
+   "do": "clickText",
+   "selector": "button",
+   "text": "Ampliar",
+   "settleMs": 1500
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_surge.py",
+    "--url",
+    "{{base}}",
+    "--n",
+    "60",
+    "--rate",
+    "burst"
+   ],
+   "wait": true
+  },
+  {
+   "do": "mark",
+   "name": "surge_posted"
+  },
+  {
+   "do": "wait",
+   "ms": 9000
+  },
+  {
+   "do": "cameraPath",
+   "opts": {
+    "duration": 6000
+   }
+  },
+  {
+   "do": "photoTour",
+   "interval": 3200
+  },
+  {
+   "do": "wait",
+   "ms": 14000
+  },
+  {
+   "do": "mark",
+   "name": "photos_done"
+  }
+ ],
+ "width": 1920,
+ "height": 1080,
+ "base": "{{base}}"
+}

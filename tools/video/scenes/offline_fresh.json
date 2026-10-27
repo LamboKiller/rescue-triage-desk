@@ -1,0 +1,12 @@
+{"name":"offline-fresh","fps":30,"actions":[
+{"do":"navigate","url":"http://127.0.0.1:8096/v2/?lang=pt&t=2024-05-06T12:00"},{"do":"wait","ms":5000},{"do":"click","selector":"button","text":"Ampliar"},{"do":"wait","ms":1500},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","1","--workdir","out/video/viddesk02","--speed","1"]},{"do":"wait","ms":3000},
+{"do":"click","selector":"#back-dispatch"},{"do":"eval","expr":"select(S.cases[0].case_id);'select'"},{"do":"wait","ms":2500},{"do":"click","selector":"#tab-Retorno"},{"do":"wait","ms":2500},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","2","--workdir","out/video/viddesk02","--speed","1"]},{"do":"eval","expr":"DeskReplay.set('2024-05-06',727);'12:07'"},{"do":"wait","ms":2500},
+{"do":"click","selector":"#tab-Meios"},{"do":"wait","ms":3000},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","3","4","--workdir","out/video/viddesk02","--speed","1"]},{"do":"eval","expr":"DeskReplay.set('2024-05-06',733);'12:13'"},{"do":"wait","ms":3000},{"do":"click","selector":"#tab-Missões"},{"do":"wait","ms":5000},
+{"do":"click","selector":"#supervisor-toggle"},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","5","6","--workdir","out/video/viddesk02","--speed","1"]},{"do":"eval","expr":"DeskReplay.set('2024-05-06',742);'12:22'"},{"do":"wait","ms":4000},
+{"do":"click","selector":"#supervisor-toggle"},{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","7","--workdir","out/video/viddesk02","--speed","1"]},{"do":"eval","expr":"DeskReplay.set('2024-05-06',745);'12:25'"},{"do":"wait","ms":5000},
+{"do":"run","args":["tools/demo_hero.py","--offline","--url","http://127.0.0.1:8096","--only","8","--workdir","out/video/viddesk02","--speed","1"]},{"do":"eval","expr":"DeskReplay.set('2024-05-06',750);'12:30'"},{"do":"wait","ms":5000}
+]}

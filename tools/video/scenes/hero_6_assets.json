@@ -1,0 +1,85 @@
+{
+ "name": "Scene 6 — asset, route, landing, dispatch",
+ "actions": [
+  {
+   "do": "navigate",
+   "url": "/v2/?lang=en"
+  },
+  {
+   "do": "waitFor",
+   "selector": "#queue"
+  },
+  {
+   "do": "evaluate",
+   "expr": "select(S.cases[0].case_id)",
+   "ms": 1200
+  },
+  {
+   "do": "clickText",
+   "selector": "[id^=tab-]",
+   "text": "Meios",
+   "settleMs": 2500
+  },
+  {
+   "do": "mark",
+   "name": "assets"
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "3",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 5000
+  },
+  {
+   "do": "mark",
+   "name": "route"
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "4",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "mark",
+   "name": "landing"
+  }
+ ],
+ "width": 1920,
+ "height": 1080,
+ "base": "{{base}}"
+}

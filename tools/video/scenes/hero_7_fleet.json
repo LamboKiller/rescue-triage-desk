@@ -1,0 +1,77 @@
+{
+ "name": "Scene 7 — fleet moves, supervisor no-signal alert closes, crew report (run step 8 for the closed shot)",
+ "actions": [
+  {
+   "do": "navigate",
+   "url": "/v2/?lang=en"
+  },
+  {
+   "do": "waitFor",
+   "selector": "#queue"
+  },
+  {
+   "do": "click",
+   "selector": "#supervisor-toggle",
+   "settleMs": 1500
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "5",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "6",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "click",
+   "selector": "#supervisor-toggle",
+   "settleMs": 500
+  },
+  {
+   "do": "click",
+   "selector": "#supervisor-toggle",
+   "settleMs": 3000
+  },
+  {
+   "do": "mark",
+   "name": "alert_closed"
+  }
+ ],
+ "width": 1920,
+ "height": 1080,
+ "base": "{{base}}"
+}

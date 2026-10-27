@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Rescue Triage Desk · film compositor</title>
+<style>
+@font-face{font-family:Inter;src:url('../fonts/InterVariable.woff2')}@font-face{font-family:InterDisplay;src:url('../fonts/InterDisplay-Bold.ttf');font-weight:700}
+*{box-sizing:border-box}html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#071017;color:#F5F7FA;font-family:Inter,sans-serif}body{font-variant-numeric:tabular-nums}
+#stage,#media,#previous,#wash,#content,#texture,#vignette,#break{position:absolute;inset:0}#media,#previous{overflow:hidden}#media img,#previous img{width:100%;height:100%;object-fit:cover;transform-origin:center}#wash{background:linear-gradient(90deg,rgba(3,10,16,.90),rgba(3,10,16,.10) 85%)}
+#content{z-index:3}#vignette{pointer-events:none;z-index:4;background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,.27))}#texture{opacity:.022;pointer-events:none;z-index:5;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' seed='24' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.7' filter='url(%23n)'/%3E%3C/svg%3E")}
+#caption{position:absolute;z-index:8;bottom:76px;left:180px;right:180px;text-align:center;font-size:42px;font-weight:600;line-height:1.24;white-space:pre-line}#caption span{display:inline-block;max-width:1510px;padding:13px 27px 16px;background:rgba(0,0,0,.60);border-radius:14px}
+.block{position:absolute;max-width:1650px;line-height:1.12;letter-spacing:-.02em;text-wrap:balance}.eyebrow{font-size:24px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#a8c4d8}.title{font-family:InterDisplay,Inter;font-size:94px;font-weight:700}.number{font-family:InterDisplay,Inter;font-size:142px;font-weight:700;letter-spacing:-.04em}.sub{font-size:36px;line-height:1.3;font-weight:500}.foot{font-size:21px;line-height:1.35;letter-spacing:0;color:#cfdae2}.card{padding:26px 34px;border-radius:18px;background:rgba(6,17,25,.90);border:1px solid #49708866;box-shadow:0 16px 60px #0005}.tag{font-size:26px;letter-spacing:.015em;padding:12px 20px;border-radius:8px;background:#081923eb;border:1px solid #4e718f80;font-weight:600}.roster{font-size:38px;line-height:1.2;font-weight:600}.roster small{font-size:22px;color:#a8c4d8;font-weight:400;letter-spacing:0}.bubble{font-size:31px;line-height:1.4;font-weight:500;background:#102a30ed;border:1px solid #427a8366;padding:22px 27px;border-radius:20px;box-shadow:0 12px 50px #0004}.blue{color:#3BA3FF}.green{color:#2BD47D}.amber{color:#FFB224}#break{z-index:12;background:#000;pointer-events:none}.ring{position:absolute;border:4px solid #3BA3FF;border-radius:50%;width:70px;height:70px;pointer-events:none}.line{position:absolute;height:2px;background:#3BA3FF88;transform-origin:left center}.line:after{content:'';position:absolute;right:0;top:-5px;width:12px;height:12px;border-right:2px solid #3BA3FF;border-top:2px solid #3BA3FF;transform:rotate(45deg)}
+.block{white-space:pre-line}.foot{background:rgba(0,0,0,.66);padding:5px 9px;border-radius:5px}#texture{background-image:url(../assets/grain.png);background-size:128px 128px}</style></head><body><div id="stage"><div id="previous"></div><div id="media"></div><div id="wash"></div><div id="content"></div><div id="vignette"></div><div id="texture"></div><div id="caption"></div><div id="break"></div></div>
+<script>
+const $=x=>document.getElementById(x),clamp=x=>Math.min(1,Math.max(0,x)),cubic=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,expo=x=>x===1?1:1-Math.pow(2,-10*x),esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+let T,active=-1,loaded=new Map();
+window.__ready=(async()=>{T=await(await fetch(new URLSearchParams(location.search).get('timeline')||'/out/video/final/timeline.json')).json();await document.fonts.ready;return true})();
+async function source(url){if(!loaded.has(url)){let im=new Image();im.src=url;loaded.set(url,im);await im.decode()}if(loaded.size>8){let k=loaded.keys().next().value;if(k!==url)loaded.delete(k)}return loaded.get(url)}
+function imageUrl(s,t){if(s.kind==='ui'){let n=Math.max(1,Math.floor(((s.sourceStart||0)+t*(s.speed||1))*s.sourceFps)+1);return s.frames+'/'+String(n).padStart(6,'0')+'.jpg'}return s.image||''}
+function textBlock(b,t){let age=t-b.at,rev=b.reveal??.55;if(age<0||t>=b.until)return '';let enter=expo(clamp(age/rev)),leave=cubic(clamp((b.until-t)/.30));let text=b.html||esc(b.text);if(b.counter){let n=b.counter.to*cubic(clamp(age/(b.counter.seconds||1.2)));text='<div class="number '+(b.color||'')+'">'+(b.counter.decimals?n.toFixed(b.counter.decimals):Math.round(n))+esc(b.counter.suffix||'')+'</div>'+b.html}
+return `<div class="block ${b.class||''}" style="left:${b.x??88}px;top:${b.y??120}px;width:${b.w||1650}px;opacity:${enter*leave};transform:translateY(${(1-enter)*22}px);clip-path:inset(0 ${b.wipe?(1-enter)*100:0}% 0 0)">${text}</div>`}
+window.__seek=async(t)=>{
+ await window.__ready;let i=T.shots.findIndex(s=>t>=s.start&&t<s.end);if(i<0)i=T.shots.length-1;let s=T.shots[i],local=t-s.start,d=s.end-s.start,url=imageUrl(s,local);let img=url?await source(url):null;
+ if(img){if($('media').firstChild?.getAttribute('src')!==url)$('media').replaceChildren(img.cloneNode());let el=$('media').firstChild;let z=1,x=.5,y=.5;
+ if(s.kind==='photo'){z=1.025+.055*clamp(local/d);x=s.panX||.5;y=.5;el.style.filter='saturate(.79) contrast(1.05) brightness(.89)'}
+ if(s.kind==='ui'){let cam=s.camera||{x:.5,y:.5,z:1};let e=cubic(clamp((local-.65)/.8));z=1+(cam.z-1)*e;x=.5+(cam.x-.5)*e;y=.5+(cam.y-.5)*e;el.style.filter='saturate(.9) contrast(1.025)'}
+ let dx=Math.min(0,Math.max(1920*(1-z),960-x*1920*z)),dy=Math.min(0,Math.max(1080*(1-z),540-y*1080*z));el.style.transformOrigin='0 0';el.style.transform=`translate(${dx}px,${dy}px) scale(${z})`;
+ $('media').style.opacity=s.mediaOpacity??1;
+ }else{$('media').replaceChildren();$('media').style.opacity=0}
+ // Photo crossfades last exactly 15 frames. Both sides are sought explicitly.
+ $('previous').replaceChildren();if(s.kind==='photo'&&i>0&&T.shots[i-1].kind==='photo'&&local<.25){let p=T.shots[i-1],im=await source(p.image);let el=im.cloneNode();el.style.transform='scale(1.08)';$('previous').append(el);$('media').style.opacity=cubic(local/.25)}
+ $('wash').style.opacity=s.kind==='ui'?'0':(s.wash??.8);
+ let blocks=(s.blocks||[]).map(b=>textBlock(b,local)).join('');
+ if(s.kind==='photo')blocks+='<div class="block foot" style="left:1410px;top:42px;width:430px;font-size:20px">© CarolSiBa · CC BY 4.0</div>';
+ for(let b of T.blocks||[])blocks+=textBlock(b,t);
+ if(s.kind==='ui'){
+ let mode=s.modeLabel||(s.live?'Recorded Nemotron trace':'Offline sample · deterministic rules');blocks+=`<div class="block tag" style="left:72px;top:51px;width:auto">${mode}</div><div class="block foot" style="left:72px;top:1015px;width:auto">Replay of 6 May 2024 · fleet / GPS [SIMULADO]</div>`;
+ if(s.speed>1.05)blocks+=`<div class="block tag" style="right:72px;top:51px;width:auto">${s.speed.toFixed(1)}× · real time ${s.realSeconds.toFixed(1)} s</div>`;
+ for(let m of s.rings||[]){let q=local-m.t;if(q>=0&&q<.8){let z=1+cubic(q/.8)*1.2;blocks+=`<div class="ring" style="left:${m.x-35}px;top:${m.y-35}px;transform:scale(${z});opacity:${1-cubic(q/.8)}"></div>`}}
+ }
+ if(s.scene===2){
+ let u=t-20,op=expo(clamp((u-3.2)/.6));let bars='';for(let j=0;j<46;j++){let h=6+28*Math.abs(Math.sin(j*1.72+u*1.4))*Math.abs(Math.sin(j*.43+u*.7));bars+=`<rect x="${j*9}" y="${24-h/2}" width="4" height="${h}" rx="2" fill="#3BA3FF"/>`}
+ blocks+=`<svg style="position:absolute;left:1140px;top:482px;width:430px;height:48px;opacity:${op}" viewBox="0 0 430 48">${bars}</svg>`;
+ if(u>9){let o=expo(clamp((u-9)/.7));blocks+=`<svg style="position:absolute;inset:0;width:1920px;height:1080px;opacity:${o}" viewBox="0 0 1920 1080"><path d="M485 744 Q485 775 760 790 M1350 704 Q1350 775 1140 790" stroke="#3BA3FF" stroke-width="3" fill="none"/></svg>`}
+ }
+ for(let a of s.arrows||[])blocks+=`<div class="line" style="left:${a.x}px;top:${a.y}px;width:${a.w}px;transform:rotate(${a.angle||0}deg);opacity:${expo(clamp((local-a.at)/.6))}"></div>`;
+ $('content').innerHTML=blocks;
+ let cap=T.captions.find(c=>t>=c.start&&t<c.end);$('caption').innerHTML=cap?'<span>'+esc(cap.text)+'</span>':'';
+ let dip=0;for(let a of T.actBreaks||[])if(Math.abs(t-a)<.3)dip=Math.max(dip,1-Math.abs(t-a)/.3);$('break').style.opacity=dip;
+ await Promise.all([...document.images].map(im=>im.decode()));active=i;return {shot:i,scene:s.scene,time:t,source:url};
+};
+</script></body></html>

@@ -1,0 +1,62 @@
+{
+ "name": "Scene 4 — message arrives, Agentes ao vivo full view",
+ "actions": [
+  {
+   "do": "navigate",
+   "url": "/v2/?lang=en"
+  },
+  {
+   "do": "waitFor",
+   "selector": "#queue"
+  },
+  {
+   "do": "clickText",
+   "selector": "button",
+   "text": "Ampliar",
+   "settleMs": 1500
+  },
+  {
+   "do": "mark",
+   "name": "agents_open"
+  },
+  {
+   "do": "run",
+   "cmd": "python",
+   "args": [
+    "tools/demo_hero.py",
+    "--live",
+    "--url",
+    "{{base}}",
+    "--only",
+    "1",
+    "--speed",
+    "1"
+   ],
+   "wait": false
+  },
+  {
+   "do": "waitFor",
+   "expr": "document.querySelectorAll('#queue li, #queue [data-case]').length>0",
+   "timeout": 120000
+  },
+  {
+   "do": "mark",
+   "name": "case_in_queue"
+  },
+  {
+   "do": "waitRun",
+   "timeoutMs": 180000
+  },
+  {
+   "do": "wait",
+   "ms": 6000
+  },
+  {
+   "do": "mark",
+   "name": "agents_done"
+  }
+ ],
+ "width": 1920,
+ "height": 1080,
+ "base": "{{base}}"
+}
