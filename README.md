@@ -4,7 +4,7 @@
 
 **A team of AI agents that takes every channel into one picture, so dispatchers can send the right boat to the right door, fast, and a human approves every dispatch.**
 
-▶ **Watch the demo:** VIDEO_LINK
+▶ **Watch the demo:** [Arca demo video (2:46)](https://github.com/LamboKiller/rescue-triage-desk/releases/download/v1.0-submission/Arca_demo.mp4)
 
 In May 2024 calls for help came in through dozens of WhatsApp groups, phone calls, social media and single texts sent with the last bar of signal. Our agents read them all in Portuguese, ask the citizen for what is missing, spot duplicates and "already rescued" reports, group cases into missions, route land and water legs, follow field feedback, look after shelters and shift handover, and help reunite families. Arca **replays 6 May 2024** in Porto Alegre, Canoas and four neighbouring municipalities, on real flood and street data. The fleet and GPS are simulated (and clearly labelled), and nothing is ever dispatched without a human.
 
@@ -35,7 +35,7 @@ curl -X POST http://localhost:8000/run -H "Content-Type: application/json" -d @i
 
 Open Agent Hackathon 2026, team **Orbital**. A **retrospective replay of the May 2024 Rio Grande do Sul floods** (6 May 2024), not a deployed system; fleet and GPS are simulated and labelled.
 
-- **Demo video:** VIDEO_LINK
+- **Demo video:** [Arca demo video (2:46)](https://github.com/LamboKiller/rescue-triage-desk/releases/download/v1.0-submission/Arca_demo.mp4)
 - **Deck:** [`docs/submission/deck_final/deck.pdf`](docs/submission/deck_final/deck.pdf)
 - **Sponsor technologies** (details, code paths and test evidence in [`docs/submission/SPONSOR_EXPLANATION.md`](docs/submission/SPONSOR_EXPLANATION.md)):
   - **NVIDIA Nemotron via Meterless Nightshift**: the only AI provider; every agent call is traced with the model and receipt (`app/llm/nightshift.py`).
