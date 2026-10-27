@@ -4,7 +4,7 @@
 
 **A team of AI agents that takes every channel into one picture, so dispatchers can send the right boat to the right door, fast, and a human approves every dispatch.**
 
-▶ **Watch the demo:** [Arca demo video (2:46)](https://github.com/LamboKiller/rescue-triage-desk/releases/download/v1.0-submission/Arca_demo.mp4)
+▶ **Watch Arca at work:** [video walkthrough (2:46)](https://github.com/LamboKiller/rescue-triage-desk/releases/download/v1.0-submission/Arca_walkthrough.mp4)
 
 In May 2024 calls for help came in through dozens of WhatsApp groups, phone calls, social media and single texts sent with the last bar of signal. Our agents read them all in Portuguese, ask the citizen for what is missing, spot duplicates and "already rescued" reports, group cases into missions, route land and water legs, follow field feedback, look after shelters and shift handover, and help reunite families. Arca **replays 6 May 2024** in Porto Alegre, Canoas and four neighbouring municipalities, on real flood and street data. The fleet and GPS are simulated (and clearly labelled), and nothing is ever dispatched without a human.
 
@@ -35,7 +35,7 @@ curl -X POST http://localhost:8000/run -H "Content-Type: application/json" -d @i
 
 Open Agent Hackathon 2026, team **Orbital**. A **retrospective replay of the May 2024 Rio Grande do Sul floods** (6 May 2024), not a deployed system; fleet and GPS are simulated and labelled.
 
-- **Demo video:** [Arca demo video (2:46)](https://github.com/LamboKiller/rescue-triage-desk/releases/download/v1.0-submission/Arca_demo.mp4)
+- **Video walkthrough:** [Arca at work (2:46)](https://github.com/LamboKiller/rescue-triage-desk/releases/download/v1.0-submission/Arca_walkthrough.mp4)
 - **Deck:** [`docs/submission/deck_final/deck.pdf`](docs/submission/deck_final/deck.pdf)
 - **Sponsor technologies** (details, code paths and test evidence in [`docs/submission/SPONSOR_EXPLANATION.md`](docs/submission/SPONSOR_EXPLANATION.md)):
   - **NVIDIA Nemotron via Meterless Nightshift**: the only AI provider; every agent call is traced with the model and receipt (`app/llm/nightshift.py`).
@@ -406,8 +406,8 @@ Protomaps style and sprites, and OSM, Copernicus EMS, Wikimedia Commons, IBGE, U
 - **Hardware.** Developed and measured on a 16 GB laptop with one shared Nightshift endpoint; latency under real load is unmeasured beyond the surge harness.
 - **Nightshift latency.** Live realdev 30-sample: mean 11.3 s, p95 42 s per message (27 Oct); blind sets mean 23-24 s, p95 about 54-55 s (`6ba4233`). Calls are bounded (75 s, 3 attempts); runs are capped at 480 s; a critic call can time out and the desk degrades visibly.
 - **Offline ≠ model quality.** Scripted planners and `deterministic_only` fallbacks prove wiring and validators, not Nemotron.
-- A valid quote does not prove semantic truth; a street match cannot prove a house number; priority weights are a demo policy.
-- Trusted-operator demo: actor labels are not authentication; no TLS or role system; anyone with API access can assert a human action.
+- A valid quote does not prove semantic truth; a street match cannot prove a house number; priority weights are a configurable policy.
+- Trusted-operator setup: actor labels are not authentication; no TLS or role system; anyone with API access can assert a human action.
 - The Docker image opens `POST /run` to non-loopback callers (`RESCUE_OPEN_RUN=true`) so the judging curl works; do not publish that port on an untrusted network, or set `RESCUE_OPERATOR_TOKEN`.
 - Sample mode calls no model: its traces show agent roles and deterministic stages, not Nemotron output; per-call `model`/`receipt` lines exist only in connected mode.
 - On the blind sets, 6 of 100 recommendations proposed a boat where a callback or review was expected; by design each one still stops at the human dispatcher, who must approve every dispatch.
