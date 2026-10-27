@@ -13,15 +13,15 @@ Offline results were re-run on the working tree of 25 Oct (other agents were edi
 | 5 | `run.py` + `POST /run` bound to 0.0.0.0 | PASS | `run.py`, `app/web/server.py`; same clean-copy run (`POST /run` 200, `GET /` 200) | — |
 | 6 | JSONL traces in `logs/` + stdout with the model per call | PASS (offline); live receipt NEEDS-YUSSEF | `app/llm/nightshift.py` trace fields (requested/routed model, receipt, status, seconds); `logs/sample_trace.jsonl`; `python tools/check_traceability.py` | Video must show a successful live receipt |
 | 7 | ≥3 input and ≥3 real output examples | PASS | `examples/input_01..03.json`, `output_01..03.json`, `examples/README.md`; `tools/make_examples.py` | Regenerate from the final pipeline if outputs should show new agents (live run) |
-| 8 | Dockerfile + placeholder-only `.env.example` | PASS (build NEEDS-YUSSEF) | `Dockerfile`, `.dockerignore`, `.env.example` (28 settings; every `setting(...)`/`os.environ` name in app/tools/eval/run.py is present, checked by script; secrets are `replace_with_*`). `git check-ignore .env` → ignored; `git ls-files --error-unmatch .env` → untracked | `docker build -t rescue-triage-desk .` and `docker run --rm -p 8080:8080 rescue-triage-desk` (not executable in the authoring sandbox) |
+| 8 | Dockerfile + placeholder-only `.env.example` | PASS (build + run verified 27 Oct, see README "Docker") | `Dockerfile`, `.dockerignore`, `.env.example` (28 settings; every `setting(...)`/`os.environ` name in app/tools/eval/run.py is present, checked by script; secrets are `replace_with_*`). `git check-ignore .env` → ignored; `git ls-files --error-unmatch .env` → untracked | — (container `POST /run` needs `RESCUE_OPERATOR_TOKEN`; see README) |
 | 9 | README: setup, engine test, limitations | PASS | `README.md` sections Setup, Engine test, Evaluations, Data provenance, Honest limitations | Fill the `[TBD-live-number]` markers after live runs |
 | 10 | Timeouts + bounded retries; total run ≤ 10 min | PASS (offline) | 480 s response budget (`app/pipeline.py`), 75 s call timeout, ≤3 attempts, one JSON retry; `ContractTests.test_nightshift_502_three_attempts`, `RetryTests` | Live ≤10-minute 15-message batch: [TBD-live-number] |
 | 11 | No real personal data; public-repo safety | PASS (Orbit review 24 Oct) | Messages synthetic and flagged `synthetic`; masked-hit safety scan kept privately (not in repo; values never reproduced); `.gitignore` excludes `.env`, `runtime/`, `logs/*` except `logs/sample_trace.jsonl` | Yussef final look before `git push` |
 | 12 | Work before 21/10/2026 21:00 declared | NEEDS-YUSSEF | `docs/submission/PRE_EXISTING_DECLARATION.md` (inventory filled, dates/attestation pending); git history starts 2026-10-24 01:44 -0300 (`git log --reverse`), so everything earlier is external inventory | Confirm timezone, dates and authorship; sign |
 | 13 | Data lineage D1–D3 | GAP | `data/ATTRIBUTION.md`; README provenance table | Supply missing manifests/licences (flood/pump/levee/shelter layers, EMSN194 terms) |
 | 14 | Sponsor explanation (Zetaris, engine+feature+test, Nemotron role) | PASS (draft) | `docs/submission/SPONSOR_EXPLANATION.md` | Update with final agents list and live receipts |
-| 15 | 1–4 min demo video with one real Nightshift request | NEEDS-YUSSEF | `docs/submission/DEMO_SCRIPT.md` | Record live; show model + receipt |
-| 16 | Deck | NEEDS-YUSSEF | `docs/submission/DECK_OUTLINE.md` | Build and upload |
+| 15 | 1–4 min demo video with one real Nightshift request | NEEDS-YUSSEF | README "Submission" (`VIDEO_LINK`) | Upload; replace `VIDEO_LINK` |
+| 16 | Deck | PASS (file) | `docs/submission/deck_final/deck.pdf` | Upload to portal |
 | 17 | Public repo URL, video URL, deck URL submitted | NEEDS-YUSSEF | — | Portal submission |
 | 18 | Live evaluation of the current system | NEEDS-YUSSEF | Last live numbers (24 Oct, first pipeline) in README / `eval/results_live.json`; `eval/run_adversarial.py --live` now loads `.env` (fix below) | Run live evals listed below [TBD-live-number] |
 
@@ -60,12 +60,12 @@ Start-Process 'http://localhost:8080/v2'
 ```
 
 Connected container check: `docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 rescue-triage-desk`.
-Record the video from `docs/submission/DEMO_SCRIPT.md`; upload deck and video to the organizer portal (URL not in the repo).
+Upload deck (`docs/submission/deck_final/deck.pdf`) and video to the organizer portal (URL not in the repo).
 
 ## Refresh 27 October 2026 (SUBMIT agent; docs/tooling only)
 
 - README rewritten: 60-second offline quickstart (verified on port 8097: `GET /` and `/v2` 200, three example inputs return cases), sample inputs with real outputs, trace excerpt with model + receipt, eval table with commit/date, engine conformance test (`tests/test_engine_conformance.py`, 6 tests OK), Zetaris USL commands, limitations, attribution.
 - `.env.example` now lists every setting name used in code (added `RESCUE_OPERATOR_TOKEN`, `RESCUE_DEVICE_TOKEN`, `RTD_VERIFIER`, `RTD_CONTRIBUTION_PATH`); `.gitignore` additionally covers `review/`, `data-backup/`, `.env.*`, `*_REPORT.md`, `.claude/`, `.codex/`.
-- Safety scan: `python tools/gate2_scan.py --md docs/submission/GATE2_SCAN.md` (result in `GATE2_SCAN.md`). Re-run it right before `git push`.
-- Deck: `python docs/submission/deck/build_deck.py` writes `Rescue_Triage_Desk.pptx` (10 slides), `deck.html`, `deck.md`. Demo script: `DEMO_SCRIPT.md` (3:30).
+- Safety scan: `python tools/gate2_scan.py` (optional report: `--md out/GATE2_SCAN.md`, kept out of the repo). Re-run it right before `git push`.
+- Deck: final files in `docs/submission/deck_final/` (`deck.pdf`, `deck.pptx`, `deck.html`, speaker notes).
 - Still open for Yussef: record/upload video, retake screenshots from the connected build, fill `[TBD-sealed50]` / `[TBD-holdout2]`, docker build, sign the pre-existing declaration, submit URLs.

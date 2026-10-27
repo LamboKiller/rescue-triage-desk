@@ -1,18 +1,38 @@
 # Rescue Triage Desk
 
-**What.** A dispatcher desk that turns messy Portuguese flood-rescue messages into evidence-linked cases a human can verify and approve.
-**Who.** Dispatchers and coordinators of the next Rio Grande do Sul flood. Built and replayed on the **May 2024 RS floods** (Porto Alegre, Canoas and four neighbouring municipalities).
-**Why.** In May 2024 requests arrived as informal text: half an address, "my two babies", a landmark, a rumour of rescue. Dispatchers had to decide *where*, *how many*, *who is vulnerable*, *what is already rescued* and *which asset can safely go*, quickly and with evidence they can check.
-**How.** The desk reads each message, checks places, counts and hazards **with code**, asks the citizen for what is missing, groups cases into missions, routes land and water legs, tracks field feedback, and **a human approves every dispatch**. It is a retrospective replay desk, not a deployed emergency system: nothing is dispatched automatically.
+**A team of AI agents that takes every channel into one picture, so dispatchers can send the right boat to the right door, fast, and a human approves every dispatch.**
 
-**Design rule.** Nemotron (via Meterless Nightshift) reads language, spots contradictions, asks questions and explains revisions, always with exact quotes or fact ids that a validator checks. Code does every join, distance, count, rank, freshness gate and state change. An agent exists only where it decides something code cannot.
+▶ **Watch the demo:** VIDEO_LINK
+
+In May 2024 calls for help came in through dozens of WhatsApp groups, phone calls, social media and single texts sent with the last bar of signal. Our agents read them all in Portuguese, ask the citizen for what is missing, spot duplicates and "already rescued" reports, group cases into missions, route land and water legs, follow field feedback, look after shelters and shift handover, and help reunite families. Built and **replayed on 6 May 2024** (Porto Alegre, Canoas and four neighbouring municipalities). It is a retrospective replay desk, not a deployed emergency system: fleet and GPS are **simulated and labelled**, "lives saved" is only ever *potential*, and nothing is dispatched automatically.
+
+### Results at a glance
+
+**Built safety-first, tested hard: 29/30 live requests triaged correctly (11 s average) · 42/42 red-team attacks stopped · 94/100 safe recommendations on never-seen blind requests. When unsure, the agents ask again instead of guessing, and no boat moves without a human.**
+
+<sub>29/30: live realdev sample, 27 Oct 02:36 (our dev set). 42/42: offline red-team set. 94/100: the two blind sets combined (sealed50 + holdout2, run once live at `6ba4233`), 6 unsafe SEND proposals out of 100; correctness on those sets was 34/50 and 29/50. Full breakdown, modes and commits in [Evaluations](#evaluations).</sub>
+
+## Submission
+
+Open Agent Hackathon 2026. A **retrospective replay of the May 2024 Rio Grande do Sul floods** (6 May 2024), not a deployed system; fleet and GPS are simulated and labelled.
+
+- **Demo video:** VIDEO_LINK
+- **Deck:** [`docs/submission/deck_final/deck.pdf`](docs/submission/deck_final/deck.pdf)
+- **Sponsor technologies** (details, code paths and test evidence in [`docs/submission/SPONSOR_EXPLANATION.md`](docs/submission/SPONSOR_EXPLANATION.md)):
+  - **NVIDIA Nemotron via Meterless Nightshift**: the only AI provider; every agent call is traced with the model and receipt (`app/llm/nightshift.py`).
+  - **Meterless World Model** event log: append-only, versioned, human-gated case registry (`app/engines/world_model/registry.py`, conformance test below).
+  - **Zetaris Unified Semantic Layer**: sources, views and live proof in [`docs/submission/ZETARIS_USL.md`](docs/submission/ZETARIS_USL.md) · reflection in [`docs/submission/ZETARIS_REFLECTION.md`](docs/submission/ZETARIS_REFLECTION.md).
+- **Pre-existing work declaration:** [`docs/submission/PRE_EXISTING_DECLARATION.md`](docs/submission/PRE_EXISTING_DECLARATION.md)
+- **Hard-requirement checklist** (requirement → evidence): [`docs/submission/GATE2_CHECKLIST.md`](docs/submission/GATE2_CHECKLIST.md)
+- **Blind results** (never-seen requests, run once live): sealed50 **34/50** correct, 3 unsafe sends; holdout2 **29/50** correct, 3 unsafe sends (see [Evaluations](#evaluations)). A human approves every dispatch.
+- Public-repo safety scan: `python tools/gate2_scan.py` (secrets, personal paths, PII patterns, large files).
 
 ## 60-second quickstart (offline, nothing to install or configure)
 
 Needs Python 3.12+ (standard library only; no `pip install`, no Zetaris, no Nightshift, no network, no keys).
 
 ```bash
-git clone <this repo> && cd rescue-triage-desk
+git clone https://github.com/LamboKiller/rescue-triage-desk.git && cd rescue-triage-desk
 SAMPLE_MODE=true python run.py serve --sample        # Windows PowerShell: $env:SAMPLE_MODE='true'; python run.py serve --sample
 # -> "Mesa de triagem: http://localhost:8080; SAMPLE_MODE=True"
 ```
@@ -26,38 +46,42 @@ curl -s -X POST http://localhost:8080/run -H "Content-Type: application/json" --
 No server needed for a one-shot run: `python run.py --sample --input examples/input_01.json` prints a run summary and the cases as JSON.
 Set `PORT=8097` (or any free port) if 8080 is taken. Verified on a clean tree on 27 Oct 2026: `GET /` and `GET /v2` return 200, all three example inputs return cases (outputs below).
 In this mode the agent panels say "unavailable offline": you see the regex baseline plus every deterministic check (place lookup, hazards, fleet, routing, decision), **not Nemotron**.
-The server binds `0.0.0.0` and actor names are labels, not authentication: use a trusted network and fictional data.
+The server binds `127.0.0.1` by default (`create_server(host='127.0.0.1')` in `run.py` and `app/web/server.py`; `python app/web/server.py` also takes `--host`; `run.py serve` reads `HOST`, which the Docker image sets to `0.0.0.0` so `-p 8080:8080` reaches it). Actor names are labels, not authentication: use fictional data and do not expose it to an untrusted network.
 
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-  M[Message PT/EN/ES] --> R[redact + injection sentinel]
+  CH[Every channel: WhatsApp groups, calls, social media, single texts] --> M[Message PT/EN/ES]
+  M --> R[redact + injection sentinel]
   R --> I[Intake agent: quoted fields]
-  I --> C[Critic agent: checks each claim vs quote]
+  I --> C[Critic agent]
   C -- objections --> V[Revision: at most ONE]
-  V --> L
   C -- ok --> L[Location agent + 5 source-backed tools]
-  L --> D[Deterministic checks: counts, dates, route, priority, decision]
-  D --> H[Hazard context: flood layer, depth, pumps, closures, shelters]
-  H --> HC[Hazard critic: cites observations only]
-  D --> N[Needs agent: vulnerable groups, equipment]
-  D --> DR[Duplicate reviewer: one incident or two?]
-  HC --> W[(World Model registry: append-only, versioned, human-gated)]
-  N --> W
+  V --> L
+  L --> HC[Hazard critic: flood layer, depth, pumps, closures]
+  L --> CR[Credibility reviewer: runs on its signals]
+  HC --> AR[Arbiter]
+  CR --> AR
+  AR --> N[Needs agent]
+  AR --> DR[Duplicate reviewer]
+  N --> W[(World Model registry: append-only, versioned, human-gated)]
   DR --> W
   W --> Q[Dispatcher queue / map / dispatch card]
-  Q -- needs info --> CB[Callback planner: open items, max 3 validated questions]
-  CB -- citizen reply --> D
-  Q -- cases + fleet --> MS[Mission planner code + mission brief agent]
+  Q -- needs info --> CB[Callback agent: max 3 questions]
+  CB -- citizen reply --> I
+  Q -- cases + fleet --> MS[Mission planner + mission brief agent]
   MS -- human approves --> W
-  W -- field feedback --> FB[Field feedback agent: rescued / partial / not found]
+  W -- field feedback --> FB[Field feedback agent]
   FB --> W
-  W --> SV[Supervisor: code detectors + agent ranks, proposes ONE action]
+  W --> SV[Supervisor: proposes ONE action]
   SV -- human accepts --> W
-  RT[Red-team attacker + code judge] -. failures become human-approved regressions .-> D
-  PM[(Place memory: human-approved aliases)] -. exact, city-scoped .-> L
+  W --> SH[Shelter agents]
+  W --> HO[Handover agent]
+  W --> RE[Reunification agent]
+  RT[Red-team attacker] -. failures become human-approved regressions .-> I
+  PM[(Place memory: human-approved aliases)] -.-> L
 ```
 
 The Location agent's five tools are street/designator search, landmark aliases and categories, bairro catalogue, bounded nearby/corner geometry and exact-quote checking.
@@ -75,7 +99,7 @@ The Location agent's five tools are street/designator search, landmark aliases a
 | Supervisor | code detectors + agent | `app/supervisor/` | Detectors cite fact ids; agent ranks/proposes one allowed action; next tick verifies |
 | Red team | attacker agent + code judge | `app/redteam/` | Attacker declares expected outcome before the pipeline runs (hashed); failures need human approval to become regressions |
 | Place memory | code, human-gated | `app/memory/` | Learned aliases are exact, city-scoped, revocable and never auto-promoted from model output |
-| Credibility reviewer | agent (module + eval exist; **not yet wired into `/run`**) | `app/credibility/` | Judges only code-found signals; never discards a message |
+| Credibility reviewer | agent, **wired into the pipeline** (`app/pipeline.py` assesses every message; the agent runs when signals are found) | `app/credibility/` | Judges only the signals found; never discards a message |
 | **World Model** | Meterless Engine (our Python adaptation) | `app/engines/world_model/registry.py` | Event replay, dedup, stale/conflict retention, expected-version gates, human-only transitions |
 
 Every agent call is streamed with thinking on, parsed as strict JSON, retried at most once, and falls back visibly
@@ -87,12 +111,12 @@ Python 3.12 is the Docker target; only the standard library and vendored files (
 
 ```powershell
 Copy-Item .env.example .env            # placeholders only; never commit .env
-python -m unittest discover -s tests   # offline, no services (1170 tests)
+python -m unittest discover -s tests   # offline, no services (1,233 tests, OK on 27 Oct 2026)
 python run.py --sample --input examples/input_01.json
-python run.py serve --sample           # http://localhost:8080  (binds 0.0.0.0)
+python run.py serve --sample           # http://localhost:8080  (binds 127.0.0.1)
 ```
 
-Use fictional messages only; the server binds all interfaces, so use a trusted network.
+Use fictional messages only; the server listens on 127.0.0.1 unless you change the host.
 
 **SAMPLE_MODE** (`SAMPLE_MODE=true` or `--sample`) uses local CSVs/GeoJSON, needs no Zetaris, Nightshift or network,
 recomputes everything from the submitted text and never reads saved answers or truth labels. Agent panels then say
@@ -114,7 +138,7 @@ Zetaris: `python tools/load_zetaris.py --version v4` registers the CSV tables (`
 `closures_v4`, `pump_status_daily_v4`, `pumps_v4`, `events_v4`, `shelters_v4`, `street_points_v4`, `messages_seed7_v4`)
 over staged S3 files; `python tools/smoke_live.py` checks each service and runs cases end to end. The last live check reported
 here (24 Oct 2026) used the v3 tables (`streets_flood_v3` 12,586 rows, `landmarks_v3` 4,201, `messages_seed7_v3` 15, `road_closures_v3` 31,
-`landmark_aliases_v3` 24, `inferSchema=false`); the v4 tables were loaded and verified live on 27 Oct 2026 (row counts in [Zetaris USL](#zetaris-unified-semantic-layer)); a fresh `smoke_live.py` run on v4 is [TBD-live-number].
+`landmark_aliases_v3` 24, `inferSchema=false`); the v4 tables were loaded and verified live on 27 Oct 2026 (row counts in [Zetaris USL](#zetaris-unified-semantic-layer)); the live smoke **PASSED 25 Oct 21:33 at `78438ef`: 4 messages end-to-end in 45.3 s, Zetaris v4 11 tables verified**.
 Flood polygons, depth grids and levees stay local files in both modes; curated aliases always come from `data/landmark_aliases.csv`.
 Keep `NIGHTSHIFT_MAX_CONCURRENCY` low (default 2) and never lower `NIGHTSHIFT_MAX_TOKENS` (thinking consumes it).
 
@@ -129,8 +153,10 @@ docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false `
 ```
 
 `.dockerignore` keeps `.env`, `runtime/`, `logs/`, `.git`, review/report files and caches out of the image.
-`docker build` has not been executed by us yet (Docker was unavailable to the authoring agents). The build context was listed and a clean copy of it (no `.env`) served one offline
-`POST /run` (evidence in `docs/submission/GATE2_CHECKLIST.md`). Container-to-host routing for connected mode is not verified end to end.
+Verified 27 Oct 2026 (Docker 28.3.0): `docker build -t rescue-triage-desk .` succeeds (image ~111 MB); in the container `GET /` and `GET /v2` return 200.
+Inside a container the request does not come from loopback, so operator actions such as `POST /run` need a token (by design, `app/operator_boundary.py`):
+`docker run --rm -p 8080:8080 -e RESCUE_OPERATOR_TOKEN=<choose-one> rescue-triage-desk`, then send `-H "Authorization: Bearer <choose-one>"`; this returned 200 with 3 cases for `examples/input_01.json` (`mode: sample_offline`), and 403 without the token.
+For the full interactive desk without a token, run it on the host (`python run.py serve --sample`). Container-to-host routing for connected mode is not verified end to end.
 
 ## Usage: three sample inputs and their real outputs
 
@@ -188,18 +214,21 @@ Every Nightshift call writes one JSONL record to `logs/run_<id>.jsonl` and stdou
 
 ## Evaluations
 
-**What these numbers are.** The dev sets are **ours** (author-written or generated); they guided development, so they are optimistic. The sealed and held-out sets are placeholders until they are run once, after the code freeze.
+**What these numbers are.** The dev sets are **ours** (author-written or generated); they guided development, so they are optimistic. The blind sets were run once, live, after the code freeze, and are the honest numbers. "0 unsafe" below applies only to the dev and red-team sets named in the row.
 
 | Eval | Result | Mode / date / commit | Reproduce |
 |---|---|---|---|
-| Realdev 30-sample | **29/30** decisions, **0 unsafe**, mean **20.6 s**, p95 53 s per message | **live** Nightshift, 26 Oct 2026 19:40, tree = `4867ff0` content | operator only: needs Nightshift + the realdev set in the (private) planning repo |
-| Realdev 150 | **134/150**, **0 unsafe** | offline (fake client), `4867ff0` | `python tools/gate.py` (reads `../open-agent-hackathon-2026/review/realdev`; not in this repo) |
-| dev2 (180 own-words, author-written) | **36/46** non-ambiguous decisions, people count **28/29** | **live**, 60-sample, *before* the ACC1 fixes (so lower than the current tree) | `python eval/run_dev2.py --live --jobs 2` (offline: `--offline`) |
-| Red team (14 categories) | **42/42**, unsafe SENDs 0 (was 35/42, 6 unsafe, before SAFE1) | offline, `4867ff0` | `python eval/run_redteam.py --n 42 --seed 1` |
-| Adversarial (24 hostile/odd messages) | **24/24** decisions, 0 unsafe, 0 crashes | offline, `4867ff0` | `python eval/run_adversarial.py --offline` |
-| Unit/integration suite | **1170** tests (one timing flake under load) | offline, `4867ff0` | `python -m unittest discover -s tests` |
-| Sealed 50 | `[TBD-sealed50]` | run once after freeze | operator only |
-| Holdout 2 | `[TBD-holdout2]` | run once after freeze | operator only |
+| Realdev 30-sample (every 5th of 150) | **29/30**, 0 unsafe (dev set), mean **11.3 s**, p95 42 s (25 Oct: 19/30, mean 46.7 s) | **live** Nightshift, 27 Oct 02:36 | operator only: needs Nightshift + the realdev set in the (private) planning repo |
+| **Sealed 50** (blind) | **34/50**, 3 unsafe sends, mean 23.9 s, p95 55.2 s | **live**, run once, 27 Oct 03:32-03:53, `6ba4233` | operator only |
+| **Holdout 2** (blind, second author) | **29/50**, 3 unsafe sends, mean 23.0 s, p95 53.6 s | **live**, run once, 27 Oct 03:32-03:53, `6ba4233` | operator only |
+| dev2 (own-words, author-written) | **45/46** non-ambiguous, 0 unsafe (dev set) | **live** | `python eval/run_dev2.py --live --jobs 2` (offline: `--offline`) |
+| Realdev 150 | **134/150** | offline (fake client) | `python tools/gate.py` (reads `../open-agent-hackathon-2026/review/realdev`; not in this repo) |
+| Red team (14 categories) | **42/42**, 0 unsafe SENDs (red-team set) | offline | `python eval/run_redteam.py --n 42 --seed 1` |
+| Adversarial (24 hostile/odd messages) | **24/24**, 0 unsafe, 0 crashes (adversarial set) | offline | `python eval/run_adversarial.py --offline` |
+| Callback after-reply / supervisor loop | 11/12 / 4/4 | offline, scripted | `python eval/run_callback.py`, `python eval/run_supervisor.py --offline` |
+| Unit/integration suite | **1,233** tests, OK (27 Oct, 820 s) | offline | `python -m unittest discover -s tests` |
+
+Most blind misses are cautious (expected SEND; the agents asked a callback question or flagged review). The 6 unsafe sends (3 + 3) are SEND proposals where the label was REVIEW, CALLBACK or already-rescued. A human still approves every dispatch.
 
 Other offline checks (scripted stand-ins where marked; **they prove wiring and validators, not Nemotron**; re-run 25 Oct 2026, build reports are in the build workspace, not this repo):
 
@@ -225,7 +254,7 @@ python tools/load_test.py --offline --burst 20 --max-minutes 5   # surge harness
 | Callback (12 cases; scripted planner, labelled simulator) | 11/16 items resolved (68.8%), 0.92 questions/case, 0 invented facts |
 | Field feedback (15 dialogues) | 15/15 |
 | Location (30; scripted policy, critic stubbed) | resolved 20/30, identity 26/30, precision 25/30, wrong city 0 |
-| Dialogues (10) | 7/10 on the 25 Oct tree (earlier reports 10/10); not reconciled since, re-run before quoting |
+| Dialogues (10) | 10/10 final decisions (`eval/gate_last.json`, offline, 27 Oct 2026) |
 
 ### Older live evaluation (24 Oct 2026, first pipeline, superseded)
 
@@ -352,24 +381,26 @@ Protomaps style and sprites, and OSM, Copernicus EMS, Wikimedia Commons, IBGE, U
 ## Honest limitations
 
 - **Depth and flood layers are retrospective.** Created or published after the event; replays label them and keep them out of contemporaneous priority. No data ≠ dry. Sampling can miss narrow crossings; no depth, shelter status or responder availability is established for a given hour.
-- **Dev sets are ours.** Realdev, dev2 and the challenge set were written or generated by the builders and guided development; none is real citizen traffic, so scores say nothing about real-message accuracy or responder benefit. Sealed/held-out results are pending (`[TBD-sealed50]`, `[TBD-holdout2]`).
+- **Dev sets are ours.** Realdev, dev2 and the challenge set were written or generated by the builders and guided development; none is real citizen traffic, so scores say nothing about real-message accuracy or responder benefit. The blind sets (sealed50 34/50, holdout2 29/50, `6ba4233`) score far below the dev sets: our development set was overfit.
 - **Simulated fleet and GPS.** Assets, shift inventory and GPS fixes are simulated and labelled [SIMULADO]; no real fleet integration.
 - **HAND depth is retrospective** (computed after the event) and **water-leg estimates are straight lines**, labelled as estimates; they are not safe-route guarantees.
 - **Hardware.** Developed and measured on a 16 GB laptop with one shared Nightshift endpoint; latency under real load is unmeasured beyond the surge harness.
-- **Nightshift latency.** Live realdev 30-sample: mean 20.6 s, p95 53 s per message (26 Oct, `4867ff0`). Calls are bounded (75 s, 3 attempts); runs are capped at 480 s; a critic call can time out and the desk degrades visibly.
+- **Nightshift latency.** Live realdev 30-sample: mean 11.3 s, p95 42 s per message (27 Oct); blind sets mean 23-24 s, p95 about 54-55 s (`6ba4233`). Calls are bounded (75 s, 3 attempts); runs are capped at 480 s; a critic call can time out and the desk degrades visibly.
 - **Offline ≠ model quality.** Scripted planners and `deterministic_only` fallbacks prove wiring and validators, not Nemotron.
-- **Open item:** offline dialogue eval read 7/10 on the 25 Oct tree where earlier reports read 10/10 (review-policy changes); not reconciled since.
 - A valid quote does not prove semantic truth; a street match cannot prove a house number; priority weights are a demo policy.
 - Trusted-operator demo: actor labels are not authentication; no TLS or role system; anyone with API access can assert a human action.
 
-## Submission files
-
-[Gate 2 checklist](docs/submission/GATE2_CHECKLIST.md) · [pre-existing declaration](docs/submission/PRE_EXISTING_DECLARATION.md) ·
-[demo script](docs/submission/DEMO_SCRIPT.md) · [deck outline](docs/submission/DECK_OUTLINE.md) ·
-[sponsor explanation](docs/submission/SPONSOR_EXPLANATION.md)
-
 Hazard data prep (offline, backup read-only): `python tools/prepare_hazards.py --backup C:/path/to/data-backup` (or set `RTD_BACKUP_DIR`).
 
+
+## Roadmap
+
+Why now: NOAA CPC (8 Oct 2026) sees a strong-to-very-strong El Niño likely through Jan–Mar 2027 (>83%), and INMET flags above-average rain with flood risk in the South; the 2023/24 El Niño made the May 2024 rain more likely ([WWA](https://www.worldweatherattribution.org/climate-change-made-the-floods-in-southern-brazil-twice-as-likely/), [NOAA CPC](https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_advisory/ensodisc.shtml), [INMET](https://portal.inmet.gov.br/noticias/el-ni%C3%B1o)). Forecasts give probabilities, not a guaranteed flood.
+
+1. **Close the blind gap first:** today 34/50 and 29/50 on blind sets with 3 unsafe sends each; that must improve before any real use.
+2. **Intake where people already ask for help:** WhatsApp Business API and the 193 (fire brigade) line feeding the same queue, with consent handled outside the model (call transcripts are text input today; no speech recognition is built).
+3. **Live river gauges:** Guaíba/Jacuí/Taquari gauge feeds (ANA/SGB) through Zetaris, replacing retrospective flood layers with observed-now levels and freshness gates.
+4. **Defesa Civil pilot before the next El Niño season:** a tabletop exercise with a municipal Defesa Civil team on replayed messages, then a supervised pilot (real fleet integration, roles and authentication first).
 
 ## License and attribution
 

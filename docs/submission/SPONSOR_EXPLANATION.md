@@ -1,5 +1,27 @@
 # Sponsor technology explanation
 
+**In one paragraph each:**
+
+- **Nemotron via Meterless Nightshift — every agent call.** Every model call made by every agent (intake, critic,
+  revision, location, hazard critic, credibility reviewer, arbiter, needs, duplicate reviewer, contradiction
+  phrasing, callback, fleet allocation, mission brief, field feedback, supervisor, shift handover, volunteer intake,
+  red-team attacker) goes through one OpenAI-compatible Nightshift client
+  (`app/llm/nightshift.py`). Each call is logged to `logs/*.jsonl` and stdout with the **requested model, the routed
+  Nemotron model and the Nightshift receipt id**, and the desk shows model + receipt on the case card. No other provider
+  is wired in at runtime.
+- **Zetaris — location and flood data queried by the Location agent.** In connected mode the pipeline reads the
+  `streets_flood_v*` (street segments with flood-extent and depth flags) and `landmarks_v*` tables from the local Zetaris
+  REST API (`app/data/source.py` `ZetarisSource`, called from `app/pipeline.py`); those rows build the place index that
+  the Location agent's five tools search, so every resolved address and its flood status comes from Zetaris. Shelters,
+  pumps, closures and events are onboarded too, and three Unified Semantic Layer views join them (below).
+- **Meterless World Model engine — the event log behind the dispatcher queue.** Every case is an append-only, versioned
+  event journal (`app/engines/world_model/registry.py`): state is rebuilt by replay, duplicates are deduplicated,
+  conflicting observations are retained, stale versions are rejected and only an explicit human action can move a case
+  (e.g. approve dispatch). Test result: `python -m unittest discover -s tests -p test_engine_conformance.py -v` →
+  **Ran 6 tests, OK** (27 Oct 2026), one test per declared property.
+
+## Detail
+
 **Zetaris — connected data layer.** Local REST at
 `http://localhost:8888/api/v1.0` queries `OAH_S3` CSV tables backed by SeaweedFS
 bucket `oah-s3` on the Docker host (`:8333`). REST gives the stdlib application a
@@ -22,9 +44,8 @@ endpoint is stateless across calls — a `CREATE VIEW` executes but does not per
 request (verified; only the Zetaris UI's query builder persists views) — so `--check` proves
 each view is active by inlining its body as a CTE in the same call as each proving query. A
 Python mirror, `app/data/usl.py`, computes the identical joins offline (SAMPLE_MODE) and matches
-the live Zetaris numbers exactly (`tests/test_zetaris_usl.py`); it is not yet called from the
-pipeline, agents or UI — see `docs/submission/SPONSOR_GAPS.md` for why and the concrete
-integration point once the owning files stabilize. Full detail: `docs/submission/ZETARIS_USL.md`,
+the live Zetaris numbers exactly (`tests/test_zetaris_usl.py`); the views themselves are not yet
+called from the pipeline, agents or UI (the runtime reads the onboarded tables directly). Full detail: `docs/submission/ZETARIS_USL.md`,
 `docs/submission/ZETARIS_REFLECTION.md`.
 
 **Meterless World Model — user-facing engine feature.** Our behavioral Python
@@ -35,11 +56,10 @@ and `run.py:83` exposes actions. Proof: `tests/test_core.py:134`
 `RegistryTests.test_human_transition_gate_and_versions`, `:126`
 `test_stale_retained_and_rebuild`, `tests/test_pipeline.py:145`
 `PipelineTests.test_http_run_queue_action_and_stale_version`, and the named conformance
-suite `tests/test_engine_conformance.py` (added this review; 6/6 pass, one test per
+suite `tests/test_engine_conformance.py` (6/6 pass, one test per
 declared property: append-only, pure replay, dedup, conflict retention, version-gate,
-human-only transitions). The fresh offline
-suite passed 62 tests (Python 3.11.16); see `GATE2_CHECKLIST.md` for the
-brief's 64-versus-62 baseline discrepancy. These tests prove application behavior,
+human-only transitions). The full offline suite (`python -m unittest discover -s tests`) result is recorded in
+`GATE2_CHECKLIST.md`. These tests prove application behavior,
 not sponsor SDK certification; no Meterless SDK is imported.
 
 **Nemotron through Nightshift — primary AI.** Intake extracts quoted fields;
