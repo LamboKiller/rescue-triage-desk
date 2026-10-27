@@ -28,6 +28,9 @@ def operator_allowed(handler, device=False):
     except ValueError: return False
     if local: return True
     token = os.environ.get('RESCUE_DEVICE_TOKEN' if device else 'RESCUE_OPERATOR_TOKEN', '')
+    # Container opt-in (Dockerfile): opens only POST /run (intake; cases still need human approval), and only while no operator token is set.
+    if not token and not device and os.environ.get('RESCUE_OPEN_RUN', '').lower() in ('true', '1', 'yes') \
+            and urlsplit(getattr(handler, 'path', '')).path == '/run': return True
     supplied = handler.headers.get('Authorization', '')
     return bool(token and hmac.compare_digest(supplied.encode(), ('Bearer '+token).encode()))
 

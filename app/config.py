@@ -19,8 +19,15 @@ def sample_mode():
     return os.getenv('SAMPLE_MODE', '').lower() in ('true', '1', 'yes')
 
 
+# Official template names, read only when the Nightshift name is unset.
+ALIASES = {'NIGHTSHIFT_BASE_URL': 'METERLESS_BASE_URL', 'NIGHTSHIFT_API_KEY': 'METERLESS_RUNTIME_TOKEN'}
+
+
 def setting(name, default=''):
-    return os.getenv(name, default)
+    value = os.getenv(name)
+    if value is None and name in ALIASES:
+        value = os.getenv(ALIASES[name])
+    return default if value is None else value
 
 
 def safe_error(exc):

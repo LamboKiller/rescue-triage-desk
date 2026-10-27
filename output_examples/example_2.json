@@ -1,0 +1,627 @@
+{
+  "run_id": "2ba5d279f4bb4d0d83e312703784b544",
+  "mode": "full",
+  "synthetic": true,
+  "seconds": 30.89,
+  "partial": false,
+  "cases": [
+    {
+      "case_id": "7c6b1ee0b8abaa43a9c93a43",
+      "version": 1,
+      "status": "proposed",
+      "location_confirmed": false,
+      "facts": [
+        {
+          "message_id": "example-2-1",
+          "text": "São 4 pessoas na Avenida Farrapos, número 80, Porto Alegre. Ou seriam 6 pessoas? 1 idoso.",
+          "received_at": "2024-05-06T12:00:00-03:00",
+          "synthetic": true,
+          "replay_time": "2024-05-06T14:00:00-03:00",
+          "run_id": "2ba5d279f4bb4d0d83e312703784b544",
+          "mode": "full",
+          "fields": {
+            "people": {
+              "value": 4,
+              "quote": "4 pessoas"
+            },
+            "elderly": {
+              "value": 1,
+              "quote": "1 idoso"
+            },
+            "street": {
+              "value": "Avenida Farrapos",
+              "quote": "Avenida Farrapos"
+            },
+            "number": {
+              "value": "80",
+              "quote": "80"
+            },
+            "municipality": {
+              "value": "Porto Alegre",
+              "quote": "Porto Alegre"
+            },
+            "conflicting_counts": {
+              "value": true,
+              "quote": "São 4 pessoas na Avenida Farrapos, número 80, Porto Alegre. Ou seriam 6 pessoas? 1 idoso."
+            }
+          },
+          "unsupported": [],
+          "agents": {
+            "intake": {
+              "fields": {
+                "people": {
+                  "value": 4,
+                  "quote": "4 pessoas"
+                },
+                "elderly": {
+                  "value": 1,
+                  "quote": "1 idoso"
+                },
+                "street": {
+                  "value": "Avenida Farrapos",
+                  "quote": "Avenida Farrapos"
+                },
+                "number": {
+                  "value": "80",
+                  "quote": "80"
+                },
+                "municipality": {
+                  "value": "Porto Alegre",
+                  "quote": "Porto Alegre"
+                }
+              },
+              "model_quotes": {
+                "people": "4 pessoas",
+                "children": "",
+                "elderly": "1 idoso",
+                "disabled": "",
+                "pets": "",
+                "street": "Avenida Farrapos",
+                "number": "80",
+                "municipality": "Porto Alegre",
+                "landmark": "",
+                "cross_street": "",
+                "risk": "",
+                "rescued": ""
+              }
+            },
+            "critic": {
+              "objections": [
+                {
+                  "field": "people",
+                  "reason": "overstated",
+                  "quote": "Ou seriam 6 pessoas?"
+                }
+              ]
+            },
+            "revision": {
+              "fields": {
+                "people": {
+                  "value": 4,
+                  "quote": "4 pessoas"
+                },
+                "elderly": {
+                  "value": 1,
+                  "quote": "1 idoso"
+                },
+                "street": {
+                  "value": "Avenida Farrapos",
+                  "quote": "Avenida Farrapos"
+                },
+                "number": {
+                  "value": "80",
+                  "quote": "80"
+                },
+                "municipality": {
+                  "value": "Porto Alegre",
+                  "quote": "Porto Alegre"
+                }
+              },
+              "model_quotes": {
+                "people": "4 pessoas",
+                "children": "",
+                "elderly": "1 idoso",
+                "disabled": "",
+                "pets": "",
+                "street": "Avenida Farrapos",
+                "number": "80",
+                "municipality": "Porto Alegre",
+                "landmark": "",
+                "cross_street": "",
+                "risk": "",
+                "rescued": ""
+              }
+            }
+          },
+          "calls": [
+            {
+              "role": "intake",
+              "message_id": "example-2-1",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_r5ald6k2",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 6.516
+            },
+            {
+              "role": "critic",
+              "message_id": "example-2-1",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_snvhnlzk",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 12.156
+            },
+            {
+              "role": "revision",
+              "message_id": "example-2-1",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_sg21flz1",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 6.391
+            }
+          ],
+          "checks": {
+            "found": true,
+            "candidates": [
+              "Avenida Farrapos"
+            ],
+            "observed_date": "2024-05-06",
+            "retrospective_water_overlap": true,
+            "in_water_by_date": null,
+            "publication_available": false,
+            "warning": "Mapa retrospectivo; publicação desconhecida; sem máscara de água permanente. Ausência de sobreposição não significa segurança; cobertura de 08/05 é diferente."
+          },
+          "cross_street_check": null,
+          "result": {
+            "decision": "CALLBACK",
+            "priority": 7,
+            "questions": [
+              "Há contagens conflitantes. Qual é o total de pessoas e de pessoas vulneráveis?"
+            ],
+            "age_hours": 2.0,
+            "conflicting_counts": true,
+            "location_confidence": "rua no cadastro; confirmar com pessoa"
+          },
+          "errors": [],
+          "complete": true,
+          "proposed_field_count": 10,
+          "call_count_complete": true,
+          "extraction_method": "nightshift"
+        }
+      ],
+      "actions": [],
+      "message_id": "example-2-1",
+      "text": "São 4 pessoas na Avenida Farrapos, número 80, Porto Alegre. Ou seriam 6 pessoas? 1 idoso.",
+      "received_at": "2024-05-06T12:00:00-03:00",
+      "synthetic": true,
+      "replay_time": "2024-05-06T14:00:00-03:00",
+      "run_id": "2ba5d279f4bb4d0d83e312703784b544",
+      "mode": "full",
+      "fields": {
+        "people": {
+          "value": 4,
+          "quote": "4 pessoas"
+        },
+        "elderly": {
+          "value": 1,
+          "quote": "1 idoso"
+        },
+        "street": {
+          "value": "Avenida Farrapos",
+          "quote": "Avenida Farrapos"
+        },
+        "number": {
+          "value": "80",
+          "quote": "80"
+        },
+        "municipality": {
+          "value": "Porto Alegre",
+          "quote": "Porto Alegre"
+        },
+        "conflicting_counts": {
+          "value": true,
+          "quote": "São 4 pessoas na Avenida Farrapos, número 80, Porto Alegre. Ou seriam 6 pessoas? 1 idoso."
+        }
+      },
+      "unsupported": [],
+      "agents": {
+        "intake": {
+          "fields": {
+            "people": {
+              "value": 4,
+              "quote": "4 pessoas"
+            },
+            "elderly": {
+              "value": 1,
+              "quote": "1 idoso"
+            },
+            "street": {
+              "value": "Avenida Farrapos",
+              "quote": "Avenida Farrapos"
+            },
+            "number": {
+              "value": "80",
+              "quote": "80"
+            },
+            "municipality": {
+              "value": "Porto Alegre",
+              "quote": "Porto Alegre"
+            }
+          },
+          "model_quotes": {
+            "people": "4 pessoas",
+            "children": "",
+            "elderly": "1 idoso",
+            "disabled": "",
+            "pets": "",
+            "street": "Avenida Farrapos",
+            "number": "80",
+            "municipality": "Porto Alegre",
+            "landmark": "",
+            "cross_street": "",
+            "risk": "",
+            "rescued": ""
+          }
+        },
+        "critic": {
+          "objections": [
+            {
+              "field": "people",
+              "reason": "overstated",
+              "quote": "Ou seriam 6 pessoas?"
+            }
+          ]
+        },
+        "revision": {
+          "fields": {
+            "people": {
+              "value": 4,
+              "quote": "4 pessoas"
+            },
+            "elderly": {
+              "value": 1,
+              "quote": "1 idoso"
+            },
+            "street": {
+              "value": "Avenida Farrapos",
+              "quote": "Avenida Farrapos"
+            },
+            "number": {
+              "value": "80",
+              "quote": "80"
+            },
+            "municipality": {
+              "value": "Porto Alegre",
+              "quote": "Porto Alegre"
+            }
+          },
+          "model_quotes": {
+            "people": "4 pessoas",
+            "children": "",
+            "elderly": "1 idoso",
+            "disabled": "",
+            "pets": "",
+            "street": "Avenida Farrapos",
+            "number": "80",
+            "municipality": "Porto Alegre",
+            "landmark": "",
+            "cross_street": "",
+            "risk": "",
+            "rescued": ""
+          }
+        }
+      },
+      "calls": [
+        {
+          "role": "intake",
+          "message_id": "example-2-1",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_r5ald6k2",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 6.516
+        },
+        {
+          "role": "critic",
+          "message_id": "example-2-1",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_snvhnlzk",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 12.156
+        },
+        {
+          "role": "revision",
+          "message_id": "example-2-1",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_sg21flz1",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 6.391
+        }
+      ],
+      "checks": {
+        "found": true,
+        "candidates": [
+          "Avenida Farrapos"
+        ],
+        "observed_date": "2024-05-06",
+        "retrospective_water_overlap": true,
+        "in_water_by_date": null,
+        "publication_available": false,
+        "warning": "Mapa retrospectivo; publicação desconhecida; sem máscara de água permanente. Ausência de sobreposição não significa segurança; cobertura de 08/05 é diferente."
+      },
+      "cross_street_check": null,
+      "result": {
+        "decision": "CALLBACK",
+        "priority": 7,
+        "questions": [
+          "Há contagens conflitantes. Qual é o total de pessoas e de pessoas vulneráveis?"
+        ],
+        "age_hours": 2.0,
+        "conflicting_counts": true,
+        "location_confidence": "rua no cadastro; confirmar com pessoa"
+      },
+      "errors": [],
+      "complete": true,
+      "proposed_field_count": 10,
+      "call_count_complete": true,
+      "extraction_method": "nightshift"
+    },
+    {
+      "case_id": "46ad55d7c72770f2310d777d",
+      "version": 1,
+      "status": "proposed",
+      "location_confirmed": false,
+      "facts": [
+        {
+          "message_id": "example-2-2",
+          "text": "2 pessoas na Rua Inventada de Teste, número 100, Curitiba.",
+          "received_at": "2024-05-06T12:00:00-03:00",
+          "synthetic": true,
+          "replay_time": "2024-05-06T14:00:00-03:00",
+          "run_id": "2ba5d279f4bb4d0d83e312703784b544",
+          "mode": "full",
+          "fields": {
+            "people": {
+              "value": 2,
+              "quote": "2 pessoas"
+            },
+            "street": {
+              "value": "Rua Inventada de Teste",
+              "quote": "Rua Inventada de Teste"
+            },
+            "number": {
+              "value": "100",
+              "quote": "100"
+            },
+            "municipality": {
+              "value": "Curitiba",
+              "quote": "Curitiba"
+            }
+          },
+          "unsupported": [],
+          "agents": {
+            "intake": {
+              "fields": {
+                "people": {
+                  "value": 2,
+                  "quote": "2 pessoas"
+                },
+                "street": {
+                  "value": "Rua Inventada de Teste",
+                  "quote": "Rua Inventada de Teste"
+                },
+                "number": {
+                  "value": "100",
+                  "quote": "100"
+                },
+                "municipality": {
+                  "value": "Curitiba",
+                  "quote": "Curitiba"
+                }
+              },
+              "model_quotes": {
+                "people": "2 pessoas",
+                "children": "",
+                "elderly": "",
+                "disabled": "",
+                "pets": "",
+                "street": "Rua Inventada de Teste",
+                "number": "100",
+                "municipality": "Curitiba",
+                "landmark": "",
+                "cross_street": "",
+                "risk": "",
+                "rescued": ""
+              }
+            },
+            "critic": {
+              "objections": []
+            },
+            "revision": null
+          },
+          "calls": [
+            {
+              "role": "intake",
+              "message_id": "example-2-2",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_ltwugkzv",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 8.047
+            },
+            {
+              "role": "critic",
+              "message_id": "example-2-2",
+              "attempt": 1,
+              "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "receipt": "rcpt_req_5vrtllyh",
+              "route_kind": null,
+              "status": "ok",
+              "seconds": 18.953
+            }
+          ],
+          "checks": {
+            "found": false,
+            "candidates": [],
+            "observed_date": "2024-05-06",
+            "retrospective_water_overlap": null,
+            "in_water_by_date": null,
+            "publication_available": false,
+            "warning": "Mapa retrospectivo; publicação desconhecida; sem máscara de água permanente. Ausência de sobreposição não significa segurança; cobertura de 08/05 é diferente."
+          },
+          "cross_street_check": null,
+          "result": {
+            "decision": "CALLBACK",
+            "priority": 2,
+            "questions": [
+              "Qual é a rua e o município exatos? Só o ponto de referência não basta."
+            ],
+            "age_hours": 2.0,
+            "conflicting_counts": false,
+            "location_confidence": "insuficiente"
+          },
+          "errors": [],
+          "complete": true,
+          "proposed_field_count": 4,
+          "call_count_complete": true,
+          "extraction_method": "nightshift"
+        }
+      ],
+      "actions": [],
+      "message_id": "example-2-2",
+      "text": "2 pessoas na Rua Inventada de Teste, número 100, Curitiba.",
+      "received_at": "2024-05-06T12:00:00-03:00",
+      "synthetic": true,
+      "replay_time": "2024-05-06T14:00:00-03:00",
+      "run_id": "2ba5d279f4bb4d0d83e312703784b544",
+      "mode": "full",
+      "fields": {
+        "people": {
+          "value": 2,
+          "quote": "2 pessoas"
+        },
+        "street": {
+          "value": "Rua Inventada de Teste",
+          "quote": "Rua Inventada de Teste"
+        },
+        "number": {
+          "value": "100",
+          "quote": "100"
+        },
+        "municipality": {
+          "value": "Curitiba",
+          "quote": "Curitiba"
+        }
+      },
+      "unsupported": [],
+      "agents": {
+        "intake": {
+          "fields": {
+            "people": {
+              "value": 2,
+              "quote": "2 pessoas"
+            },
+            "street": {
+              "value": "Rua Inventada de Teste",
+              "quote": "Rua Inventada de Teste"
+            },
+            "number": {
+              "value": "100",
+              "quote": "100"
+            },
+            "municipality": {
+              "value": "Curitiba",
+              "quote": "Curitiba"
+            }
+          },
+          "model_quotes": {
+            "people": "2 pessoas",
+            "children": "",
+            "elderly": "",
+            "disabled": "",
+            "pets": "",
+            "street": "Rua Inventada de Teste",
+            "number": "100",
+            "municipality": "Curitiba",
+            "landmark": "",
+            "cross_street": "",
+            "risk": "",
+            "rescued": ""
+          }
+        },
+        "critic": {
+          "objections": []
+        },
+        "revision": null
+      },
+      "calls": [
+        {
+          "role": "intake",
+          "message_id": "example-2-2",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_ltwugkzv",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 8.047
+        },
+        {
+          "role": "critic",
+          "message_id": "example-2-2",
+          "attempt": 1,
+          "requested_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+          "receipt": "rcpt_req_5vrtllyh",
+          "route_kind": null,
+          "status": "ok",
+          "seconds": 18.953
+        }
+      ],
+      "checks": {
+        "found": false,
+        "candidates": [],
+        "observed_date": "2024-05-06",
+        "retrospective_water_overlap": null,
+        "in_water_by_date": null,
+        "publication_available": false,
+        "warning": "Mapa retrospectivo; publicação desconhecida; sem máscara de água permanente. Ausência de sobreposição não significa segurança; cobertura de 08/05 é diferente."
+      },
+      "cross_street_check": null,
+      "result": {
+        "decision": "CALLBACK",
+        "priority": 2,
+        "questions": [
+          "Qual é a rua e o município exatos? Só o ponto de referência não basta."
+        ],
+        "age_hours": 2.0,
+        "conflicting_counts": false,
+        "location_confidence": "insuficiente"
+      },
+      "errors": [],
+      "complete": true,
+      "proposed_field_count": 4,
+      "call_count_complete": true,
+      "extraction_method": "nightshift"
+    }
+  ]
+}

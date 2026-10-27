@@ -1,0 +1,17 @@
+{
+  "replay_time": "2024-05-06T14:00:00-03:00",
+  "messages": [
+    {
+      "message_id": "example-2-1",
+      "text": "São 4 pessoas na Avenida Farrapos, número 80, Porto Alegre. Ou seriam 6 pessoas? 1 idoso.",
+      "synthetic": true,
+      "received_at": "2024-05-06T12:00:00-03:00"
+    },
+    {
+      "message_id": "example-2-2",
+      "text": "2 pessoas na Rua Inventada de Teste, número 100, Curitiba.",
+      "synthetic": true,
+      "received_at": "2024-05-06T12:00:00-03:00"
+    }
+  ]
+}
