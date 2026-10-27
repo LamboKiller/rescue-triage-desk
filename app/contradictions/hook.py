@@ -22,7 +22,7 @@ def after_decision(pipeline, results, previous=None, client=None):
     Advisory: a failure leaves the case exactly as decided and marks `contradiction_check.error`."""
     if not any(case.get('complete') for case in results):
         return []  # No advisory work for deadline failures; do not cold-load a catalogue.
-    existing = pipeline.registry.read()
+    existing = pipeline.registry.analysis_context(False)[0] if hasattr(pipeline.registry, 'analysis_context') else pipeline.registry.read()
     shelter = shelters()
     jobs = []
     for case in results:

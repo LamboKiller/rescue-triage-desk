@@ -210,6 +210,14 @@ class Runner:
         status, body = self.desk.post(f"/api/cases/{c['case_id']}/callback/reply",
                                       {'text': text, 'received_at': self.stamp(step, action), 'expected_version': c['version']})
         if self.log(n, f'resposta [SIMULADO] do cidadão (passo {ref})', status, body):
+            if 'diff' not in body:  # accept-and-queue: the re-triage runs in the background; wait for the new version
+                deadline = time.monotonic()+60
+                while time.monotonic() < deadline:
+                    now = self.case(ref)
+                    if now['version'] > c['version']:
+                        break
+                    time.sleep(0.2)
+                body = {'diff': {'decision': {'after': now['result']['decision']}}}
             self.state['steps'][str(ref)]['decision_after_reply'] = body['diff']['decision']['after']
 
     def op_approve_mission(self, n, step, action):

@@ -118,12 +118,12 @@ class StageBudget:
     HAZARD_BUDGET_FRACTION = .6
     # LIVEFIX6: the three retained LF5 location calls have p50=15.25s
     # (4.521 / 15.250 / 25.522). Protect that allowance before optional work.
-    MEDIANS = dict(intake=7.4, critic=17., revision=8.2, location=15.25,
+    MEDIANS = dict(intake=7.4, critic=17., revision=8.2, verifier=17., location=15.25,
                    location_critic=17., hazard=5.1, credibility=17., arbiter=17.,
                    duplicate_reviewer=17.)
     # Orbit 26/10 16:08 live A/B (30-sample, RAM ok): 60 s/intake 29 s 17/30; 90 s/29 s 17/30; 90 s/intake 48 s 22/30,
     # 0 unsafe, mean 33.7 s, p95 61 s. Intake is required and its live tail exceeds its p90, so it gets a wider ceiling.
-    CEILINGS = dict(intake=48., critic=24.3, revision=28.1, location=32.,
+    CEILINGS = dict(intake=48., critic=24.3, revision=28.1, verifier=28.1, location=32.,
                     location_critic=24.3, hazard=13.5, credibility=24.3, arbiter=24.3,
                     duplicate_reviewer=24.3)
 
@@ -213,7 +213,7 @@ class StageBudget:
         if self.pressured and (stage != 'intake' or self.attempts.get(stage, 0) > 0):
             self.unavailable(stage, role, 'provider_pressure', remaining)
             raise TimeoutError('stage_unavailable: provider_pressure: '+stage)
-        if stage in ('critic', 'revision') and self.intake_seconds >= self.LONG_INTAKE_SECONDS:
+        if stage in ('critic', 'revision', 'verifier') and self.intake_seconds >= self.LONG_INTAKE_SECONDS:
             self.unavailable(stage, role, 'long_intake', remaining)
             raise TimeoutError('stage_unavailable: long_intake: '+stage)
         if optional and remaining < self.MEDIANS.get(stage, self.MEDIANS['critic']):
@@ -445,19 +445,22 @@ class Pipeline:
         from app.geo.incident import prepared_index
         incident_index = prepared_index(rows, landmark_rows)
         credibility_history = []
-        for stored in self.registry.read():
-            for fact in stored.get('facts', []):
-                try:
-                    if timestamp(fact['replay_time']) > timestamp(replay):
-                        continue
-                    for prior_message in fact.get('messages') or [fact]:
-                        if timestamp(prior_message['received_at']) <= timestamp(replay):
-                            entry = dict(id=prior_message['message_id'], text=prior_message['text'],
-                                         time=prior_message['received_at'])
-                            if entry not in credibility_history:
-                                credibility_history.append(entry)
-                except (KeyError, ValueError, TypeError):
+        history = [fact for stored in self.registry.read() for fact in stored.get('facts', [])]
+        history_seen = set()
+        for fact in history:
+            try:
+                if timestamp(fact['replay_time']) > timestamp(replay):
                     continue
+                for prior_message in fact.get('messages') or [fact]:
+                    if timestamp(prior_message['received_at']) <= timestamp(replay):
+                        entry = dict(id=prior_message['message_id'], text=prior_message['text'],
+                                     time=prior_message['received_at'])
+                        key = (entry['id'], entry['text'], entry['time'])
+                        if key not in history_seen:
+                            history_seen.add(key)
+                            credibility_history.append(entry)
+            except (KeyError, ValueError, TypeError):
+                continue
         message_deadlines = {}
         message_budgets = {}
         deadline_lock = threading.Lock()
@@ -518,7 +521,22 @@ class Pipeline:
                     budget.eligibility['critic'] = bool(reasons)
                     if not reasons or ablation == 'intake' or previous is not None:
                         budget.record('critic', 'skipped', reason='certain_intake' if not reasons else 'ablation_or_dialogue', uncertainty=reasons)
-                    if reasons and ablation != 'intake' and previous is None:
+                    use_verifier = bool(reasons) and ablation == 'full' and previous is None and critic.verifier_enabled()
+                    if use_verifier:
+                        # Verifier flag (RTD_VERIFIER=1): ONE call checks and corrects; code derives values from quotes.
+                        try:
+                            verdict, meta = critic.verify(agent_client, message['text'], fields, deadline)
+                            calls.append(meta)
+                            stages['verifier'] = dict(diffs=verdict['diffs'], rejected=verdict['rejected'])
+                            if verdict['diffs']:
+                                fields = verdict['fields']
+                                agent_warnings.append('Verificador corrigiu: '+', '.join(d['field'] for d in verdict['diffs']))
+                            unsupported.extend(verdict['rejected'])
+                        except Exception as exc:
+                            budget.agent_error('verifier', exc)
+                            stages['verifier'] = 'failed'
+                            agent_warnings.append('verificador indisponível; leitura inicial validada preservada.')
+                    if reasons and ablation != 'intake' and previous is None and not use_verifier:
                         try:
                             review, meta = critic.run(agent_client, message['text'], fields, deadline)
                         except Exception as exc:
@@ -714,6 +732,8 @@ class Pipeline:
                 hydro_conflict=conflict, client=agent_client if not self.sample and ablation == 'full' else None,
                 deadline=deadline)
             case['credibility'] = credibility
+            if not credibility.get('signals') and not self.sample and ablation == 'full':
+                budget.record('credibility', 'skipped', reason='no_signal')  # reviewer fires only on a credibility signal
             if credibility.get('fallback_reason'):
                 agent_warnings.append('revisor de credibilidade indisponível; regras determinísticas preservadas.')
             case['hydro_conflict'] = conflict
@@ -820,7 +840,7 @@ class Pipeline:
         if previous is None:
             from app.duplicates import candidates
             from app.agents import duplicate_reviewer
-            existing = self.registry.read()
+            existing = self.registry.analysis_context(False)[0] if hasattr(self.registry, 'analysis_context') else self.registry.read()
             peers = existing + [{**c,'case_id':hashlib.sha256(c['message_id'].encode()).hexdigest()[:24]} for c in results]
             reviewed = {}
             for case in results:
@@ -828,6 +848,8 @@ class Pipeline:
                 cid = hashlib.sha256(case['message_id'].encode()).hexdigest()[:24]
                 suggestions = candidates({**case,'case_id':cid},peers)
                 case['duplicates'] = []
+                if not suggestions and not self.sample and ablation == 'full' and case['message_id'] in message_budgets:
+                    message_budgets[case['message_id']].record('duplicate_reviewer', 'skipped', reason='no_candidate')
                 for suggestion in suggestions[:3]:
                     other = next(c for c in peers if c['case_id']==suggestion['case_id'])
                     pair = tuple(sorted((cid,other['case_id'])))
@@ -871,6 +893,9 @@ class Pipeline:
                 if any(d.get('review') == 'indisponível' for d in case.get('duplicates', [])):
                     case.setdefault('agent_warnings', []).append('revisor de duplicidade indisponível; sugestão determinística preservada.')
                 case_counters(case, budget)
+                if not self.sample and ablation == 'full' and (isinstance(client, Nightshift) or os.environ.get('RTD_CONTRIBUTION_PATH')):  # real runs only
+                    from app.agents import contribution
+                    contribution.observe(case)
         try:  # N2A3: advisory cross-source check AFTER every decision; deterministic here, model phrasing on a background thread
             from app.contradictions.hook import after_decision
             after_decision(self, results, previous, None if self.sample or ablation != 'full' else client)

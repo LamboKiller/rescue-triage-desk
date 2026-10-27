@@ -107,7 +107,7 @@ class Registry:
     def _apply(cases, seen, event, touched):
         if event['kind'] in ('place_memory', 'unit_status'):
             return
-        if event['kind'] in ('resource', 'supervisor', 'contradiction'):  # supervisor ticks/decisions are journal-only, never case state
+        if event['kind'] in ('resource', 'supervisor', 'contradiction', 'callback_loop'):  # journal-only, never case state
             return
         if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission',
                              'repost_link', 'repost_unlink', 'mission_update'):
@@ -306,6 +306,19 @@ class Registry:
         with self.locked():
             cases, _ = self._read(shared=True)
             return [project(c, scoring=True) for c in sorted(cases.values(), key=lambda c: -c['result']['priority'])]
+
+    def analysis_context(self, include_history=True):
+        """Detached peer evidence and message history, without copying agent/fleet receipts."""
+        peer_keys = ('case_id','status','outcome_status','message_id','text','received_at',
+                     'fields','position','landmark_check','result','feedback')
+        history_keys = ('replay_time','messages','received_at','text','message_id')
+        with self.locked():
+            cases, _ = self._read(shared=True)
+            ordered = sorted(cases.values(), key=lambda c: -c['result']['priority'])
+            peers = [{k:c[k] for k in peer_keys if k in c} for c in ordered]
+            history = [{k:fact[k] for k in history_keys if k in fact}
+                       for c in ordered for fact in c.get('facts', [])] if include_history else []
+            return copy.deepcopy((peers, history))
 
     def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False, target_case_id=None, target_expected_version=None, mission=None, mission_inventory=None, mission_id=None, expected_versions=None, event_at=None):
         if not human:

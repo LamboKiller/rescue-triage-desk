@@ -153,7 +153,7 @@ def _people(ids, by_id):
     elif 'people.derived' in ids:
         parts.append('Podem confirmar o total de pessoas, contando quem escreve?')
     if 'vuln.unknown' in ids:
-        parts.append('Há crianças, idosos ou pessoas acamadas entre elas? Quantos?')
+        parts.append('Há crianças, idosos ou pessoas acamadas entre elas?')
     return ' '.join(parts)
 
 
@@ -215,6 +215,11 @@ def narrow(plan, items, role=None, expand=False):
     questions = plan.get('questions') or []
     pid = primary_item(items)
     shown = list(questions) if expand else ([next((q for q in questions if pid in q['item_ids']), questions[0])] if questions else [])
+    if not expand and pid and shown and shown[0]['item_ids'] != [pid]:
+        # A grouped question can repeat known facts or ask several things at once.
+        # Keep the validated model wording only when it addresses this one fact.
+        primary = next(i for i in items if i['id'] == pid)
+        shown, _ = template_plan([primary])
     prefix = ADDRESS.get(role or '')
     shown = [dict(q, base_text_pt=q['text_pt'], text_pt=(prefix+q['text_pt']) if prefix else q['text_pt'],
                   addressed_to=role or 'unknown') for q in shown]

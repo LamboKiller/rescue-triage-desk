@@ -382,9 +382,14 @@ def _supervisor_events(g, seq, ev, ctx):
             loop['iterations'] += 1
             loop['detail']['rechecks'].append(r.get('outcome'))
             if r.get('outcome') == 'resolved':
+                g.edge(seq, 'j', ts, 'supervisor', 'operator', 'close', 'Alerta encerrado', r['delta_pt'],
+                       case_ids=list(loop['case_ids']), detail={'alert_id': r['alert_id'], 'reason': r.get('reason')})
                 loop.update(status='closed', closed_ts=ts, outcome=f'resolvido: {r.get("delta_pt")}')
             else:
                 loop['outcome'] = f'ainda aberto: {r.get("delta_pt")}'
+                if r.get('escalated'):
+                    g.edge(seq, 'j', ts, 'supervisor', 'operator', 'escalate', 'Alerta escalado', 'escalado',
+                           case_ids=list(loop['case_ids']), detail={'alert_id': r['alert_id'], 'severity': r['severity']})
     elif ev.get('type') == 'decision':
         loop = ctx['alerts'].get(ev.get('alert_id'))
         cids = list(loop['case_ids']) if loop else []
@@ -565,6 +570,15 @@ def _build_all(journal_path, callback_log, redteam_rows, now, journal_lines=None
             _feedback_event(g, seq, ev, ctx)
         elif k == 'supervisor':
             _supervisor_events(g, seq, ev, ctx)
+        elif k == 'callback_loop':
+            stage = ev.get('type')
+            src, dst, kind, label = {'ask': ('callback_planner', 'citizen', 'callback_ask', 'Pergunta pronta para envio'),
+                'reply': ('citizen', 'intake', 'reply', 'Resposta recebida'),
+                'retriage': ('intake', 'decide', 'retriage', 'Resposta retriada')}[stage]
+            g.edge(seq, 'j', ev.get('replay_time'), src, dst, kind, label,
+                   ev.get('text') or (' → '.join(ev['decision'][k] for k in ('before', 'after')) if ev.get('decision') else ''), case_ids=[ev['case_id']],
+                   simulated=ev.get('simulated', False), version=ev.get('version'),
+                   detail={k: ev[k] for k in ('item_ids', 'decision', 'resolved') if k in ev})
         elif k == 'place_memory':
             _memory_event(g, seq, ev, ctx)
         elif k == 'contradiction':

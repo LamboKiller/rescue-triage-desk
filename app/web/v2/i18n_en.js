@@ -2,6 +2,23 @@
    Keys are the PT strings exactly as the UI/server emit them. $N = capture, $tN = translated capture, $nN = decimal comma->dot.
    Edit here; tests/test_i18n.py checks parity with data/fleet/reasons_pt.json and that safety labels keep exact EN equivalents. */
 window.I18N_EN={
+"Copiar pergunta":"Copy question",
+"Pergunta copiada.":"Question copied.",
+"Selecione a pergunta e copie o texto.":"Select the question and copy the text.",
+"Abrir no WhatsApp":"Open in WhatsApp",
+"Revise o texto e escolha o contato. O envio é manual.":"Review the text and choose the contact. Send it manually.",
+"Resposta recebida · em fila para retriagem":"Reply received · queued for triage",
+"Falha na retriagem. Recarregue e revise o caso.":"Triage failed. Reload and review the case.",
+"Encerrado":"Closed",
+"escalado":"escalated",
+"operador de retorno":"callback operator",
+"coordenador de missões":"mission coordinator",
+"supervisor da mesa":"desk supervisor",
+"coordenador de recursos":"resource coordinator",
+"operador de rádio":"radio operator",
+"Todos os pedidos citados receberam atendimento ou saíram do achado.":"All cited requests were addressed or left the finding.",
+"A condição citada deixou de ocorrer nos sujeitos do alerta.":"The cited condition no longer applies to the alert subjects.",
+"Sem observação atual dos pedidos citados.":"No current observation of the cited requests.",
 /* UX2 */
 "Calculando o meio recomendado…":"Working out the recommended asset…",
 "RECOMENDADO":"RECOMMENDED",
@@ -761,6 +778,13 @@ window.I18N_EN={
 "credibility_reviewer":"credibility_reviewer"
 };
 window.I18N_PATTERNS=[
+["^resposta recebida → retriado: (.+) → (.+)$", "reply received → triaged: $1 → $2"],
+["^Responsável: (.+)$", "Owner: $t1"],
+["^Prazo: (.+)$", "Due: $1"],
+["^Encerra quando: (.+)$", "Closes when: $t1"],
+["^Encerrado: (.+)$", "Closed: $t1"],
+["^Encerrados: (\\d+)$", "Closed: $1"],
+["^Escalados: (\\d+)$", "Escalated: $1"],
 ["^Sem atualização há ([\\d.,]+) h$", "No update for $n1 h"],
 ["^aberto há (\\d+) (min|h)$", "open for $1 $2"],
 ["^Red team: (\\d+) novas p/ revisar\\s*$", "Red team: $1 new to review"],

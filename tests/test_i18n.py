@@ -82,6 +82,17 @@ PT_HINT = re.compile(r'[áàâãçéêíóôõúü]|\b(de|do|da|para|com|sem|nã
 
 @unittest.skipUnless(NODE, 'Node local não encontrado')
 class I18NTests(unittest.TestCase):
+    def test_callback_and_supervisor_loop_strings(self):
+        phrases = ['Copiar pergunta', 'Abrir no WhatsApp', 'Resposta recebida · em fila para retriagem',
+                   'resposta recebida → retriado: CALLBACK → SEND_CANDIDATE',
+                   'Encerrados: 4 · Escalados: 2', 'Responsável: operador de retorno · Prazo: 12:30',
+                   'Encerra quando: Todos os pedidos citados receberam atendimento ou saíram do achado.', 'escalado']
+        expected = ['Copy question', 'Open in WhatsApp', 'Reply received · queued for triage',
+                    'reply received → triaged: CALLBACK → SEND_CANDIDATE', 'Closed: 4 · Escalated: 2',
+                    'Owner: callback operator · Due: 12:30',
+                    'Closes when: All cited requests were addressed or left the finding.', 'escalated']
+        self.assertEqual(run_node(phrases)['tr'], expected)
+
     def test_every_static_chrome_string_has_an_english_equivalent(self):
         parser = Static()
         parser.feed((UI / 'index.html').read_text(encoding='utf-8'))

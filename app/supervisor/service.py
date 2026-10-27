@@ -49,12 +49,18 @@ class SupervisorService:
                 for mid, when in e.get('missions_seen', {}).items():
                     first_seen.setdefault(mid, when)
                 for a in e['alerts']:
-                    alerts[a['alert_id']] = {**copy.deepcopy(a), 'status': 'open', 'outcome': None, 'rechecks': [], 'decision': None}
+                    alerts[a['alert_id']] = {**self.contract(a), **copy.deepcopy(a), 'status': 'open', 'outcome': None,
+                                             'rechecks': [], 'decision': None, 'escalated': False}
                 for r in e['rechecks']:
                     a = alerts.get(r['alert_id'])
                     if a:
                         a['outcome'] = r['outcome']
                         a['rechecks'].append({**r, 'tick_id': e['tick_id'], 'replay_time': e['replay_time']})
+                        if r['outcome'] == 'resolved':
+                            a.update(status='closed', closed_at=e['replay_time'], close_reason=r['reason'])
+                        if r.get('escalated'):
+                            a.update(escalated=True, escalated_at=e['replay_time'], severity=r['severity'],
+                                     escalation_label_pt='escalado')
             else:
                 a = alerts.get(e['alert_id'])
                 if a:
@@ -66,6 +72,17 @@ class SupervisorService:
         return {'ticks': ticks, 'alerts': alerts, 'first_seen': first_seen, 'callback_times': callbacks}
 
     # ---- re-check --------------------------------------------------------------------------
+    def contract(self, alert):
+        """Code owns accountability and deadlines; the model cannot invent them."""
+        owners = {'trigger_callback': 'operador de retorno', 'create_mission_proposal': 'coordenador de missões',
+                  'reprioritise': 'supervisor da mesa', 'request_resources': 'coordenador de recursos',
+                  'acknowledge_unit': 'operador de rádio'}
+        return {'owner_role': owners.get(alert['action'], 'supervisor da mesa'),
+                'due_at': _iso(timestamp(alert['created_at'])+timedelta(minutes=self.cfg.interval_min)),
+                'closing_condition': {'kind': alert['kind'], 'fact_ids': [f['id'] for f in alert['facts']],
+                    'text_pt': ('Todos os pedidos citados receberam atendimento ou saíram do achado.'
+                                if alert['kind'] == 'cluster_growth' else 'A condição citada deixou de ocorrer nos sujeitos do alerta.')}}
+
     @staticmethod
     def recheck(alert, by_id, current):
         orig = set(alert['case_ids'])
@@ -104,9 +121,24 @@ class SupervisorService:
                 findings = self.telemetry.findings(now) + findings
             by_id = {c['case_id']: c for c in seen}
             current = {f['id']: f for f in findings}
-            rechecks = [self.recheck(a, by_id, current) for a in st['alerts'].values()
-                        if a['status'] == 'accepted' and a['outcome'] != 'resolved' and a['decision']
-                        and timestamp(now) >= timestamp(a['decision']['replay_time'])]
+            rechecks = []
+            for a in st['alerts'].values():
+                if a['status'] not in ('open', 'accepted') or a['outcome'] == 'resolved':
+                    continue
+                if timestamp(now) < timestamp((a['decision'] or {}).get('replay_time') or a['created_at']):
+                    continue
+                r = self.recheck(a, by_id, current)
+                # A future version is not evidence that a condition closed in the past.
+                if a['kind'] not in ('unit_silent','unit_idle','gps_no_signal','gps_off_route','gps_stopped') and set(a['case_ids']) - set(by_id):
+                    r.update(outcome='still_open', delta_pt='Sem observação atual dos pedidos citados.')
+                r['reason'] = {'text_pt': r['delta_pt'], 'fact_ids': a['closing_condition']['fact_ids'],
+                    'observed_at': now, 'current_finding_ids': [a['finding_id']] if a['finding_id'] in current else [],
+                    'case_evidence': [{'case_id': cid, 'version': by_id[cid].get('version'),
+                                       'status': by_id[cid].get('status'), 'received_at': by_id[cid]['received_at']}
+                                      for cid in a['case_ids'] if cid in by_id]}
+                if r['outcome'] != 'resolved' and not a.get('escalated') and timestamp(now) > timestamp(a['due_at']):
+                    r.update(escalated=True, severity=a['severity']+1, escalation_label_pt='escalado')
+                rechecks.append(r)
             blocked = set()
             for a in st['alerts'].values():
                 if a['status'] == 'open' or (a['status'] == 'accepted' and a['outcome'] != 'resolved'):
@@ -130,6 +162,7 @@ class SupervisorService:
                                'action': r['action'], 'action_label_pt': D.ACTION_LABEL_PT[r['action']],
                                'case_ids': f['case_ids'], 'resource_ids': f['resource_ids'], 'mission_ids': f['mission_ids'],
                                'facts': f['facts'], 'numbers': f['numbers'], 'evidence': f['evidence'], 'severity': f['severity']})
+                alerts[-1].update(self.contract(alerts[-1]))
             alerted = {a['finding_id'] for a in alerts}
             event = {'schema_version': 1, 'kind': 'supervisor', 'type': 'tick', 'tick_id': tick_id, 'replay_time': now,
                      'interval_min': self.cfg.interval_min, 'cases_seen': len(seen),
@@ -162,6 +195,8 @@ class SupervisorService:
                 'counts': {'open': sum(a['status'] == 'open' for a in alerts), 'accepted': sum(a['status'] == 'accepted' for a in alerts),
                            'dismissed': sum(a['status'] == 'dismissed' for a in alerts),
                            'resolved': sum(a['outcome'] == 'resolved' for a in alerts),
+                           'closed': sum(a['status'] == 'closed' for a in alerts),
+                           'escalated': sum(bool(a.get('escalated')) for a in alerts),
                            'still_open': sum(a['outcome'] == 'still_open' for a in alerts)}}
 
     # ---- human decision -> existing API -----------------------------------------------------

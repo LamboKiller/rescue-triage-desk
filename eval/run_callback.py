@@ -15,7 +15,8 @@ from app.config import ROOT, load_env
 from app.pipeline import Pipeline
 from app.engines.world_model.registry import Registry
 from app.callback import planner, simulator
-from app.callback.items import compute_items
+from app.callback.items import compute_items, diff_items
+from app.queue_intake import IntakeQueue
 from app.callback.service import CallbackService
 from tools.scratch import scratch
 
@@ -62,6 +63,9 @@ def evaluate(live=False, path=SET):
             else:
                 client = ScriptedPlanner()
             service = CallbackService(pipe.registry, pipe, client, records=by_id)
+            intake = IntakeQueue(pipe, Path(folder)/'intake_queue.jsonl', workers=1)
+            service.queue = intake
+            intake.callback_service = service
             row = {'case': rec['message_id'], 'expect': rec['expect']}
             try:
                 with contextlib.redirect_stdout(io.StringIO()):
@@ -95,7 +99,43 @@ def evaluate(live=False, path=SET):
                     if rec['expect'].get('questions') == 0 and questions:
                         row['error'] = 'expected no questions'
                     if questions or rec['expect'].get('questions') != 0:
-                        out = service.reply(case['case_id'], {'simulated': True})
+                        turns, all_changes, all_replies = [], [], []
+                        for turn in range(6):
+                            current = pipe.registry.read(case['case_id'])
+                            if turn:
+                                current_items = compute_items(current)
+                                if not any(i['blocking'] and i['ask'] and i['resolvable_by_reply'] for i in current_items):
+                                    break
+                                if not live:
+                                    client.items = current_items
+                                next_view = service.view(case['case_id'])
+                                if not next_view['plan']['questions']:
+                                    break
+                            else:
+                                next_view = view
+                            shown = next_view['plan']['questions']
+                            ack = service.reply(case['case_id'], {'simulated': True, 'expected_version': current['version']})
+                            with intake.cond:
+                                done = intake.cond.wait_for(lambda: all(r['state'] in ('final', 'failed') for r in intake.items.values()),
+                                                            pipe.budget_seconds+30)
+                            if not done or any(r['state'] == 'failed' for r in intake.items.values()):
+                                raise RuntimeError('callback intake queue failed or timed out')
+                            updated = pipe.registry.read(case['case_id'])
+                            all_changes.extend(updated.get('changes') or [])
+                            all_replies.append(updated['messages'][-1]['text'])
+                            turns.append({'question': shown[0]['text_pt'] if shown else None,
+                                          'items': shown[0]['item_ids'] if shown else [],
+                                          'decision_before': current['result']['decision'],
+                                          'decision_after': updated['result']['decision']})
+                            if not updated.get('changes') and compute_items(current) == compute_items(updated):
+                                break
+                        after = compute_items(updated)
+                        out = {'simulated': True, 'reply_text': '\n'.join(all_replies),
+                               'diff': {'decision': {'after': updated['result']['decision']},
+                                        'items': diff_items(items, after), 'fields_changed': all_changes,
+                                        'analysis': {k: (updated.get('reply_attempt') or updated).get(k)
+                                                     for k in ('complete', 'errors', 'latency_budget')}}}
+                        row['turns'] = turns
                         totals['replied'] += 1
                         totals['simulated_labelled'] += out['simulated'] is True and out['reply_text'].startswith(simulator.PREFIX)
                         d = out['diff']
@@ -112,6 +152,8 @@ def evaluate(live=False, path=SET):
                     totals['items_before_ok'] += sorted(row['items_before']) == sorted(rec['expect']['items_before'])
             except Exception as exc:
                 row['error'] = type(exc).__name__+': '+str(exc)[:160]
+            finally:
+                intake.close()
             rows.append(row)
     n = len(records)
     summary = {'mode': 'live' if live else 'offline (regex baseline + scripted planner stand-in)', 'cases': n,

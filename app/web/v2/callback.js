@@ -26,20 +26,32 @@ window.DeskCallback=(()=>{
   const p=view.plan;qs.append(el('small',p.source==='model'?'Redigidas pelo agente callback_planner e validadas por código.':p.source==='templates'?`Modelos de texto determinísticos${p.fallback_reason?' · motivo: '+p.fallback_reason:''}.`:'Nenhuma pergunta automática para este caso.'));
   const ol=el('ol');for(const q of p.questions){const li=el('li');li.append(el('span',q.text_pt),el('small',' → '+q.item_ids.map(name).join(', ')));ol.append(li);}qs.append(ol);
   if(p.addressed_to&&!['on_site','unknown','crew'].includes(p.addressed_to))qs.append(el('small',`Dirigida a: ${p.addressed_to==='third_party_elsewhere'?'terceiro fora do local (peça que repasse)':'quem repassou a mensagem'}.`));
-  if(!p.expanded&&total>1)qs.append(button(`Mostrar todas (${total})`,()=>{expanded.add(c.case_id);root.remove();render(body,c,{api,el,button,evidence,refresh,notice,day});}));
-  if(p.expanded&&total>1)qs.append(button('Só a principal',()=>{expanded.delete(c.case_id);root.remove();render(body,c,{api,el,button,evidence,refresh,notice,day});}));
-  if(p.questions.length)qs.append(button('Copiar perguntas',()=>navigator.clipboard?.writeText(p.questions.map((q,n)=>`${n+1}. ${q.text_pt}`).join('\n'))));
+  if(view.outbound?.text){
+   qs.append(button('Copiar pergunta',async()=>{try{await navigator.clipboard.writeText(view.outbound.text);notice('Pergunta copiada.');}catch(e){notice('Selecione a pergunta e copie o texto.',true);}}));
+   const wa=el('a','Abrir no WhatsApp');wa.href=view.outbound.whatsapp_url;wa.target='_blank';wa.rel='noopener noreferrer';qs.append(wa,el('small','Revise o texto e escolha o contato. O envio é manual.'));
+  }
   if(p.deferred?.length)qs.append(el('small',`Adiado (não bloqueia): ${p.deferred.map(name).join(', ')}`));
   qs.append(evidence('Agente e validação',p.agent));root.append(qs);
   const form=el('form'),label=el('label','Resposta do contato'),input=el('textarea'),time=el('input'),timeLabel=el('label','Recebida em (BRT, opcional)');
   input.id='callback-reply';label.htmlFor=input.id;input.maxLength=4000;time.id='callback-time';timeLabel.htmlFor=time.id;time.type='datetime-local';
   const send=el('button','Registrar resposta e reavaliar'),sim=el('button','Simular resposta');send.type='submit';sim.type='button';
-  async function post(body){send.disabled=sim.disabled=true;try{const out=await api(`/api/cases/${encodeURIComponent(c.case_id)}/callback/reply`,body);last.set(out.case_id,out);notice(`Versão ${out.diff.version.after}: ${out.diff.decision.before} → ${out.diff.decision.after}${out.simulated?' · SIMULADO':''}`);await refresh();}catch(e){notice(e.message,true);}finally{send.disabled=sim.disabled=false;}}
+  async function post(body){send.disabled=sim.disabled=true;try{const out=await api(`/api/cases/${encodeURIComponent(c.case_id)}/callback/reply`,body);
+   if(out.status==='queued'){
+    notice('Resposta recebida · em fila para retriagem');
+    const status=el('p','Resposta recebida · em fila para retriagem');root.append(status);
+    const poll=async()=>{try{const r=await api(`/api/queue/${encodeURIComponent(out.messages[0].message_id)}`);
+     if(r.state==='failed'){status.textContent='Falha na retriagem. Recarregue e revise o caso.';return;}
+     if(r.state==='final'){await refresh();return;}
+     if(root.isConnected)setTimeout(poll,1500);
+    }catch(e){notice(e.message,true);}};setTimeout(poll,500);
+   }else{last.set(out.case_id,out);notice(`Versão ${out.diff.version.after}: ${out.diff.decision.before} → ${out.diff.decision.after}${out.simulated?' · SIMULADO':''}`);await refresh();}
+  }catch(e){notice(e.message,true);}finally{send.disabled=sim.disabled=false;}}
   form.onsubmit=e=>{e.preventDefault();if(!input.value.trim())return;const b={text:input.value,expected_version:view.version};if(time.value)b.received_at=time.value+':00-03:00';post(b);};
   sim.onclick=()=>post({simulated:true,expected_version:view.version,scope:view.plan.expanded?'all':'primary'});
   form.append(label,input,timeLabel,time,send);
   if(view.simulator_available){sim.append(document.createTextNode(' '),badge(el,'SIMULADO','cb-sim'));form.append(sim);}else form.append(el('small','Simulador indisponível: este caso não tem registro de verdade sintético (somente demo/avaliação).','muted'));
   root.append(form);
+  if(view.last_reply)root.append(el('p',`resposta recebida → retriado: ${view.last_reply.decision.before} → ${view.last_reply.decision.after}`,'cb-diff'));
   const d=last.get(c.case_id);if(d&&d.case&&d.case.version===view.version)root.append(diffView(d,el,evidence));
  }
  return {render};

@@ -4,13 +4,28 @@
 `http://localhost:8888/api/v1.0` queries `OAH_S3` CSV tables backed by SeaweedFS
 bucket `oah-s3` on the Docker host (`:8333`). REST gives the stdlib application a
 SQL boundary; S3 supplies versioned objects. Loading uses `inferSchema=false`.
-Supplied verified 24 October facts: `streets_flood_v3` 12586 rows, `landmarks_v3`
-4201, `messages_seed7_v3` 15, `road_closures_v3` 31, `landmark_aliases_v3` 24.
-Runtime queries streets/landmarks; smoke reads messages. Closures are loaded
-context, not routing input; runtime aliases come from the local curated CSV.
-Evidence: `app/data/source.py:40`, `app/data/zetaris.py:35`,
-`tools/load_zetaris.py:51`. The supplied four-case live smoke passed; this audit
-made no sponsor calls.
+Verified live 27 October: v4 tables onboarded (`streets_flood_v4` 12,586 rows,
+`landmarks_v4` 4,201, `shelters_v4` 7,574, `pumps_v4` 38, `pump_status_daily_v4` 988,
+`events_v4` 20, `closures_v4` 31, `street_points_v4` 20,623, `messages_seed7_v4` 15;
+exact counts: `data/zetaris_tables.json`). Runtime queries streets/landmarks; smoke
+reads messages. Closures are loaded context, not routing input; runtime aliases come
+from the local curated CSV. Evidence: `app/data/source.py:40`, `app/data/zetaris.py:35`,
+`tools/load_zetaris.py:51`. This audit made read-only and DDL/view-creation SQL calls
+against the live local Zetaris (no Nightshift calls).
+
+**Zetaris — Unified Semantic Layer.** Three semantic views join the onboarded sources:
+`incident_context` (landmarks × per-municipality flood-segment totals), `asset_availability`
+(pumps × daily status), `shelter_capacity` (shelter snapshots with derived occupancy). DDL:
+`sql/usl/*.sql`; built/verified by `tools/zetaris_usl.py --build/--check`. A data-quality rule
+(shelter occupancy ≤ capacity) executed live: 734 checked, 62 violations. The SQL-editor REST
+endpoint is stateless across calls — a `CREATE VIEW` executes but does not persist to a second
+request (verified; only the Zetaris UI's query builder persists views) — so `--check` proves
+each view is active by inlining its body as a CTE in the same call as each proving query. A
+Python mirror, `app/data/usl.py`, computes the identical joins offline (SAMPLE_MODE) and matches
+the live Zetaris numbers exactly (`tests/test_zetaris_usl.py`); it is not yet called from the
+pipeline, agents or UI — see `docs/submission/SPONSOR_GAPS.md` for why and the concrete
+integration point once the owning files stabilize. Full detail: `docs/submission/ZETARIS_USL.md`,
+`docs/submission/ZETARIS_REFLECTION.md`.
 
 **Meterless World Model — user-facing engine feature.** Our behavioral Python
 adaptation (`app/engines/world_model/registry.py:25`) appends events, rebuilds case
@@ -18,8 +33,11 @@ state, retains stale/conflicting evidence and requires versioned human commands
 before dispatch. `app/pipeline.py:225` ingests cases; `run.py:57` exposes the queue
 and `run.py:83` exposes actions. Proof: `tests/test_core.py:134`
 `RegistryTests.test_human_transition_gate_and_versions`, `:126`
-`test_stale_retained_and_rebuild`, and `tests/test_pipeline.py:145`
-`PipelineTests.test_http_run_queue_action_and_stale_version`. The fresh offline
+`test_stale_retained_and_rebuild`, `tests/test_pipeline.py:145`
+`PipelineTests.test_http_run_queue_action_and_stale_version`, and the named conformance
+suite `tests/test_engine_conformance.py` (added this review; 6/6 pass, one test per
+declared property: append-only, pure replay, dedup, conflict retention, version-gate,
+human-only transitions). The fresh offline
 suite passed 62 tests (Python 3.11.16); see `GATE2_CHECKLIST.md` for the
 brief's 64-versus-62 baseline discrepancy. These tests prove application behavior,
 not sponsor SDK certification; no Meterless SDK is imported.

@@ -56,7 +56,8 @@ def _mode_view(server,offline):
               'pass':all(c.get('pass') for c in (g.get('checks') or {}).values() if isinstance(c,dict)),
               'stale':bool(g.get('commit') and head and g['commit']!=head)}
     except (OSError,ValueError,AttributeError): gate={}
-    return {'mode':mode,'label_pt':label,'offline':sample,'gate':gate}
+    return {'mode':mode,'label_pt':label,'offline':sample,'gate':gate,
+            'warmup':server.warmup.snapshot() if hasattr(server,'warmup') else {'ready':False,'tasks':{}}}
 
 
 def create_server(host='127.0.0.1',port=8080,sample=None,registry_path=None,pipeline=None,inventory=None,radius_m=600):
@@ -127,6 +128,8 @@ def create_server(host='127.0.0.1',port=8080,sample=None,registry_path=None,pipe
     server=original_server(host,port,sample=offline,pipeline=pipeline)
     from app.queue_intake import IntakeQueue, handle_get as intake_get, handle_post as intake_post
     intake=IntakeQueue(pipeline,registry.path.parent/'intake_queue.jsonl')  # accept-and-queue: persisted before the 202
+    callback.queue=intake
+    intake.callback_service=callback
     from app.web.ux_routes import UxDesk, handle as ux_handle  # UX2: one-click dispatch + undo
     ux=UxDesk(registry,service,unit_status,registry.path.parent/'ux_dispatch.jsonl')
     from app.replay import routes as replay_routes
@@ -166,6 +169,9 @@ def create_server(host='127.0.0.1',port=8080,sample=None,registry_path=None,pipe
                 except KeyError: return self.send_json(404,{'error':'Caso ou unidade não encontrado.'})
                 except (ValueError,TypeError) as exc: return self.send_json(400,{'error':str(exc)})
                 except OSError: return self.send_json(503,{'error':'Malha local indisponível; REVISAR acesso.'})
+            if path == '/api/agents/contribution':
+                from app.agents import contribution
+                return contribution.handle(self,path)
             if path == '/api/handover': return handover_routes.handle(self,handover,'GET')
             if path == '/api/flow':
                 from app.flow.routes import handle as flow_handle
@@ -345,7 +351,7 @@ def create_server(host='127.0.0.1',port=8080,sample=None,registry_path=None,pipe
                             asset=request.get('asset'),caution_acknowledged=request.get('caution_acknowledged',False),
                             target_case_id=request.get('target_case_id'),target_expected_version=request.get('target_expected_version'))
                 else: raise KeyError(path)
-                self.send_json(200,result)
+                self.send_json(202 if case_callback and result.get('status') == 'queued' else 200,result)
             except Conflict as exc: self.send_json(409,{'error':str(exc)})
             except KeyError: self.send_json(404,{'error':'Caso ou missão não encontrado.'})
             except (ValueError,TypeError,UnicodeError) as exc:
@@ -367,6 +373,9 @@ def create_server(host='127.0.0.1',port=8080,sample=None,registry_path=None,pipe
     server.pipeline=pipeline
     server.intake=intake;server.ux=ux
     server.replay=ReplayController(server)
+    from app.web.warmup import start as start_warmup
+    server.warmup=start_warmup()
+    landing.warmup=server.warmup
     return server
 
 

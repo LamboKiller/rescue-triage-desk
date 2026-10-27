@@ -30,7 +30,12 @@ def enabled():
 
 def available(case, records=None):
     records = load_records() if records is None else records
-    return enabled() and bool(case.get('synthetic')) and case.get('message_id') in records
+    return enabled() and bool(case.get('synthetic')) and record_id(case) in records
+
+
+def record_id(case):
+    # Re-triage has its own message id; truth belongs to the original synthetic delivery.
+    return (case.get('messages') or [{}])[0].get('message_id') or case.get('message_id')
 
 
 def reply_for(case, asked_ids, records=None):
@@ -38,7 +43,7 @@ def reply_for(case, asked_ids, records=None):
     records = load_records() if records is None else records
     if not available(case, records):
         raise ValueError('Simulação indisponível: este caso não tem registro de verdade sintético.')
-    rec = records[case['message_id']]
+    rec = records[record_id(case)]
     phrases = rec.get('citizen_replies') or {}
     parts = [phrases[i] for i in sorted(set(asked_ids), key=lambda x: RANK.index(x) if x in RANK else 99) if phrases.get(i)]
     text = ' '.join(parts) or rec.get('unknown_reply') or 'Não sei dizer mais do que já informei.'

@@ -27,8 +27,16 @@ def _graph_launch_points(date):
     location; synthetic derived ids carry no node, so the point itself is used. Parking stays 'unverified' and the layer decides dryness."""
     try:
         from app.geo import roads
-        net = roads.load();pts = net.launch_points(date)
+        net = roads.load()
+        return _network_points(net, date)
     except Exception: return []
+
+
+@lru_cache(maxsize=4)
+def _network_points(net, date):
+    # RoadNetwork is an immutable loaded snapshot; replacement networks get a
+    # distinct key. load_points returns detached dictionaries below.
+    pts = net.launch_points(date)
     out = []
     for i, r in enumerate(pts):
         node = net.nodes.get(str(r.get('dry_side_node_id') or ''))

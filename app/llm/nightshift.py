@@ -46,7 +46,7 @@ def admission_refused(status, error=None):
 
 # These roles generate proposals only. Dispatches, registry writes and other
 # side effects must never be retried by a completion transport.
-RETRY_SAFE_ROLES = frozenset(('intake', 'revision', 'critic', 'location_agent',
+RETRY_SAFE_ROLES = frozenset(('intake', 'revision', 'critic', 'verifier', 'location_agent',
     'hazard_critic', 'credibility_reviewer', 'arbiter', 'duplicate_reviewer'))
 
 

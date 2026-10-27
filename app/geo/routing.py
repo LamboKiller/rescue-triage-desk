@@ -11,6 +11,7 @@ from datetime import date as iso_date
 from functools import lru_cache
 import heapq
 import math
+import threading
 from app.geo import roads, depth
 
 # POLICY for edges with no data (no flood/depth layer covers them on the date):
@@ -525,20 +526,72 @@ class FleetDistance:
         return self.for_unit(base,target,{'requires_dry_roads':True})
 
 
-def landing_distance(day,vehicle=None):
+def landing_distance(day,vehicle=None,budget_seconds=None):
+    import time
+    started=time.monotonic()
     def distance(a,b):
+        if budget_seconds is not None and time.monotonic()-started>=budget_seconds:
+            from app.landing.planner import straight_line
+            return dict(straight_line(a,b),pending=True,
+                review_pt=['REVISAR: limite de busca desta consulta; distancia em linha reta, rota aquatica nao comprovada.'])
         water=water_leg(a,b,day,vehicle=vehicle)
         # Keep an inconclusive search visible to F5 without fabricating distance.
         return dict(water,m=round(water['km']*1000) if water['km'] is not None else None)
     return distance
 
 
-def landing_transfers(options,day,router=None):
+_LAND_LOCK = threading.Lock()
+_LAND_RESULTS = OrderedDict()
+_LAND_JOBS = OrderedDict()
+_LAND_INFLIGHT = set()
+_LAND_THREAD = None
+
+
+def _land_preview(router, origin, target, day):
+    """Coalesce cold land searches in one worker; a request only reads results."""
+    import copy
+    import threading
+    global _LAND_THREAD
+    key = (id(router), day, origin['lat'], origin['lon'], target['lat'], target['lon'])
+    pending = {'reachable':False, 'pending':True, 'tracking_eligible':False,
+               'decision':'REVIEW_REQUIRED', 'review_pt':['REVISAR: rota terrestre preparando em segundo plano; acesso nao comprovado.']}
+    with _LAND_LOCK:
+        if key in _LAND_RESULTS:
+            _LAND_RESULTS.move_to_end(key)
+            return copy.deepcopy(_LAND_RESULTS[key][1])
+        if key not in _LAND_INFLIGHT and len(_LAND_INFLIGHT) < 256:
+            _LAND_INFLIGHT.add(key)
+            _LAND_JOBS[key] = (router, {k:origin[k] for k in ('lat','lon')},
+                              {k:target[k] for k in ('lat','lon')}, day)
+        if _LAND_THREAD is None or not _LAND_THREAD.is_alive():
+            def work():
+                global _LAND_THREAD
+                while True:
+                    with _LAND_LOCK:
+                        if not _LAND_JOBS:
+                            _LAND_THREAD = None
+                            return
+                        job_key, (r, a, b, date) = _LAND_JOBS.popitem(last=False)
+                    try:
+                        result = r.route(a,b,{'type':'ambulancia','requires_dry_roads':True},date)
+                    except Exception as exc:
+                        result = dict(pending, pending=False, error=type(exc).__name__)
+                    with _LAND_LOCK:
+                        _LAND_INFLIGHT.discard(job_key)
+                        _LAND_RESULTS[job_key] = (r, result)  # Retain identity until eviction.
+                        if len(_LAND_RESULTS) > 256: _LAND_RESULTS.popitem(last=False)
+            _LAND_THREAD = threading.Thread(target=work, name='landing-routes', daemon=True)
+            _LAND_THREAD.start()
+    return pending
+
+
+def landing_transfers(options,day,router=None,background=False):
     """Add land access to each proposed shelter; never fabricate a fallback road."""
     r=router or default_router()
     for option in options:
         for shelter in option.get('shelters',[]):
-            land=r.route(option,shelter,{'type':'ambulancia','requires_dry_roads':True},day)
+            land=(_land_preview(r,option,shelter,day) if background else
+                  r.route(option,shelter,{'type':'ambulancia','requires_dry_roads':True},day))
             shelter['land_route']=land
             if not land['reachable']:
                 option['warnings_pt'].append('REVISAR: sem rota terrestre seca até '+shelter['label']+'.')

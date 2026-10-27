@@ -278,9 +278,14 @@ class EvalAndHttpTests(LoopBase):
         self.assertEqual(call('/api/cases/%s/callback/reply' % c['case_id'], {'text': ''})[0], 400)
         self.assertEqual(call('/api/cases/%s/callback/reply' % c['case_id'], {'simulated': True, 'expected_version': 7})[0], 409)
         code, out = call('/api/cases/%s/callback/reply' % c['case_id'], {'simulated': True, 'expected_version': 1})
-        self.assertEqual(code, 200)
-        self.assertTrue(out['simulated'] and out['reply_text'].startswith('[SIMULADO]'))
-        self.assertEqual(out['diff']['decision']['after'], 'SEND_CANDIDATE')
+        self.assertEqual(code, 202)
+        self.assertTrue(out['simulated'])
+        self.assertEqual(out['messages'][0]['case_id'], c['case_id'])
+        with server.intake.cond:
+            self.assertTrue(server.intake.cond.wait_for(lambda: all(r['state'] in ('final', 'failed') for r in server.intake.items.values()), 40))
+        updated = self.pipe.registry.read(c['case_id'])
+        self.assertTrue(updated['messages'][-1]['text'].startswith('[SIMULADO]'))
+        self.assertEqual(updated['fields']['municipality']['value'], 'Canoas')
         with urllib.request.urlopen(base+'/v2/callback.js') as r:
             self.assertIn(b'DeskCallback', r.read())
 

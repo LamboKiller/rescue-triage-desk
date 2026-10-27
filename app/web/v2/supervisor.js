@@ -26,9 +26,12 @@ window.DeskSupervisor=(()=>{
  function alertCard(a){
   const {el,button}=ctx,card=el('article',undefined,'sup-alert');
   const head=el('div',undefined,'sup-row');
-  head.append(el('strong',`${hhmm(a.created_at)} · ${KIND[a.kind]||a.kind}`),badge({open:'Aberto',accepted:'Aceito',dismissed:'Dispensado'}[a.status],'sup-'+a.status));
+  head.append(el('strong',`${hhmm(a.created_at)} · ${KIND[a.kind]||a.kind}`),badge({open:'Aberto',accepted:'Aceito',dismissed:'Dispensado',closed:'Encerrado'}[a.status],'sup-'+a.status));
+  if(a.escalated)head.append(badge('escalado','sup-warn'));
   if(a.outcome)head.append(badge(a.outcome==='resolved'?'Resolvido':'Ainda aberto','sup-'+a.outcome));
   card.append(head,el('p',a.why_pt),el('small',`Ação proposta (humana decide): ${a.action_label_pt}`));
+  card.append(el('p',`Responsável: ${a.owner_role} · Prazo: ${hhmm(a.due_at)}`),el('p',`Encerra quando: ${a.closing_condition?.text_pt||'—'}`));
+  if(a.close_reason)card.append(el('p',`Encerrado: ${a.close_reason.text_pt} [${a.close_reason.fact_ids.join(', ')}]`));
   const d=el('details');d.append(el('summary','Fatos citados'));
   for(const f of a.facts)d.append(el('p',`${f.id}: ${f.text_pt}`));
   if(a.numbers)d.append(el('p',Object.entries(a.numbers).map(([k,v])=>`${k}=${v}`).join(' · ')));
@@ -46,7 +49,7 @@ window.DeskSupervisor=(()=>{
   const top=el('div',undefined,'sup-row');top.append(el('h2','Supervisor · '+data.date),button('Fechar',()=>{open=false;draw();}));
   const time=el('input');time.type='time';time.id='sup-time';time.value='12:00';time.setAttribute('aria-label','Horário do replay');
   const controls=el('div',undefined,'sup-row');controls.append(time,button('Rodar agora',()=>run(null),'primary'),button(`Rodar até 23:30 (a cada ${data.interval_min} min)`,()=>run('23:30')));
-  root.append(top,el('p',`Vigia a mesa a cada ${data.interval_min} min de replay. Propõe ações; nada é executado sem decisão humana. Contagens: ${data.counts.open} abertos · ${data.counts.accepted} aceitos · ${data.counts.dismissed} dispensados · ${data.counts.resolved} resolvidos · ${data.counts.still_open} ainda abertos.`,'muted'),controls);
+  root.append(top,el('p',`Vigia a mesa a cada ${data.interval_min} min de replay. Propõe ações; nada é executado sem decisão humana. Contagens: ${data.counts.open} abertos · ${data.counts.accepted} aceitos · ${data.counts.dismissed} dispensados · ${data.counts.resolved} resolvidos · ${data.counts.still_open} ainda abertos.`,'muted'),el('p',`Encerrados: ${data.counts.closed||0} · Escalados: ${data.counts.escalated||0}`),controls);
   const tl=el('ol',undefined,'sup-timeline');tl.setAttribute('aria-label','Linha do tempo de ticks');
   if(!data.ticks.length)tl.append(el('li','Nenhum tick neste dia.'));
   for(const t of data.ticks){const li=el('li');li.append(el('strong',hhmm(t.replay_time)),el('span',` · ${t.findings.length} achados · ${t.alerts.length} alertas · ${t.rechecks.length} re-checagens `),badge(CHECK[t.supervisor_check]||t.supervisor_check,t.supervisor_check==='deterministic_only'?'sup-warn':'sup-ok'));if(t.fallback_reason)li.append(el('small',` (${t.fallback_reason})`));tl.append(li);}

@@ -1,37 +1,49 @@
-# Three-minute demo script
+# Demo script: 3:30, narrated by Yussef (EN narration, PT UI)
 
-Yussef: record only after the active evaluation finishes. Use fictional data and
-a trusted local browser. Keep `.env`, credentials and private desktop content out
-of frame. This recording needs one real Nightshift request, not sample-mode output.
-If latency requires an edit, label the cut and show actual request elapsed time;
-never portray a failed/offline call as live sponsor proof.
+Target **3:30** (limit 1-4 min). Read the *Say* column aloud at a calm pace (about 140 words per minute; each row's word count fits its slot). The UI stays in Portuguese on purpose: it is the dispatcher's language. Use fictional data only.
+Honesty rule: show **one real Nightshift request with the routed model visible**. If a live call is slow, cut the wait in editing and say so in a caption ("cut: 19 s wait"); never show offline or sample output as live proof.
 
-Preparation (not run by this audit): configure local credentials and
-`SAMPLE_MODE=false`, run `python run.py serve`, open http://localhost:8080.
-Prepare a terminal showing only the new run's trace, a browser tab for
-http://localhost:8080/api/cases, and the slides from `DECK_OUTLINE.md`.
-Use replay `2024-05-06T14:00:00-03:00`. Do not clear shared runtime state.
+## Preparation (before you press record)
 
-| Time | Click/show | Narration |
-|---|---|---|
-| 0:00–0:20 | Title/RS map slide with fictional rescue message. | “During the May 2024 RS floods, informal messages mixed location hints, vulnerability and uncertainty. This desk helps an operator review evidence.” |
-| 0:20–0:40 | Page connected health state. Paste the exact message below into **Cole uma mensagem de demonstração**, show replay time, click **Analisar pedido** once. | “This new request goes through Meterless Nightshift, with Zetaris as the connected data layer.” |
-| 0:40–1:10 | Processing, then new case in **Fila de revisão**. Show **Intake → Crítica → Uma revisão**, panels **Leitura inicial**, **Crítica**, **Revisão**, **Localização**. | “Intake extracts evidence, Critic challenges claims, and at most one revision follows objections. Location proposes a place for code to verify.” If no revision triggered, explicitly show/say that; do not invent one. |
-| 1:10–1:35 | **Modelo, comprovante e duração** and matching fresh `logs/run_<id>.jsonl` record/stdout. Point to role, message ID, requested model, actual routed model and receipt. | “Nightshift races Nemotron lanes. This receipt identifies the winner for this call; the requested model alone does not.” Show metadata, never hidden reasoning or credentials. |
-| 1:35–2:00 | **Ponto de referência**: Rodoviária match/source. Expand **Campos e verificações determinísticas** and show **Motivo da decisão**. | “Public OSM context and curated aliases verify this landmark. Code derives sender plus two babies, marked “Contagem derivada — confirmar”. Both location and inferred count need human verification.” If the expected flag/match is absent, disclose the actual result. |
-| 2:00–2:25 | For an eligible candidate, click **Confirmar localização**, then **Aprovar despacho** with `operador-demo`; show status/version change. | “Approval is a recorded human decision. The model cannot approve a dispatch.” If not `SEND_CANDIDATE`, show **Pedir retorno** and explain the block; never force approval or claim field confirmation. |
-| 2:25–2:45 | `/api/cases`: locate the new case by message ID, show version, status and provenance; return to queue. | “The World Model registry rebuilds state from append-only events, retains conflicting updates and rejects stale commands. Offline tests prove its human-transition and HTTP queue behavior.” |
-| 2:45–3:00 | Evaluation/limitations slide, then repo/sponsor closing slide. | “Evaluation results await Orbit's verified live run. Synthetic tests do not establish real-message accuracy. Zetaris grounds context; Nightshift interprets language; code and humans control decisions.” |
+1. Services up: Zetaris Docker stack and the Nightshift app at `http://127.0.0.1:8088` (the NVIDIA key is already in its **Providers** tab; never open that tab on camera).
+2. Desk in connected mode: `SAMPLE_MODE=false` in your local `.env`, then `python run.py serve`; open `http://localhost:8080/v2`. Optional clean state: `python tools/reset_demo.py --demo` (moves runtime state to `runtime/demo_backup`, deletes nothing).
+3. Replay time: 06/05/2024 afternoon (picker in the top bar). Message below in the clipboard.
+4. Tabs ready, in order: (a) desk `/v2`; (b) Nightshift app request list; (c) a terminal in the repo where `python tools/zetaris_usl.py --check` has just run (scroll to the Rodoviária row); (d) `/v2` on the **Evals** tab.
+5. Hide bookmarks, notifications and the taskbar; browser at 100% zoom, 1920x1080. Use `cd` into the repo so the prompt does not show a long personal path.
 
-Exact message (preserve the supplied spelling):
-
+Message to paste (fictional; keep the spelling):
 > socorro estamos dentro da rodoviaria de porto alegre e esta alagando tudo, estou com meus dois bebes
 
-Evaluation slide placeholder:
+## Shot list and narration
 
-Live eval 24/10 (challenge set, 40 hand-written): decision accuracy rules 0.60 → intake agent 0.975 → full loop 0.975; field F1 rules→full: children 0.25→0.96, elderly 0→0.89, street 0.32→0.95; critic changes right 18/22. Caveat: rules tuned on this set after the first run; numbers optimistic.
+| Time | Show (click path) | Say |
+|---|---|---|
+| 0:00-0:20 | Title slide, or the `/v2` map at the May 2024 replay (60x playing). | "In May 2024 the Rio Grande do Sul floods produced thousands of rescue requests as informal text: half an address, 'my two babies', a landmark. Dispatchers had to work out where, how many, who is vulnerable and what can safely go. This is Rescue Triage Desk." |
+| 0:20-0:45 | Top bar: the mode badge must **not** say "Modo amostra · offline". Click **Nova emergência**, paste the message, submit. | "I paste a new message. The desk runs connected: Zetaris for data, Nemotron through Meterless Nightshift for language. Nothing is dispatched automatically; a human approves every step." |
+| 0:45-1:10 | The case appears in the queue; open it. Bottom bar / **Agentes** shows agents running live (intake, critic, location). Show quoted evidence in **Resumo**. | "Agents work live. Intake extracts fields with exact quotes, a Critic challenges each claim, Location proposes a place. Then code checks the landmark and derives the count: sender plus two babies is three, marked 'confirmar'. The model reads language; code does the arithmetic." |
+| 1:10-1:35 | Open the call panel (**Modelo, comprovante e duração**). Switch to the Nightshift app tab and show the same request with its model and receipt. | "Every call is logged with the model that actually answered and a receipt. Nightshift races its lanes, so the requested model is not enough. Here is the winner, the receipt and the seconds. This is the one real sponsor request in this recording." |
+| 1:35-2:00 | Back to the case: **Meios**, **Qual meio enviar**, pick the recommended boat. Click **Ver rota**: land leg plus a straight water leg, warnings visible. | "Meios lists every asset with a reason and blocks unsafe ones. The route is land on OpenStreetMap plus a water leg that is a labelled straight-line estimate, because retrospective flood depth cannot certify a safe route. We say so on screen." |
+| 2:00-2:20 | **Confirmar localização**, tick the checklist, click **Despachar**. Open **Missões** and show the **[SIMULADO]** GPS fix. | "The human confirms the location, reads the cautions and dispatches; there is an undo. GPS fixes are simulated and labelled. We have no real fleet integration." |
+| 2:20-2:45 | **Retorno** tab: callback questions (at most three), the **[SIMULADO]** citizen reply; submit it and show the case re-triaging. | "When something is missing, a Callback agent asks at most three questions about open items only. The citizen's reply goes back through the same checks and the case is triaged again. No invented facts." |
+| 2:45-3:00 | **Registro** tab (events and versions). Optional: a terminal call with a stale `expected_version` returning 409. | "State lives in our World Model, a Meterless Engine adaptation: append-only journal, replay, retained conflicts, version gates and human-only transitions. A stale command gets a 409. Six conformance tests pass." |
+| 3:00-3:15 | Terminal: `zetaris_usl.py --check` output, the Rodoviária row (4,514 flooded segments in its municipality) and the shelter quality line (734 checked, 62 over capacity). | "Zetaris holds five sources. A semantic layer joins landmarks, flood exposure, pumps and shelters in SQL. Rodoviária sits inside the flood extent, and a quality rule flags 62 of 734 shelter snapshots over capacity." |
+| 3:15-3:30 | **Supervisor** tab for two seconds, then **Evals**. End on the closing slide with the repo URL. | "A supervisor proposes one action and a human accepts. Our live test: 29 of 30 correct, zero unsafe, 20 seconds average. These are our own development sets; sealed results come after the freeze. Code decides, agents explain, humans approve." |
 
-Yussef checks final duration (1–4 minutes), readability of at least one real
-Nightshift receipt/model, and that no credentials appear. Upload the video/deck
-and record shareable URLs plus repository URL in the submission. No recording,
-upload or live request was performed in this audit.
+## Fallbacks
+
+- Live call fails or times out: say "the desk degrades visibly", show the degraded flag and the deterministic result, then re-record the live segment. Do not label offline output as live.
+- No revision was triggered: say the critic had no objection; do not invent one.
+- Decision is not `SEND_CANDIDATE`: show **Pedir retorno**, explain the block, never force an approval.
+- Quote only numbers that are in the README eval table (commit `4867ff0`, 26 Oct 2026).
+
+## Do not show
+
+- `.env`, the Nightshift **Providers** tab, any key or token, terminal history, environment dumps.
+- Zetaris, S3 or NVIDIA credentials in any settings screen; Docker Desktop settings.
+- Personal data: your desktop, browser profile, bookmarks, other chats, paths that contain your username.
+- The planning repo (`open-agent-hackathon-2026`), `review/` folders, sealed50 / holdout2, build reports (`*_REPORT.md`).
+- Real citizen messages: only the fictional message above.
+
+## After recording
+
+Check duration (1-4 min), that the model name and receipt are readable at 1080p, and that no credential or personal path flashed by. Upload the video and keep the URL for the submission form (`GATE2_CHECKLIST.md`).

@@ -61,3 +61,11 @@ Start-Process 'http://localhost:8080/v2'
 
 Connected container check: `docker run --rm -p 8080:8080 --env-file .env -e SAMPLE_MODE=false -e NIGHTSHIFT_BASE_URL=http://host.docker.internal:8088/v1 -e ZETARIS_REST_URL=http://host.docker.internal:8888/api/v1.0 -e S3_ENDPOINT_HOST=host.docker.internal:8333 rescue-triage-desk`.
 Record the video from `docs/submission/DEMO_SCRIPT.md`; upload deck and video to the organizer portal (URL not in the repo).
+
+## Refresh 27 October 2026 (SUBMIT agent; docs/tooling only)
+
+- README rewritten: 60-second offline quickstart (verified on port 8097: `GET /` and `/v2` 200, three example inputs return cases), sample inputs with real outputs, trace excerpt with model + receipt, eval table with commit/date, engine conformance test (`tests/test_engine_conformance.py`, 6 tests OK), Zetaris USL commands, limitations, attribution.
+- `.env.example` now lists every setting name used in code (added `RESCUE_OPERATOR_TOKEN`, `RESCUE_DEVICE_TOKEN`, `RTD_VERIFIER`, `RTD_CONTRIBUTION_PATH`); `.gitignore` additionally covers `review/`, `data-backup/`, `.env.*`, `*_REPORT.md`, `.claude/`, `.codex/`.
+- Safety scan: `python tools/gate2_scan.py --md docs/submission/GATE2_SCAN.md` (result in `GATE2_SCAN.md`). Re-run it right before `git push`.
+- Deck: `python docs/submission/deck/build_deck.py` writes `Rescue_Triage_Desk.pptx` (10 slides), `deck.html`, `deck.md`. Demo script: `DEMO_SCRIPT.md` (3:30).
+- Still open for Yussef: record/upload video, retake screenshots from the connected build, fill `[TBD-sealed50]` / `[TBD-holdout2]`, docker build, sign the pre-existing declaration, submit URLs.

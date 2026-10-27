@@ -111,7 +111,9 @@ def run_scenario(spec, client, cfg):
                 final = service.state()['alerts'][alert['alert_id']]
                 out['loop'] = {'accepted_action': alert['action'], 'executed': alert['decision']['execution']['summary_pt'],
                                'outcome': final['outcome'], 'expected': loop['outcome'], 'delta_pt': (final['rechecks'] or [{}])[-1].get('delta_pt'),
-                               'correct': final['outcome'] == loop['outcome'] and alert['action'] == loop['action'],
+                               'correct': final['outcome'] == loop['outcome'] and alert['action'] == loop['action']
+                                          and (final['status'] == 'closed' and bool(final.get('close_reason', {}).get('fact_ids'))
+                                               if loop['outcome'] == 'resolved' else final['status'] != 'closed'),
                                'second_tick_uncited': uncited(second)}
         return out
 
@@ -139,9 +141,11 @@ def evaluate(live=False):
 
 
 if __name__ == '__main__':
-    load_env(); p = argparse.ArgumentParser(description=__doc__); m = p.add_mutually_exclusive_group()
+    p = argparse.ArgumentParser(description=__doc__); m = p.add_mutually_exclusive_group()
     m.add_argument('--offline', action='store_true'); m.add_argument('--live', action='store_true'); p.add_argument('--output', type=Path)
-    a = p.parse_args(); r = evaluate(a.live); text = json.dumps(r, ensure_ascii=False, indent=2)
+    a = p.parse_args()
+    if a.live: load_env()
+    r = evaluate(a.live); text = json.dumps(r, ensure_ascii=False, indent=2)
     if a.output: a.output.write_text(text+'\n', encoding='utf-8')
     print(text)
     raise SystemExit(not (r['fp'] == 0 and r['fn'] == 0 and r['uncited_numbers'] == 0 and r['loops_correct'] == r['loops']

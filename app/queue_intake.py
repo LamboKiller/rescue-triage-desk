@@ -127,6 +127,8 @@ class IntakeQueue:
                    accepted_at=accepted_at, text_hash=text_hash(message['text']), pre=pretriage(message['text']),
                    state='queued', duplicate_of=duplicate_of, run_ids=[run_id] if run_id else [], attempts=0,
                    started_at=None, finished_at=None, decision=None, error=None, surge=False, seconds=None)
+        if message.get('_callback'):
+            rec['case_id'] = message['_callback']['case_id']
         self.items[mid] = rec
         self.by_hash.setdefault(rec['text_hash'], mid)
         tokens, digits = near_key(message['text'])
@@ -149,7 +151,7 @@ class IntakeQueue:
                 return other_mid, 'texto quase idêntico'
         return None, None
 
-    def accept(self, request):
+    def accept(self, request, *, callback=None):
         from app.pipeline import validate_request
         if isinstance(request, dict) and isinstance(request.get('messages'), list) and len(request['messages']) > 15 \
                 and request.get('_bulk'):
@@ -163,6 +165,8 @@ class IntakeQueue:
             for chunk in chunks:
                 replay, clean = validate_request(request if chunk is None else dict(request, messages=chunk))
                 for message in clean:
+                    if callback is not None:
+                        message['_callback'] = callback
                     mid = message['message_id']
                     existing = self.items.get(mid)
                     mids.append(mid)
@@ -172,7 +176,7 @@ class IntakeQueue:
                             existing['run_ids'].append(run_id)
                         accepted.append((existing, True))
                         continue
-                    primary, why = self._find_primary(message)
+                    primary, why = (None, None) if callback is not None else self._find_primary(message)
                     rec = self._register(message, replay, now, primary, run_id)
                     if primary:
                         rec['duplicate_why'] = why
@@ -302,6 +306,13 @@ class IntakeQueue:
     def _default_runner(self, rec, surge):
         from app.llm.nightshift import MESSAGE_PRIORITY
         pipeline = self.pipeline
+        if rec['message'].get('_callback'):
+            service = getattr(self, 'callback_service', None)
+            if service is None:
+                from app.callback.service import CallbackService
+                service = CallbackService(pipeline.registry, pipeline, records={})
+            MESSAGE_PRIORITY.set(int(rec['pre']['score']))
+            return service.run_queued(rec, surge)
         if rec['duplicate_of']:
             linked = self._try_link(rec)
             if linked is not None:

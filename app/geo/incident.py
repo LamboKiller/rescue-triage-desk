@@ -33,8 +33,14 @@ def prepared_index(streets, landmarks):
         for old_streets, old_landmarks, index in _INDICES:
             if streets == old_streets and landmarks == old_landmarks:
                 return index
-        snapshot = copy.deepcopy((streets, landmarks))
-        index = IncidentIndex(*snapshot)
+    # Preparation may take seconds: never hold the publication lock while building
+    # a different catalogue (notably a tiny deadline-failure/fake-source request).
+    snapshot = copy.deepcopy((streets, landmarks))
+    index = IncidentIndex(*snapshot)
+    with _INDEX_LOCK:
+        for old_streets, old_landmarks, existing in _INDICES:
+            if snapshot[0] == old_streets and snapshot[1] == old_landmarks:
+                return existing
         _INDICES.append((*snapshot, index))
         if len(_INDICES) > 4:
             del _INDICES[0]

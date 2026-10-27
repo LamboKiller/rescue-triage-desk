@@ -19,6 +19,8 @@ def merge(previous, fields, reply, client, deadline, offline):
         field.setdefault('message_index', 0)
     conflicts = copy.deepcopy(previous.get('contradictions', []))
     changes = []
+    from app.callback.evidence import retire_hint
+    changes.extend(retire_hint(previous, fields, merged, index))
     correction = bool(CORRECTION.search(reply['text']))
     for key, field in fields.items():
         field = dict(field, message_index=index)

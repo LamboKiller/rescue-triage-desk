@@ -1,6 +1,7 @@
 """HTTP glue for /api/supervisor/*; called from the mission-enabled server handler."""
 import json
 import re
+from datetime import date
 from urllib.parse import parse_qs, urlsplit
 from app.decide import timestamp
 from app.engines.world_model.registry import Conflict
@@ -12,10 +13,13 @@ def handle(handler, service, method):
     path = parts.path
     try:
         if method == 'GET':
-            if path != '/api/supervisor/ticks':
+            if path not in ('/api/supervisor', '/api/supervisor/ticks'):
                 raise KeyError(path)
             query = parse_qs(parts.query, keep_blank_values=True)
             day = query.get('date', [])
+            if not day and path == '/api/supervisor':
+                ticks = service.state()['ticks']
+                day = [ticks[-1]['replay_time'][:10] if ticks else date.today().isoformat()]
             if len(day) != 1 or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day[0]):
                 raise ValueError('Informe exatamente uma data ISO.')
             handler.send_json(200, service.ticks(day[0]))

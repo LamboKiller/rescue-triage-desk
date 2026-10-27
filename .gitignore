@@ -6,3 +6,13 @@ logs/*
 runtime/
 .tmp/
 out/
+
+# Public-repo safety: never publish review/working material
+review/
+reports/
+*_REPORT.md
+data-backup/
+.env.*
+!.env.example
+.claude/
+.codex/

@@ -47,11 +47,25 @@ class LandingService:
         case = self._case(case_id)
         states = self.shelters.shelters.state(now)
         distance_fn = self.distance_fn
+        pending = False
+        access_fn = self.access_fn
         if getattr(self, 'road_routing', False):
             from app.geo.routing import landing_distance, landing_transfers
-            distance_fn = distance_fn or landing_distance(now[:10])
-        out = planner.plan(case, now, self._points(states, now[:10]), states, self.store.events, self.access_fn, distance_fn)
-        if getattr(self, 'road_routing', False): landing_transfers(out['options'], now[:10])
+            warmup = getattr(self, 'warmup', None)
+            pending = warmup is not None and not warmup.task_ready('routing')
+            if pending:
+                distance_fn = distance_fn or (lambda a, b: dict(planner.straight_line(a, b), pending=True,
+                    review_pt=['REVISAR: malha viaria e grade aquatica preparando em segundo plano; distancia em linha reta, rota nao comprovada.']))
+                access_fn = access_fn or (lambda lat, lon, day: {'state': 'unknown', 'source': 'preparing', 'reason_pt': 'Camadas preparando; acesso desconhecido.'})
+            else:
+                distance_fn = distance_fn or landing_distance(now[:10], budget_seconds=.5)
+        points = self.points if self.points is not None else lp.load_points(states, None if pending else now[:10])
+        out = planner.plan(case, now, points, states, self.store.events, access_fn, distance_fn)
+        out['routing_pending'] = pending or any(o['distance'].get('pending') for o in out['options'])
+        if getattr(self, 'road_routing', False) and not pending:
+            landing_transfers(out['options'], now[:10], background=True)
+            out['routing_pending'] = out['routing_pending'] or any(
+                s.get('land_route', {}).get('pending') for o in out['options'] for s in o.get('shelters', []))
         ch = self.choice_of(case_id, now)
         out['choice'] = ch
         pick = next((o for o in out['options'] if ch and o['landing_id'] == ch['landing_id']), None)

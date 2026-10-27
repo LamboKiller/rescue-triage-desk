@@ -145,7 +145,7 @@ class UITests(unittest.TestCase):
         i18n = sum(p.stat().st_size for p in own if p.name in ('i18n.js', 'i18n_en.js'))
         self.assertLessEqual(i18n, 90000)
         ui = sum(p.stat().st_size for p in own if p.name not in ('i18n.js', 'i18n_en.js'))
-        self.assertLessEqual(ui, 300000)  # raised 26/10 to 300 KB (UX2: Meios decision screen, route view, replay clock, intake dialog; old Meios table and route.js removed); earlier: 270000 (raised 26/10 (UXP: mode chip, agent line, detail hydration; Orbit): fleet, landing, volunteers, route, chaining, cross-source panels; own unminified UI only, vendored libs excluded
+        self.assertLessEqual(ui, 310000)  # raised 27/10 to 310 KB (LOOPS: callback WhatsApp text + supervisor lifecycle UI); raised 26/10 to 300 KB (UX2: Meios decision screen, route view, replay clock, intake dialog; old Meios table and route.js removed); earlier: 270000 (raised 26/10 (UXP: mode chip, agent line, detail hydration; Orbit): fleet, landing, volunteers, route, chaining, cross-source panels; own unminified UI only, vendored libs excluded
         self.assertLessEqual(sum(p.stat().st_size for p in routes_v2.MAP.rglob('*') if p.is_file()), 60000000)
 
     def test_no_broken_glyphs_in_served_assets(self):

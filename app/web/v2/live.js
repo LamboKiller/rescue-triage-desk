@@ -141,8 +141,15 @@ const LEG=[['active','em andamento'],['ok','ok'],['fallback','regra determiníst
   if(window.ResizeObserver)new ResizeObserver(()=>v.layout()).observe(v.wrap);
   v.all();v.layout();return v;
  }
+ // ABL: contagem real por agente (/api/agents/contribution): disparou / mudou o resultado / avisou / puladas. Só leitura.
+ let contrib=null;
+ const CROLE={location:'location_agent',credibility:'credibility_reviewer',critic:'critic',revision:'revision',intake:'intake',hazard_critic:'hazard_critic',duplicate_reviewer:'duplicate_reviewer',arbiter:'arbiter'};
+ function loadContribution(){fetch('/api/agents/contribution').then(r=>r.ok?r.json():null).then(d=>{if(d&&d.roles)contrib=d;}).catch(()=>{});}
+ function contribText(id){const r=contrib&&contrib.roles[CROLE[id]];if(!r)return null;const sk=Object.entries(r.skipped||{}).map(([k,v])=>`${k} ×${v}`).join(', ');
+  return `${r.fired} disparos · ${r.changed_outcome} mudaram o resultado · ${r.warned} avisos${sk?' · puladas: '+sk:''} (${contrib.messages} msgs)`;}
  function showTip(v,tip,id,g){const n=nodes[id],st=n.wait?'wait':n.state;tip.replaceChildren();
   const rows=[[N[id][2],STATE[st]],['Modelo',n.model||(n.state==='fallback'?'nenhum — regra determinística':'—')],['Latência',fs(n.dur)||'—'],['Comprovante',n.receipt||'—'],['Registros',`${n.calls}${n.fails?` · ${n.fails} falha(s)`:''}`]];
+  const ct=contribText(id);if(ct)rows.push(['Contribuição',ct]);
   rows.forEach(([a,b],i)=>{const d=document.createElement('div');d.className=i?'tip-row':'tip-head';d.textContent=i?`${a}: ${b}`:`${a} · ${b}`;tip.append(d);});
   const b=g.getBoundingClientRect(),r=v.svgBox.getBoundingClientRect();tip.hidden=false;tip.style.left=Math.min(r.width-190,Math.max(4,b.left-r.left-60))+'px';tip.style.top=Math.max(2,b.top-r.top-tip.offsetHeight-6)+'px';}
  function showInfo(v,info,id){v.sel=id;Object.keys(N).forEach(v.node);const n=nodes[id],{el,button}=ctx;info.hidden=false;info.replaceChildren();
@@ -190,7 +197,7 @@ const LEG=[['active','em andamento'],['ok','ok'],['fallback','regra determiníst
  }
  function init(c){ctx=c;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&loadedOnce){fetchFlow(false).catch(()=>{});}});sched();setTimeout(lazyLoad,9000);}
  let loadedOnce=false;
- function lazyLoad(){if(loadedOnce)return;loadedOnce=true;load();}  // UX2: the 600 KB journal is fetched on first use (dock opened / full view) or after 9 s idle, not on first paint
+ function lazyLoad(){if(loadedOnce)return;loadedOnce=true;load();loadContribution();}  // UX2: the 600 KB journal is fetched on first use (dock opened / full view) or after 9 s idle, not on first paint
  function refreshChips(){for(const v of views)v.chips&&v.chips();}
  return {init,refreshChips,mountDock,mountFull,runEvent,feedReplay,setFilter,setExpanded,_state:()=>({nodes,edges,loops,filter})};
 })();
