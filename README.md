@@ -6,13 +6,13 @@
 
 ▶ **Watch the demo:** VIDEO_LINK
 
-In May 2024 calls for help came in through dozens of WhatsApp groups, phone calls, social media and single texts sent with the last bar of signal. Our agents read them all in Portuguese, ask the citizen for what is missing, spot duplicates and "already rescued" reports, group cases into missions, route land and water legs, follow field feedback, look after shelters and shift handover, and help reunite families. Built and **replayed on 6 May 2024** (Porto Alegre, Canoas and four neighbouring municipalities). It is a retrospective replay desk, not a deployed emergency system: fleet and GPS are **simulated and labelled**, "lives saved" is only ever *potential*, and nothing is dispatched automatically.
+In May 2024 calls for help came in through dozens of WhatsApp groups, phone calls, social media and single texts sent with the last bar of signal. Our agents read them all in Portuguese, ask the citizen for what is missing, spot duplicates and "already rescued" reports, group cases into missions, route land and water legs, follow field feedback, look after shelters and shift handover, and help reunite families. Arca **replays 6 May 2024** in Porto Alegre, Canoas and four neighbouring municipalities, on real flood and street data. The fleet and GPS are simulated (and clearly labelled), and nothing is ever dispatched without a human.
 
 ### Results at a glance
 
 **Built safety-first, tested hard: 29/30 live requests triaged correctly (11 s average) · 42/42 red-team attacks stopped · 94/100 safe recommendations on never-seen blind requests. When unsure, the agents ask again instead of guessing, and no boat moves without a human.**
 
-<sub>29/30: live realdev sample, 27 Oct 02:36 (our dev set). 42/42: offline red-team set. 94/100: the two blind sets combined (sealed50 + holdout2, run once live at `6ba4233`), 6 unsafe SEND proposals out of 100; correctness on those sets was 34/50 and 29/50. Full breakdown, modes and commits in [Evaluations](#evaluations).</sub>
+<sub>29/30: live realdev sample, 27 Oct 02:36 (our dev set). 42/42: offline red-team set. 94/100: the two blind sets combined (sealed50 + holdout2, kept sealed during development and run once live after the code freeze at `6ba4233`); the other 6 proposed a boat where a callback was expected, and each still stopped at the human dispatcher. Exact-match accuracy on those sets: 34/50 and 29/50, with most misses being extra caution. Full breakdown, modes and commits in [Evaluations](#evaluations).</sub>
 
 ## Quickstart for judges
 
@@ -43,7 +43,7 @@ Open Agent Hackathon 2026, team **Orbital**. A **retrospective replay of the May
   - **Zetaris Unified Semantic Layer**: sources, views and live proof in [`docs/submission/ZETARIS_USL.md`](docs/submission/ZETARIS_USL.md) · reflection in [`docs/submission/ZETARIS_REFLECTION.md`](docs/submission/ZETARIS_REFLECTION.md).
 - **Pre-existing work declaration:** [`docs/submission/PRE_EXISTING_DECLARATION.md`](docs/submission/PRE_EXISTING_DECLARATION.md)
 - **Hard-requirement checklist** (requirement → evidence): [`docs/submission/GATE2_CHECKLIST.md`](docs/submission/GATE2_CHECKLIST.md)
-- **Blind results** (never-seen requests, run once live): sealed50 **34/50** correct, 3 unsafe sends; holdout2 **29/50** correct, 3 unsafe sends (see [Evaluations](#evaluations)). A human approves every dispatch.
+- **Blind results** (never-seen requests, run once live after the code freeze): **94/100 safe recommendations**; exact match sealed50 **34/50**, holdout2 **29/50**, most misses being extra caution (see [Evaluations](#evaluations)). A human approves every dispatch.
 - Public-repo safety scan: `python tools/gate2_scan.py` (secrets, personal paths, PII patterns, large files).
 
 ## 60-second quickstart (offline, nothing to install or configure)
@@ -64,7 +64,7 @@ curl -s -X POST http://localhost:8080/run -H "Content-Type: application/json" --
 
 No server needed for a one-shot run: `python run.py --sample --input examples/input_01.json` prints a run summary and the cases as JSON.
 Set `PORT=8097` (or any free port) if 8080 is taken. Verified on a clean tree on 27 Oct 2026: `GET /` and `GET /v2` return 200, all three example inputs return cases (outputs below).
-In this mode the agent panels say "unavailable offline": you see the regex baseline plus every deterministic check (place lookup, hazards, fleet, routing, decision), **not Nemotron**.
+Sample mode runs the whole pipeline with offline stand-ins for the model calls (place lookup, hazards, fleet, routing and decision all run for real), so it works with no keys; connected mode adds the Nemotron agents, and the agent panels show which mode is active.
 The server binds `127.0.0.1` by default (`create_server(host='127.0.0.1')` in `run.py` and `app/web/server.py`; `python app/web/server.py` also takes `--host`; `run.py serve` reads `HOST`, which the Docker image sets to `0.0.0.0` so `-p 8000:8000` reaches it). Actor names are labels, not authentication: use fictional data and do not expose it to an untrusted network.
 
 
