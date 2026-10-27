@@ -219,7 +219,7 @@ def main():
         from app.missions.planner import inventory_units
         inventory = json.loads(args.inventory.read_text(encoding='utf-8-sig')) if args.inventory else []
         inventory_units(inventory, '9999-12-31')
-        server = mission_server(port=int(setting('PORT', '8080')), sample=offline, inventory=inventory)
+        server = mission_server(host=setting('HOST', '127.0.0.1'), port=int(setting('PORT', '8080')), sample=offline, inventory=inventory)
         print(f'Mesa de triagem: http://localhost:{server.server_port}; SAMPLE_MODE={offline}', flush=True)
         try:
             server.serve_forever()

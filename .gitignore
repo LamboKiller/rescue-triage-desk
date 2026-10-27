@@ -16,3 +16,16 @@ data-backup/
 !.env.example
 .claude/
 .codex/
+
+# Submission build artefacts and local working material (not part of the product)
+docs/submission/deck/
+docs/submission/deck2/
+docs/submission/VIDEO_PLAN*.md
+eval/gate_last.json
+# Video production: local capture scratch, third-party media and fonts (re-downloadable; see tools/video/assets/CREDITS.md)
+tools/video/capture4/
+tools/video/assets/*
+!tools/video/assets/CREDITS.md
+!tools/video/assets/hero-brief-snapshot.jsonl
+tools/video/fonts/
+tools/video/*.js.txt

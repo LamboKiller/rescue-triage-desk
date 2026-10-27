@@ -23,3 +23,10 @@ REVIEW*.md
 **/*_REPORT.md
 **/*_last.txt
 *.log
+review
+reports
+# submission media and video-production tooling are not needed to run the desk
+docs/submission/deck
+docs/submission/deck2
+docs/submission/deck_final
+tools/video
