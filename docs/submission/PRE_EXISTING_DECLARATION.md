@@ -1,4 +1,4 @@
-# Pre-existing work declaration — OWNER DRAFT, NOT ATTESTED
+# Arca — pre-existing work declaration — OWNER DRAFT, NOT ATTESTED
 
 Yussef must complete and sign this before submission. Cutoff: **21 October 2026, 21:00**. Applicable organizer timezone: **TO CONFIRM**.
 Evidence available in the repo: git history starts **2026-10-24 01:44 -0300** (`git log --reverse`); every component below that is marked

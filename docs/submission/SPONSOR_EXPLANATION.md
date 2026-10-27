@@ -1,4 +1,4 @@
-# Sponsor technology explanation
+# Sponsor technology explanation — Arca (repo: rescue-triage-desk)
 
 **In one paragraph each:**
 

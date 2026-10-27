@@ -1,4 +1,6 @@
-# Rescue Triage Desk
+# Arca — AI agents for flood rescue
+
+(repo: rescue-triage-desk)
 
 **A team of AI agents that takes every channel into one picture, so dispatchers can send the right boat to the right door, fast, and a human approves every dispatch.**
 
