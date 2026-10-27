@@ -44,7 +44,7 @@ window.DeskRedTeam=(()=>{
    panel.append(d);}
   const list=el('div',undefined,'rt-cases');
   const props=(data.proposals||[]).filter(p=>p.status==='pending');
-  list.append(el('h3',`Falhas propostas (${props.length} pendentes · ${data.regression.length} casos de regressão, ${data.regression.filter(r=>r.known_open).length} abertos)`));
+  list.append(el('h3',`Novas p/ revisar: ${props.length} · ${data.regression.length} casos de regressão (${data.regression.filter(r=>r.known_open).length} abertos)`));
   if(!props.length)list.append(el('p','Nenhuma falha pendente.','muted'));
   for(const p of props)list.append(proposalCard(p));
   panel.append(list);

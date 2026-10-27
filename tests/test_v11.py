@@ -105,7 +105,9 @@ class RetryTests(unittest.TestCase):
     def test_invalid_then_valid_and_cap(self):
         def response(content):
             return Response(json.dumps({"choices":[{"message":{"content":content}}]}).encode())
-        for contents, expected_calls, fails in [(["", "{}"],2,False),(["oops","oops"],2,True),(["[]"],1,False)]:
+        # LIVEFIX6 deliberately rejects intake arrays instead of silently extracting nothing.
+        for contents, expected_calls, fails in [(["", "{}"],2,False),(["oops","oops"],2,True),
+                                                (["[]", "{}"],2,False),(["[]", "[]"],2,True)]:
             scratch = Scratch()
             self.addCleanup(scratch.cleanup)
             with patch.dict("os.environ",{"NIGHTSHIFT_API_KEY":"TEST-ONLY"}), patch("time.sleep"), patch("urllib.request.urlopen",side_effect=[response(c) for c in contents]) as urlopen:

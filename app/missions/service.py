@@ -46,12 +46,12 @@ class MissionService:
         with self.lock:
             from app.fleet.snapshot import read as allocation_snapshot
             c,units=allocation_snapshot(self,case_id,day)
-            prepared=eligible_cases([c],day,self.extractor,time.monotonic()+90)
+            prepared=eligible_cases([c],day,NeedsExtractor(),time.monotonic()+90)
             if prepared: c=prepared[0]
             result=allocate(c,units,day,distance_fn=self.routing_distance(day) if hasattr(self,'routing_distance') else None)
             key=fingerprint(result)
             if key not in self.allocation_briefs:
-                self.allocation_briefs[key]=explain_allocation(result,self.client,time.monotonic()+90)
+                self.allocation_briefs[key]=explain_allocation(result,None,time.monotonic()+90)
                 if len(self.allocation_briefs)>128:
                     self.allocation_briefs={key:self.allocation_briefs[key]}
             result.update(copy.deepcopy(self.allocation_briefs[key]))
@@ -85,11 +85,11 @@ class MissionService:
             from app.resources import inventory
             available=[u for u in inventory(self.registry,self.inventory) if u['id'] not in reserved]
             deadline=time.monotonic()+240
-            plans=propose(replay_cases(cases,day),day,available,self.radius_m,self.extractor,deadline)
+            plans=propose(replay_cases(cases,day),day,available,self.radius_m,NeedsExtractor(),deadline)
             for p in plans:
                 p['replay_screened']=True;p['proposal_id']=fingerprint(p)
                 pid=p['proposal_id']
-                if pid not in self.briefs: self.briefs[pid]=explain(p,self.client,deadline)
+                if pid not in self.briefs: self.briefs[pid]=explain(p,None,deadline)
                 p.update(self.briefs[pid]);self.cache[pid]=copy.deepcopy(p)
             if len(self.cache)>2048:
                 keep={p['proposal_id'] for p in plans};self.cache={k:v for k,v in self.cache.items() if k in keep}
@@ -123,10 +123,13 @@ class MissionService:
         cid=case_id or plan['stops'][0]['case_id']
         if cid not in expected: raise Conflict('Caso não pertence à proposta.')
         if case_id and request.get('expected_version')!=expected[cid]: raise Conflict('Versão do caso alterada.')
-        self.registry.action(cid,'approve_mission',expected[cid],request.get('actor'),human=True,
+        from app.fleet import allocation as _alloc
+        _token=_alloc.APPROVAL_DISTANCE.set(self.routing_distance(plan['date']) if hasattr(self,'routing_distance') and 'allocation_selection' in plan else None)
+        try: self.registry.action(cid,'approve_mission',expected[cid],request.get('actor'),human=True,
             mission=plan,mission_inventory=__import__('app.resources',fromlist=['inventory']).inventory(self.registry,
                 __import__('app.fleet.assets',fromlist=['replay_inventory']).replay_inventory(self.allocation_inventory,plan['date'])
                 if 'allocation_selection' in plan else self.inventory),caution_acknowledged=request.get('caution_acknowledged',False),event_at=request.get('received_at'))
+        finally: _alloc.APPROVAL_DISTANCE.reset(_token)
         return self.detail(plan['proposal_id'])
 
     def cancel(self,mid,request,case_id=None):

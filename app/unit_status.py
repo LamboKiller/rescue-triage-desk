@@ -52,16 +52,34 @@ class UnitStatusService:
         report = self.extractor.extract(text) if text.strip() else {'outcomes':[], 'feedback_check':'operator_button'}
         mid = request.get('mission_id')
         with self.registry.locked():
+            events = self._journal()
             if mid:
-                missions = [e for e in self._journal() if e.get('kind')=='approve_mission' and e.get('mission_id')==mid]
+                missions = [e for e in events if e.get('kind')=='approve_mission' and e.get('mission_id')==mid]
                 if not missions or uid not in {u['id'] for u in missions[-1]['projections'][0]['mission']['units']}:
                     raise ValueError('Unidade não pertence à missão.')
                 if timestamp(when)<timestamp(missions[-1].get('at', clock())): raise ValueError('Relato anterior à designação.')
+            active = self._assignment(uid, when, events)
+            conflict = bool(mid and mid != active)
             event = dict(schema_version=1, kind='unit_status', unit_id=uid, at=when, actor=redact(actor.strip()),
-                         source=source, text=text, report=report, button=button, mission_id=mid)
+                         source=source, text=text, report=report, button=button, mission_id=mid or active,
+                         applied=not conflict)
+            if conflict: event['conflict'] = dict(reason='mission_assignment_conflict', active_mission_id=active, reported_mission_id=mid)
             event['event_id'] = 'us-'+hashlib.sha256(json.dumps(event,sort_keys=True).encode()).hexdigest()[:16]
             if not any(e.get('event_id')==event['event_id'] for e in self._journal()): self.registry._append(event)
         return event
+
+    @staticmethod
+    def _assignment(uid, when, events):
+        """Resolve approvals/cancellations by event time, never by delivery order."""
+        active = None
+        for _, e in sorted(enumerate(events), key=lambda pair: (timestamp(pair[1].get('at') or '0001-01-01T00:00:00Z'), pair[0])):
+            if not e.get('at') or timestamp(e['at']) > timestamp(when): continue
+            if e.get('kind') == 'approve_mission':
+                plan = e['projections'][0]['mission']
+                if uid in {u['id'] for u in plan['units']}: active = e['mission_id']
+            elif e.get('kind') == 'cancel_mission' and e.get('mission_id') == active:
+                active = None
+        return active
 
     @staticmethod
     def estimate(plan, unit, at):
@@ -96,11 +114,15 @@ class UnitStatusService:
                 for u in plan['units']:
                     timeline.append((e['at'], n, u['id'], 'assigned', 'operator', e.get('mission_id'),
                         'Aprovação humana da missão', e.get('mission_id'), self.estimate(plan,u,e['at']), [s['case_id'] for s in plan['stops']]))
-            elif kind=='unit_status':
+            elif kind=='cancel_mission' and e.get('at'):
+                for uid in units:
+                    timeline.append((e['at'], n, uid, 'cancelled', 'operator', e.get('mission_id'),
+                                     'Cancelamento humano da missão', e.get('mission_id'), None, None))
+            elif kind=='unit_status' and e.get('applied', True):
                 # Clause order is meaningful within a report; failure always holds the unit.
                 moves = [MOVES[r['kind']] for r in sorted(e['report']['outcomes'], key=lambda r:e['text'].find(r['quote'])) if r['kind'] in MOVES]
                 state = 'out_of_service' if 'out_of_service' in moves else e.get('button') or (moves[-1] if moves else None)
-                timeline.append((e['at'],n,e['unit_id'],state,e['source'],e['event_id'],e['text'] or LABELS[state],e.get('mission_id'),None,None))
+                timeline.append((e['at'],n,e['unit_id'],state,e['source'],e['event_id'],e['text'] or LABELS.get(state,''),e.get('mission_id'),None,None))
             elif kind=='field_feedback':
                 c = e['projections'][0]; f = c['feedback'][-1]
                 if f.get('source')!='crew' or f.get('injection'): continue
@@ -113,6 +135,13 @@ class UnitStatusService:
         for at,n,uid,state,source,eid,text,mid,expected,cids in sorted(timeline,key=lambda r:(timestamp(r[0]),r[1])):
             if timestamp(at)>limit or uid not in units: continue
             row = units[uid]
+            if state == 'cancelled':
+                if row['mission_id'] == mid:
+                    row.update(mission_id=None, expected=None, case_ids=[])
+                    if row['status'] != 'out_of_service': row.update(status='unknown', status_at=at)
+                continue
+            # Also protects replay of pre-fix journals and late-delivered feedback/landing events.
+            if state != 'assigned' and mid and mid != row['mission_id']: continue
             if state:
                 # A repair/availability button is required to clear a breakdown.
                 if row['status']=='out_of_service' and state!='available':
@@ -122,7 +151,6 @@ class UnitStatusService:
                     row.update(status=state,status_at=at,source=source,source_event=eid)
             row['last_report']={'at':at,'source':source,'text':text,'event_id':eid}
             if state=='assigned': row.update(mission_id=mid,expected=expected,case_ids=cids)
-            elif mid: row['mission_id']=mid
         for row in units.values():
             row['label_pt']=LABELS[row['status']]
             if row['status']=='out_of_service': row['reroute_hint_pt']='Replanejar missão com outro meio; aprovação humana necessária.'

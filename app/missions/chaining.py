@@ -18,13 +18,47 @@ def count(case):
     return n if type(n) is int and n>0 else None
 
 
+WATERBORNE=('barco_aluminio','bote_inflavel','jet_ski','anfibio')
+UNPROVEN_WATER_PT='estimativa não comprovada (linha reta na água)'
+
+
+def straight_line_estimate(water):
+    return (water.get('basis')=='straight_line_water' and water.get('fallback') is True
+            and water.get('grid_verified') is False)
+
+
 def travel(adapter,a,b,unit):
     if not a or not b: return None
     raw=adapter.for_unit(a,b,unit) if hasattr(adapter,'for_unit') else adapter(a,b)
+    if isinstance(raw,dict) and raw.get('reachable') is False and unit.get('type') in WATERBORNE and getattr(adapter,'day',None):
+        # Planning only: price the water leg explicitly; this never supplies tracking geometry.
+        try:
+            from app.geo.routing import water_leg
+            w=water_leg(a,b,adapter.day,vehicle=unit)
+            if w.get('basis')=='water_search_incomplete':
+                # The search still has no route/distance. Keep its result as provenance;
+                # only this planning calculation gets a separate straight-line estimate.
+                from app.geo.water_routing import fallback
+                w=fallback(a,b,dict(w,source_water_basis=w['basis'],source_reason_codes=list(w.get('reason_codes',[]))),
+                    'PLANNING_ESTIMATE','Busca aquática inconclusiva; estimativa somente para planejamento, sem geometria comprovada.')
+            if (all(type(w.get(k)) in (int,float) and math.isfinite(w[k]) and w[k]>=0 for k in ('km','eta_min'))
+                    and (w.get('grid_verified') is True and w.get('fallback') is False or straight_line_estimate(w))):
+                raw={'reachable':True,'distance_m':round(w['km']*1000,2),'eta_seconds':round(w['eta_min']*60,2),'basis_pt':'trecho na água — estimativa (parada a parada)',
+                        'review_pt':list(w.get('review_pt',[]))+['REVISAR: trecho aquático estimado entre paradas.'],'route':{'water':w}}
+        except (ValueError,KeyError,OSError): return None
     if not isinstance(raw,dict) or raw.get('reachable') is False: return None
+    route=raw.get('route') or raw
+    water=route.get('water') if isinstance(route,dict) else None
+    unproven=bool(water and (water.get('grid_verified') is not True or water.get('fallback') is not False))
+    estimate=bool(unproven and unit.get('type') in WATERBORNE and straight_line_estimate(water))
+    if (raw.get('tracking_eligible') is False or unproven) and not estimate: return None
     if any(type(raw.get(k)) not in (int,float) or not math.isfinite(raw[k]) or raw[k]<0
            for k in ('distance_m','eta_seconds')): return None
-    return copy.deepcopy(raw)
+    raw=copy.deepcopy(raw)
+    if estimate:
+        raw.update(planning_estimate_only=True,tracking_eligible=False,basis_pt=UNPROVEN_WATER_PT)
+        raw['review_pt']=list(raw.get('review_pt',[]))+[UNPROVEN_WATER_PT+'; confirmar acesso antes do desvio.']
+    return raw
 
 
 def eligible(case,unit,day,adapter):
@@ -94,13 +128,16 @@ def propose(plan,cases,unit,adapter,radius_km=1.0,limit=2):
             'arrival_minutes':round(timing[1][c['case_id']]/60,3),
             'mission_delay_minutes':round(max(0,timing[0]-baseline[0])/60,3),
             'delays':{s['case_id']:round(max(0,timing[1][s['case_id']]-baseline[1][s['case_id']])/60,3) for s in pending},
-            'stops':copy.deepcopy(route),'travel_facts':timing[2],'facts':facts,
+            'stops':copy.deepcopy(route),'travel_facts':timing[2],'baseline_travel_facts':baseline[2],'facts':facts,
             'confirmation_checklist':row['confirmation_checklist'],
             'requires_on_scene_confirmation':True,
             'on_scene_note_pt':'Confirmar explicitamente antes de afastar equipe em cena ou com pessoas a bordo.',
             'expected_versions':{**plan['expected_versions'],**{s['case_id']:s['expected_version'] for s in route if s['case_id'] not in plan['expected_versions']}},
             'unit_snapshot':unit,'mission_id':plan['mission_id'],'date':plan['date'],
             'radius_km':radius_km,'human_approval_required':True,'auto_applied':False}
+        if any(t.get('planning_estimate_only') for t in timing[2]+baseline[2]+previous[2]):
+            proposal.update(planning_estimate_only=True,eta_basis='straight_line_water',eta_basis_pt=UNPROVEN_WATER_PT,
+                text_pt=f"Parada extra: {c['case_id']} · +{proposal['added_minutes']} min — {UNPROVEN_WATER_PT}")
         proposal['id']=fingerprint(proposal);answer['proposals'].append(proposal)
         candidates=[x for x in candidates if x['case_id']!=c['case_id']];previous=timing
     return answer

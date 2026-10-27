@@ -4,17 +4,41 @@ Bairros come from OSM place:suburb/place:neighbourhood names and address
 neighbourhood columns. Only names belonging to exactly one city imply a city.
 """
 import csv
+import copy
+import threading
 from functools import lru_cache
 from pathlib import Path
 import re
 from app.derive_count import _plain, canonical_municipality, MUNICIPALITY_ALIASES, CORRECTION
 from app.geo.streets import normalize as street_normalize
+from app.textnorm import place_word
 
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
 PREFIX = dict.fromkeys(('av', 'avenida', 'r', 'rua', 'tv', 'travessa', 'est', 'estrada'), 'via')
 STOP = {'de', 'da', 'do', 'das', 'dos'}
 CALLER = re.compile(r'\b(?:(?:estou|to|tou)\s+)?(?:ligando|telefonando|falando|escrevendo|ligo|moro|sou)\s+(?:aqui\s+)?(?:perto\s+(?:de|do|da)|ao\s+lado\s+(?:de|do|da)|de|do|da|em|no|na)\s+[^.;!\n]+', re.I)
 INCIDENT = re.compile(r'\b(?:mas|porem|enquanto|o pedido|o resgate|ela mora|ele mora|eles estao|elas estao|minha irma|meu irmao)\b')
+
+_INDEX_LOCK = threading.Lock()
+_INDICES = []
+
+
+def prepared_index(streets, landmarks):
+    """Bounded content cache, including in-place edits from non-local sources.
+
+    Snapshots own their rows so an edited caller cannot corrupt an active index.
+    Equal fresh CSV rows reuse the prepared index without tokenizing the catalogue.
+    """
+    with _INDEX_LOCK:
+        for old_streets, old_landmarks, index in _INDICES:
+            if streets == old_streets and landmarks == old_landmarks:
+                return index
+        snapshot = copy.deepcopy((streets, landmarks))
+        index = IncidentIndex(*snapshot)
+        _INDICES.append((*snapshot, index))
+        if len(_INDICES) > 4:
+            del _INDICES[0]
+        return index
 
 
 @lru_cache(maxsize=1)
@@ -45,6 +69,9 @@ def municipality_mentions(scoped, name_spans=()):
         cue = re.search(r'\b(?:em|no|na|cidade|municipio|municipality|city)(?:\s+(?:de|do|da))?\s*$|,\s*$', before)
         named_bairro = any(a == match.start() and b == match.end() for a, b, _ in name_spans)
         city_claim = re.search(r'\b(?:em|cidade|municipio|municipality|city)(?:\s+(?:de|do|da))?\s*$', before)
+        # "No portão azul" describes an entrance, not the city of Portão.
+        if match[0] == 'portao' and not city_claim and not re.match(r'\s*[,/\-]?\s*rs\b', masked[match.end():]):
+            continue
         if named_bairro and not city_claim:
             continue
         heading = not before.strip() and re.match(r'\s*[,;:]', masked[match.end():])
@@ -63,13 +90,22 @@ def incident_text(text):
                    lambda m: m[0] if re.search(r'\b(?:ilhad|pres|agua|resgate|socorro)', m[0]) else ' '*len(m[0]), plain)
     # A remote reporter can state their own city after the incident clause too.
     # Mask only the city assertion, retaining offsets and the victim's address.
-    remote = re.search(r'\b(?:a rua (?:da|do)|(?:minha|meu)\s+(?:ti[oa]|prim[oa]|irmao?|mae|pai|familia))\b', plain)
+    remote = re.search(r'\b(?:a rua (?:da|do)|(?:minhas?|meus?)\s+(?:ti[oa]s?|prim[oa]s?|cunhad[oa]s?|irmaos?|irmas?|mae|pai|pais|filh[oa]s?|familia))\b', plain)
     if remote:
-        caller_city = re.compile(r'\b(?:eu\s+)?(?:estou|to|tou)\s+(?:aqui\s+)?em\s+(?:'
+        caller_city = re.compile(r'\b(?:eu\s+)?(?:estou|to|tou)\s+(?:aqui\s+)?'
+            r'(?:(?:preocupad[oa]|desesperad[oa]|aflit[oa])\s+(?:aqui\s+)?)?em\s+(?:'
             + '|'.join(map(re.escape, sorted(set(rs_municipalities()) | {'curitiba', 'recife', 'sao paulo', 'rio de janeiro', 'florianopolis'}, key=len, reverse=True))) + r')\b')
         plain = caller_city.sub(lambda m: m[0] if re.match(r'\s+com\b', plain[m.end():]) else ' '*len(m[0]), plain)
+        plain = re.sub(r'\b(?:eu\s+)?(?:estou|to|tou)\s+(?:longe,?\s+)?fora\s+d[ao]\s+(?:cidade|municipio)\b',
+                       lambda m: ' '*len(m[0]), plain)
     def remove(m):
         tail = INCIDENT.search(m[0])
+        # A caller describing their own street is giving the incident address.
+        # Remote provenance ("ligo de...") still gets masked as before.
+        separate_victims = re.search(r'\b(?:mas|porem)\s+(?:(?:as?|os?)\s+)?'
+                                     r'(?:vitimas?|feridos?|pedido|resgate|pessoas)\b', plain[m.end():])
+        if re.match(r'moro\s+(?:na|no|em)\s+(?:rua|avenida|av\.?|travessa|estrada)\b', m[0]) and not tail and not separate_victims:
+            return m[0]
         return ' ' * (tail.start() if tail else len(m[0])) + (m[0][tail.start():] if tail else '')
     plain = CALLER.sub(remove, plain)
     # "Estou em X, mas o pedido é em Y" makes the first location caller-only.
@@ -89,7 +125,7 @@ def incident_text(text):
 
 
 def tokens(text):
-    return [(PREFIX.get(m[0], m[0]), m.start(), m.end())
+    return [(PREFIX.get(place_word(m[0]), place_word(m[0])), m.start(), m.end())
             for m in re.finditer(r'\w+', _plain(text)) if m[0] not in STOP]
 
 
@@ -104,7 +140,7 @@ def incident_cities(index, scoped, streets):
     name_spans = streets + index.hits(scoped, index.bairros)
     return {h[2] for h in municipality_mentions(scoped, name_spans)} | {display for city, display in cities.items()
             for m in re.finditer(r'\b'+re.escape(city)+r'\b', scoped)
-            if not any(a <= m.start() and b >= m.end() for a, b, _ in streets)}
+            if not any(a <= m.start() and b >= m.end() for a, b, _ in name_spans)}
 
 
 class IncidentIndex:
@@ -189,7 +225,7 @@ class IncidentIndex:
         # Names embedded in street names do not assert a municipality.
         explicit = [(name, m) for name, display in self.cities.items()
                     for m in re.finditer(r'\b'+re.escape(name)+r'\b', scoped)
-                    if not any(a <= m.start() and b >= m.end() for a, b, _ in street_hits)]
+                    if not any(a <= m.start() and b >= m.end() for a, b, _ in street_hits + bairro_hits)]
         cities = {self.cities[name] for name, _ in explicit}
         official = municipality_mentions(scoped, street_hits + bairro_hits)
         outside = [h for h in official if _plain(h[2]) not in COVERED]
@@ -204,21 +240,19 @@ class IncidentIndex:
             # An extracted city inferred from a street is not independent
             # evidence for choosing between same-named streets.
             city = ''
-        if not city:
-            implied = set().union(*(cs for _, _, cs in bairro_hits)) if bairro_hits else set()
-            if len(implied) == 1:
-                city = next(iter(implied))
-            elif implied and street_hits:
-                compatible = implied & {r['municipality'] for _, _, rs in street_hits for r in rs}
-                if len(compatible) == 1:
-                    city = next(iter(compatible))
         landmark_hits = self.hits(scoped, self.landmarks) if not city else []
-        if not city and landmark_hits:
-            implied = set().union(*(cs for _, _, cs in landmark_hits))
-            if len(implied) == 1:
-                city = next(iter(implied))
+        compatible = {r['municipality'] for _, _, rs in street_hits for r in rs}
+        hints = bairro_hits + landmark_hits
+        if not city and hints:
+            if not compatible:
+                compatible = set(self.cities.values())
+            for _, _, cs in hints:
+                compatible &= cs
+            if len(compatible) == 1:
+                city = next(iter(compatible))
         candidates = [(a, b, r) for a, b, rs in street_hits for r in rs
-                      if not city or _plain(r['municipality']) == _plain(city)]
+                      if (_plain(r['municipality']) == _plain(city) if city else
+                          not hints or r['municipality'] in compatible)]
         identities = {(key(r['display_name']), r['municipality']) for _, _, r in candidates}
         if not city and len({r['municipality'] for _, _, r in candidates}) > 1:
             fields['ambiguous_place'] = dict(value=True, quote=text, source='rule:multi_city_street')

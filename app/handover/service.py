@@ -3,7 +3,7 @@ import hashlib
 import json
 import threading
 from app.decide import timestamp
-from app.redact import redact
+from app.redact import redact_json
 from app.handover import agent, skeleton as S
 
 
@@ -27,7 +27,7 @@ class HandoverService:
             'status': 'not_requested', 'sentences': [], 'label_pt': 'Resumo do modelo não solicitado; esqueleto determinístico.'}
         event = {'kind': 'handover', 'handover_id': 'ho-' + hashlib.sha1((now + json.dumps(sk['counts'], sort_keys=True)).encode()).hexdigest()[:10],
                  'actor': actor, 'replay_time': now, 'skeleton': sk, 'summary': summary}
-        line = redact(json.dumps(event, ensure_ascii=False, separators=(',', ':')))
+        line = redact_json(json.dumps(event, ensure_ascii=False, separators=(',', ':')))
         with self.lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open('a', encoding='utf-8', newline='\n') as out:

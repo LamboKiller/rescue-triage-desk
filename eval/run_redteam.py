@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.config import ROOT, load_env
 from app.redteam import harness
 from app.redteam.attacker import Attacker
+from eval.failures import failure_counts
 
 
 def main(argv=None):
@@ -33,14 +34,21 @@ def main(argv=None):
         pipeline_client = Nightshift(ROOT/'runtime/redteam/pipeline_trace.jsonl')
     # Production Pipeline defaults: 60s per started message, at most two workers.
     # Attacker finishes declaring before the runner; judge_all judges only finished cases.
-    runner = harness.make_runner(offline=not args.live, client=pipeline_client)
+    run_pipeline = harness.make_runner(offline=not args.live, client=pipeline_client)
+    analyzed = []
+    def runner(messages):
+        cases = run_pipeline(messages)
+        analyzed.extend(cases)
+        return cases
     if args.replay:
         rows = harness.replay_regression(store, runner)
-        print(json.dumps({'mode': 'live' if args.live else 'offline', 'replay': rows}, ensure_ascii=False, indent=2))
+        print(json.dumps({'mode': 'live' if args.live else 'offline', 'replay': rows,
+                          'failure_categories': failure_counts(analyzed)}, ensure_ascii=False, indent=2))
         return int(any(r['regressed'] for r in rows))
     out = harness.run_batch(args.n, store, Attacker(client), runner, seed=args.seed)
     s = out['summary']
     print(f"mode={'live' if args.live else 'offline'} n={s['total']} pass={s['passed']} rate={s['rate']} unsafe_send={s['unsafe_send']}")
+    print('failure_categories='+json.dumps(failure_counts(analyzed), sort_keys=True))
     for cat, v in s['categories'].items():
         print(f"  {cat:24s} {v['passed']}/{v['runs']}")
     for r in out['results']:

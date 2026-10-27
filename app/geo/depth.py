@@ -91,7 +91,7 @@ def lookup(lon, lat, day):
             'depth_source':ATTRIBUTION, 'depth_retrospective':True}
 
 
-def utm22s_to_lonlat(x,y):
+def utm22s_to_lonlat(x,y,precision=6):
     # WGS84 inverse transverse Mercator, standard series.
     a=6378137.; e2=0.0066943799901413165; ep2=e2/(1-e2); k=.9996
     m=(y-10000000)/k; mu=m/(a*(1-e2/4-3*e2**2/64-5*e2**3/256))
@@ -101,7 +101,7 @@ def utm22s_to_lonlat(x,y):
     n=a/math.sqrt(1-e2*math.sin(phi)**2); r=a*(1-e2)/(1-e2*math.sin(phi)**2)**1.5; d=(x-500000)/(n*k)
     lat=phi-n*math.tan(phi)/r*(d*d/2-(5+3*t+10*c-4*c*c-9*ep2)*d**4/24+(61+90*t+298*c+45*t*t-252*ep2-3*c*c)*d**6/720)
     lon=math.radians(-51)+(d-(1+2*t+c)*d**3/6+(5-2*c+28*t-3*c*c+8*ep2+24*t*t)*d**5/120)/math.cos(phi)
-    return round(math.degrees(lon),6),round(math.degrees(lat),6)
+    return round(math.degrees(lon),precision),round(math.degrees(lat),precision)
 
 
 @lru_cache(maxsize=2)

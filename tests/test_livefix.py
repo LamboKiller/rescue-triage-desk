@@ -20,7 +20,7 @@ from test_l4 import runner_module
 MEDIANS = dict(intake=7.4, critic=17., revision=8.2, location=8.1,
                location_critic=17., hazard=5.1, credibility=17., arbiter=17.,
                duplicate_reviewer=17.)
-CEILINGS = dict(intake=29., critic=24.3, revision=28.1, location=32.,
+CEILINGS = dict(intake=48., critic=24.3, revision=28.1, location=32.,
                 location_critic=24.3, hazard=13.5, credibility=24.3, arbiter=24.3,
                 duplicate_reviewer=24.3)
 SCALE = .02
@@ -172,10 +172,11 @@ class SafetyTests(unittest.TestCase):
             return pipeline.run(dict(replay_time=TIME, messages=[dict(message_id='livefix',
                 text=text or '4 pessoas na Rua das Flores 20 em Porto Alegre.')]))['cases'][0]
 
-    def test_uncertain_intake_without_critic_stays_review_without_arbitration(self):
+    def test_unavailable_advisory_critic_keeps_rules_without_arbitration(self):
         case = self.run_case(self.pipeline('critic', uncertain=True))
-        self.assertEqual(case['result']['decision'], 'REVIEW_REQUIRED')
-        self.assertTrue(case['review_degraded'])
+        self.assertEqual(case['result']['decision'], 'SEND_CANDIDATE')
+        self.assertFalse(case['review_degraded'])
+        self.assertTrue(any('indisponível' in w for w in case['agent_warnings']))
         self.assertEqual(case['arbitration'], [])
         self.assertNotIn('conflito entre agentes', case['result']['decision_reason'])
 

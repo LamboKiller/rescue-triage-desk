@@ -12,7 +12,7 @@ from app.agents.location_tools import LocationTools
 from app.decide import decide
 from app.engines.world_model.registry import Registry
 from app.pipeline import Pipeline, validate_request
-from app.redact import redact
+from app.redact import redact, redact_data
 from support import Scratch
 from test_l1 import REPLAY, place, street
 
@@ -22,26 +22,28 @@ class Privacy(unittest.TestCase):
         ids = ['contact-'+str(12000000000+i) for i in range(2)]
         _, messages = validate_request(dict(replay_time=REPLAY, messages=[
             dict(message_id=mid, text='Preciso de ajuda.') for mid in ids]))
-        self.assertEqual([m['message_id'] for m in messages], ids)
+        self.assertEqual(len({m['message_id'] for m in messages}), 2)
+        self.assertTrue(all(m['message_id'].startswith('external-') for m in messages))
 
     def test_serialized_structured_values_survive_but_message_pii_does_not(self):
         digits = str(12000000001)
         value = dict(message_id=digits, candidate_id='osm:node:'+digits, osm_id=digits,
                      lat=-30.12345678901, lon=-51.12345678901, result_ids=[digits],
                      text='CPF '+digits, why_quote='Meu CPF '+digits)
-        clean = json.loads(redact(json.dumps(value)))
-        for key in ('message_id', 'candidate_id', 'osm_id', 'lat', 'lon', 'result_ids'):
+        clean = redact_data(value)
+        self.assertTrue(clean['message_id'].startswith('external-'))
+        for key in ('candidate_id', 'osm_id', 'lat', 'lon', 'result_ids'):
             self.assertEqual(clean[key], value[key])
         self.assertIn('[CPF REDIGIDO]', clean['text'])
         self.assertIn('[CPF REDIGIDO]', clean['why_quote'])
 
-    def test_id_tokens_in_free_text_are_not_personal_identifiers(self):
+    def test_id_tokens_in_raw_text_cannot_exempt_personal_identifiers(self):
         digits = str(12000000001)
         for text in ('osm:node:'+digits, 'way:'+digits, 'relation:'+digits,
                      'message_id='+digits, 'candidate_id: '+digits):
             with self.subTest(text=text):
-                self.assertEqual(redact(text), text)
-        self.assertEqual(redact('Registro '+str(1200000000)), 'Registro '+str(1200000000))
+                self.assertNotIn(digits, redact(text))
+        self.assertNotIn(str(1200000000), redact('Registro '+str(1200000000)))
         self.assertIn('[TELEFONE REDIGIDO]', redact('Telefone '+str(5100000000)))
         self.assertIn('[CPF REDIGIDO]', redact('CPF '+digits))
 
@@ -123,7 +125,7 @@ class DegradedReview(unittest.TestCase):
         class Reader:
             def call(self, role, system, payload, deadline):
                 if role == 'intake':
-                    return {'municipality': 'Canoas', 'landmark': 'Mercado Estelar'}, {'role': role}
+                    return {'municipality': 'Canoas', 'landmark': 'Mercado Estelar', 'confidence': 'low'}, {'role': role}
                 if role == 'critic':
                     raise TimeoutError('synthetic provider outage')
                 raise AssertionError('Non-rescue does not need '+role)
@@ -139,7 +141,7 @@ class DegradedReview(unittest.TestCase):
         self.assertTrue(case['complete'])
         self.assertEqual(case['errors'], [])
         self.assertEqual(case['result']['questions'], [])
-        self.assertIn('critic indisponível', case['result']['decision_reason'])
+        self.assertIn('crítico indisponível', ' '.join(case['result']['warnings']))
         self.assertEqual(case['agents']['critic'], 'failed')
         self.assertEqual(case['agents']['location']['location_path'], 'not_required')
 

@@ -13,6 +13,7 @@ window.DeskEvals=(()=>{
   root.replaceChildren(mk('h1','Evals · rodadas registradas'),mk('p','Valores lidos de eval/gate_last.json e eval/results*.json. Nada é recalculado aqui; ausente aparece como —.','muted'));
   let d;try{const r=await fetch('/api/evals');if(!r.ok)throw new Error('Evals indisponível');d=await r.json();}catch(e){root.append(mk('p',e.message,'danger'));return;}
   root.append(mk('p',`Commit atual ${d.head?d.head.slice(0,7):'desconhecido'} · portão ${d.gate_pass===null?'sem relatório':d.gate_pass?'verde':'vermelho'} · obsoleto = mais de ${d.stale_hours} h ou outro commit.`,'muted'));
+  if(d.rows.some(r=>r.stale))root.append(mk('p','Evals desatualizados para este commit','eval-warn'));
   if(!d.rows.length){root.append(mk('p','Nenhuma rodada registrada. Rode: python tools/gate.py --fast','muted'));return;}
   const t=mk('table',undefined,'evals-table'),h=mk('tr');for(const x of ['Avaliação','Métrica','Valor','Modo','Data','Commit','Estado','Reproduzir'])h.append(mk('th',x));const th=mk('thead');th.append(h);t.append(th);
   const b=mk('tbody');t.append(b);

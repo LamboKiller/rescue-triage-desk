@@ -56,7 +56,11 @@ def plan(case, now, points, shelter_states, events, access_fn=None, distance_fn=
             # is expected to read wet. Keep it as an access-UNKNOWN candidate (never 'dry'): the crew confirms the ramp/parking on arrival.
             acc = {'state': 'unknown', 'source': 'roads_launch_points', 'layer': acc, 'reason_pt': 'ponto de lançamento na borda da água (lado seco derivado de HAND/OSM); estacionamento e acesso não verificados — confirmar no local'}
         if acc['state'] == 'flooded': continue
-        d = distance_fn(p, q);qs = lq.state(events, q['landing_id'], q['capacity_per_hour'], now)
+        d = distance_fn(p, q)
+        if d.get('m') is None:
+            out['review_pt'].extend(d.get('review_pt') or ['REVISAR: busca aquática inconclusiva para '+q['label']+'.'])
+            continue
+        qs = lq.state(events, q['landing_id'], q['capacity_per_hour'], now)
         rows.append(((qs['congested'], 0 if acc['state'] == 'dry' else 1, d['m'], q['landing_id']), q, acc, d, qs))
     if not rows:
         out['review_pt'].append('REVISAR: nenhum ponto de desembarque seco ou de acesso desconhecido num raio de %s km; decisão humana/coordenação.' % MAX_KM)
@@ -64,7 +68,8 @@ def plan(case, now, points, shelter_states, events, access_fn=None, distance_fn=
     rows.sort(key=lambda t: t[0])
     first_ok = next((r for r in rows if not r[4]['congested']), None)
     for i, (_, q, acc, d, qs) in enumerate(rows[:k]):
-        warn = []
+        warn = list(d.get('review_pt', []))
+        out['labels_pt']['distance'] = d.get('label_pt', STRAIGHT)
         if qs['congested']:
             warn.append('CONGESTIONADO: ' + qs['reason_pt'] + (' Alternativa: %s.' % first_ok[1]['label'] if first_ok else ' Sem alternativa livre na lista.'))
         if acc['state'] != 'dry': warn.append('Acesso %s: %s' % ('desconhecido (não significa seco)' if acc['state'] == 'unknown' else acc['state'], acc.get('reason_pt') or ''))

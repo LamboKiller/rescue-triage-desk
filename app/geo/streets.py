@@ -1,10 +1,16 @@
 """Conservative Portuguese street lookup; no household geocoding."""
 import re
 import unicodedata
+from functools import lru_cache
 from datetime import datetime
 
 
 def normalize(text):
+    return _normalize(str(text))
+
+
+@lru_cache(maxsize=32768)
+def _normalize(text):
     text = ''.join(c for c in unicodedata.normalize('NFD', str(text).lower())
                    if unicodedata.category(c) != 'Mn')
     text = re.sub(r'[^\w\s]', ' ', text)
@@ -16,8 +22,9 @@ def normalize(text):
 
 def lookup(rows, street, municipality, replay_time):
     date = datetime.fromisoformat(replay_time.replace('Z', '+00:00')).date().isoformat()
-    matches = [r for r in rows if normalize(r['municipality']) == normalize(municipality)
-               and normalize(r['display_name']) == normalize(street)] if street and municipality else []
+    city, name = normalize(municipality), normalize(street)
+    matches = [r for r in rows if normalize(r['municipality']) == city
+               and normalize(r['display_name']) == name] if street and municipality else []
     dates = [d for d in ('2024-05-06', '2024-05-08') if d <= date]
     observed = dates[-1] if dates else None
     row = matches[0] if len(matches) == 1 else None

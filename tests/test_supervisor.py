@@ -285,7 +285,8 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(data['counts']['resolved'], 1)
 
     def test_bad_requests_and_cross_origin(self):
-        self.assertEqual(self.call('GET', '/api/supervisor/ticks')[0], 400)
+        # UXP 26/10: no date -> 200 with the latest case date (friendlier API); bad dates still 400.
+        self.assertEqual(self.call('GET', '/api/supervisor/ticks')[0], 200)
         self.assertEqual(self.call('GET', '/api/supervisor/ticks?date=hoje')[0], 400)
         self.assertEqual(self.call('POST', '/api/supervisor/tick', {'replay_time': 'agora'})[0], 400)
         self.assertEqual(self.call('POST', '/api/supervisor/tick', {'replay_time': '2024-05-08T12:00:00'})[0], 400)

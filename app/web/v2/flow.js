@@ -98,15 +98,16 @@ window.DeskFlow=(()=>{
   clearInterval(timer);
   timer=setInterval(async()=>{if(!wrap.isConnected){clearInterval(timer);return;}try{if(await fetchCase(id,false))draw();}catch{}},pollMs());
  }
- function renderSystem(root){
-  root.replaceChildren(ctx.el('h1','Fluxo · agentes e laços em execução'),ctx.el('p','Contagens vêm das chamadas e eventos já registrados. "Últimos 15 min" usa o relógio do replay (o diário não grava hora de parede).','muted'));
+ function renderSystem(root,compact){
+  root.replaceChildren(...(compact?[]:[ctx.el('h1','Fluxo · agentes e laços em execução'),ctx.el('p','Contagens vêm das chamadas e eventos já registrados. "Últimos 15 min" usa o relógio do replay (o diário não grava hora de parede).','muted')]));
   const body=ctx.el('div');root.append(body);let sig='';
   const draw=()=>{body.replaceChildren();
    const t=ctx.el('table',undefined,'flow-stats'),h=ctx.el('tr');['Agente / ferramenta','Chamadas','Falhas','Regra no lugar do modelo','Latência média','Últimos 15 min','Última'].forEach(x=>h.append(ctx.el('th',x)));const th=ctx.el('thead');th.append(h);t.append(th);
    const tb=ctx.el('tbody'),names=Object.fromEntries(sys.nodes.map(n=>[n.id,n.label]));
    for(const [id,s] of Object.entries(sys.stats||{}).sort((a,b)=>rank(a[0])-rank(b[0]))){const tr=ctx.el('tr');if(s.failures)tr.className='bad';
     [names[id]||id,s.calls,s.failures,s.fallbacks,fmtS(s.mean_latency_s),s.recent_calls,hhmm(s.last_ts)||'—'].forEach(v=>tr.append(ctx.el('td',String(v))));tb.append(tr);}
-   t.append(tb);body.append(t,ctx.el('h2',`Laços abertos (${(sys.open_loops||[]).length}) · mais antigo primeiro`));loopList(body,sys.open_loops||[],true);
+   t.append(tb);body.append(t);if(compact){const rt=(sys.open_loops||[]).filter(l=>l.kind==='redteam').length;if(rt){const p=ctx.el('p',`Red team: ${rt} novas p/ revisar `,'muted');p.append(ctx.button('Revisar',()=>document.getElementById('redteam-toggle')?.click()));body.append(p);}return;}
+   body.append(ctx.el('h2',`Laços abertos (${(sys.open_loops||[]).length}) · mais antigo primeiro`));loopList(body,sys.open_loops||[],true);
    body.append(ctx.el('h2','Últimos repasses'));const ul=ctx.el('ul',undefined,'flow-recent');
    for(const e of sys.edges.slice(-25).reverse()){const li=ctx.el('li',undefined,edgeClass(e).replace('flow-edge','flow-item')),cid=(e.case_ids||[])[0];
     li.append(ctx.el('span',`${hhmm(e.ts)} ${e.src} → ${e.dst} · ${e.label}: ${e.payload}`));if(cid&&ctx.openCase)li.append(ctx.button('Abrir caso',()=>ctx.openCase(cid)));ul.append(li);}

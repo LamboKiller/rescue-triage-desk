@@ -5,7 +5,7 @@ const FD=[['asset_type','Tipo'],['capacity','Lugares'],['motor','Motor'],['base_
 const sh=x=>x===true?'sim':x===false?'não':x&&typeof x==='object'?(x.kind==='remo'?'remo':'motor '+(x.hp||'')+' hp'):String(x);
 function card(v,x,reload,who){
 const {el,button,notice,api}=x,c=el('article',undefined,'mission-card'),dl=el('dl');
-c.append(el('h4',`${v.label_pt}${v.id} · ${ST[v.status]}${v.merged_into?' · fundida em '+v.merged_into:''}`),el('p',v.text,'muted'));
+c.append(el('h4',`${v.label_pt}${v.id} · ${ST[v.status]}${v.merged_into?' · fundida em '+v.merged_into:''}`),(()=>{const p=el('p',v.text,'muted');p.dataset.evidence='1';return p;})());
 for(const [k,n] of FD){const f=v.fields[k];if(f)dl.append(el('dt',n),el('dd',`${sh(f.value)} — “${f.quote}” · ${f.source}`));}
 c.append(dl,el('small',`Contato: ${v.contact.present||'não informado'} (só hash) · Extração: ${v.extraction.label_pt||v.extraction.method}`));
 for(const w of v.warnings)c.append(el('p','⚠ '+w.text_pt,w.code==='SYNTHETIC'?'muted':'danger'));

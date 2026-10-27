@@ -9,10 +9,8 @@ def uncertainty(text, fields, rejected=(), output=None):
     from app.credibility.signals import detect
     reasons = []
     get = lambda k: fields.get(k, {}).get('value')
-    if not get('people') or not get('municipality') or not (get('street') or get('landmark')):
-        reasons.append('missing_fields')
-    if get('street') and not (get('number') or get('cross_street') or get('landmark')):
-        reasons.append('missing_exact_point')
+    # Missing facts belong to deterministic callback questions, not an LLM
+    # rereading the same message. Spend review time on conflicting evidence.
     if rejected:
         reasons.append('validator_rejections')
     if (get('conflicting_counts') or len(set(count_values(text))) > 1 or

@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 from app.config import setting
 from app.llm.nightshift import Nightshift, first_json, read_stream, TRACE_LOCK
-from app.redact import redact
+from app.redact import redact_json
 
 
 class MissionClient(Nightshift):
@@ -15,7 +15,7 @@ class MissionClient(Nightshift):
         if not key: raise RuntimeError('Nightshift key missing')
         body={'model':setting('NIGHTSHIFT_MODEL','nvidia/nemotron-3.5-lightning-30b-a3b'),
               'max_tokens':max(6000,int(setting('NIGHTSHIFT_MAX_TOKENS','6000'))),'stream':True,
-              'messages':[{'role':'system','content':system},{'role':'user','content':redact(payload)}]}
+              'messages':[{'role':'system','content':system},{'role':'user','content':redact_json(payload)}]}
         for attempt in range(2):
             remaining=deadline-time.monotonic()
             if remaining<=0: raise TimeoutError('Global mission deadline')

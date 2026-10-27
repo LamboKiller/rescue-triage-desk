@@ -44,6 +44,14 @@ def build_card(case):
     if case.get('result', {}).get('people') is None and not case.get('fields', {}).get('people', {}).get('value'):
         lines.append('contagem desconhecida, confirmar')
     lines.append('Pessoas: '+use('fields.people.value')+'; '+ '; '.join(label+': '+use('fields.'+key+'.value') for key,label in [('children','crianças'),('elderly','idosos'),('disabled','deficiência / acamados'),('pets','pets')])+'.')
+    people = case.get('fields', {}).get('people', {})
+    if people.get('count_basis') == 'derived':
+        use('fields.people.count_basis')
+        use('fields.people.quote')
+        listed = [use(f'fields.people.listed.{i}') for i in range(len(people.get('listed', [])))]
+        if people.get('source') == 'rule:sender_plus_listed_people':
+            listed.insert(0, 'eu')
+        lines.append('contagem derivada: '+use('fields.people.value')+' ('+' + '.join(listed)+'); confirmar na chegada.')
     if isinstance(case.get('incident_state'), dict) and 'error' not in case['incident_state']:
         lines.append('Estado do incidente: precisão do local '+use('incident_state.location_precision.value')+'; nível '
                      +use('incident_state.vertical_level.value')+'; pessoas inicial '+use('incident_state.people_initial.value')

@@ -25,7 +25,7 @@ def reachability(url):
         return 'unreachable'
 
 
-def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pipeline=None):
+def create_server(host='127.0.0.1', port=8080, sample=None, registry_path=None, pipeline=None):
     offline = sample_mode() if sample is None else sample
     registry = pipeline.registry if pipeline else Registry(registry_path or ROOT/'runtime/events.jsonl')
     pipeline = pipeline or Pipeline(registry, sample=offline)
@@ -153,6 +153,8 @@ def create_server(host='0.0.0.0', port=8080, sample=None, registry_path=None, pi
                 self.send_json(404, {'error': 'Rota não encontrada.'})
 
         def do_POST(self):
+            from app.operator_boundary import guard_operator
+            if not guard_operator(self): return
             try:
                 # Same-origin browser controls protect human commands against cross-site requests.
                 origin = self.headers.get('Origin')

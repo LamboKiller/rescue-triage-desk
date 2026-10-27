@@ -1,0 +1,137 @@
+{
+  "recorded_token_count_calls": 0,
+  "role_seconds": {
+    "intake": {
+      "n": 23,
+      "median": 12.838,
+      "min": 4.597,
+      "max": 27.995
+    },
+    "hazard_critic": {
+      "n": 4,
+      "median": 11.5275,
+      "min": 3.017,
+      "max": 13.012
+    },
+    "critic": {
+      "n": 10,
+      "median": 9.199,
+      "min": 2.584,
+      "max": 23.525
+    },
+    "revision": {
+      "n": 4,
+      "median": 6.5235,
+      "min": 5.519,
+      "max": 22.91
+    },
+    "location_agent": {
+      "n": 3,
+      "median": 15.25,
+      "min": 4.521,
+      "max": 25.522
+    }
+  },
+  "system_chars": {
+    "intake": {
+      "before": 711,
+      "after": 459
+    },
+    "location": {
+      "before": 1002,
+      "after": 964
+    }
+  },
+  "constraints": {
+    "max_tokens_floor": 6000,
+    "thinking": "ON; unchanged",
+    "stream": true,
+    "location_max_requests": 3
+  },
+  "timing_limits": "Recorded dumps omit all usage/token counts; no token-throughput or prompt seconds estimate is supportable.",
+  "protected_location_seconds": 15.25,
+  "long_intake_threshold_seconds": 20,
+  "expected_saved_seconds": {
+    "intake": {
+      "credited": 0,
+      "reason": "prompt shrink measured in characters only; token counts missing"
+    },
+    "location_agent": {
+      "credited": 0,
+      "reason": "38 duplicate prompt characters removed; cap already 3 requests"
+    },
+    "critic": {
+      "median_if_skipped": 9.199,
+      "range_if_skipped": [
+        2.584,
+        23.525
+      ]
+    },
+    "revision": {
+      "median_if_avoided": 6.5235
+    },
+    "hazard_critic": {
+      "median_if_skipped": 11.5275
+    },
+    "credibility_reviewer": {
+      "credited": 0,
+      "reason": "no retained call timing"
+    },
+    "duplicate_reviewer": {
+      "credited": 0,
+      "reason": "no retained call timing"
+    }
+  },
+  "memwatch": {
+    "samples": 29,
+    "average_available_mb": 3127.137931034483,
+    "all_normal": true
+  },
+  "role_settings": {
+    "intake": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    },
+    "revision": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    },
+    "critic": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    },
+    "location_agent": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    },
+    "hazard_critic": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    },
+    "credibility_reviewer": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    },
+    "arbiter": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    },
+    "duplicate_reviewer": {
+      "max_tokens_floor": 6000,
+      "thinking": "ON (provider default)",
+      "stream": true
+    }
+  },
+  "location_turn_cap": {
+    "policy_requests": 3,
+    "candidate_critic": "additional validated review; never bypassed",
+    "changed": false
+  }
+}

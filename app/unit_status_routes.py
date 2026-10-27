@@ -10,7 +10,13 @@ def handle(handler, service, method):
         if method=='GET' and path=='/api/units/status':
             q=parse_qs(urlsplit(handler.path).query,keep_blank_values=True)
             if set(q)-{'replay_time'} or any(len(v)!=1 for v in q.values()): raise ValueError('Relógio inválido.')
-            return handler.send_json(200,service.view(q.get('replay_time',[None])[0]))
+            when=q.get('replay_time',[None])[0]
+            result=service.view(when)
+            if hasattr(service,'telemetry'):
+                result['telemetry_proposals']=[dict(unit_id=r['unit_id'],source=r['source'],
+                    age_seconds=r['age_seconds'],**r['arrival_proposal'])
+                    for r in service.telemetry.view(when)['units'] if r.get('arrival_proposal') and r['fresh']]
+            return handler.send_json(200,result)
         match=re.fullmatch(r'/api/units/([^/]+)/report',path)
         if method!='POST' or not match: raise KeyError(path)
         size=int(handler.headers.get('Content-Length','0'))
@@ -24,6 +30,6 @@ def handle(handler, service, method):
         if not handler.headers.get('Content-Type','').startswith('application/json'):
             return handler.send_json(415,{'error':'Use application/json.'})
         result=service.report(unquote(match[1]),json.loads(raw.decode('utf-8')))
-        return handler.send_json(200,result)
+        return handler.send_json(409 if result.get('applied') is False else 200,result)
     except KeyError: return handler.send_json(404,{'error':'Unidade não encontrada.'})
     except (ValueError,TypeError,UnicodeError): return handler.send_json(400,{'error':'Relato inválido; confira unidade, fonte, missão e horário.'})

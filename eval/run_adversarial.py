@@ -11,6 +11,7 @@ from app.pipeline import Pipeline
 from app.engines.world_model.registry import Registry
 from app.config import ROOT, load_env
 from tools.scratch import scratch
+from eval.failures import failure_counts
 
 
 def evaluate(offline=False):
@@ -42,7 +43,8 @@ def evaluate(offline=False):
     return {'mode':'offline' if offline else 'live', 'messages':len(messages),
             'decision_accuracy':decision/len(messages), 'route_accuracy':route/len(messages),
             'key_field_accuracy':field_correct/field_checks if field_checks else None,
-            'crashes':crashes, 'unsafe_send':unsafe, 'seconds':round(time.monotonic()-start,3), 'failures':failures}
+            'crashes':crashes, 'unsafe_send':unsafe, 'seconds':round(time.monotonic()-start,3), 'failures':failures,
+            'failure_categories':failure_counts(cases)}
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
-"""Redact message prose without rewriting source IDs or structured data."""
+"""Raw input never opts out of redaction; trusted structured OSM IDs use a typed path."""
+import hashlib
 import json
 import re
 
@@ -9,19 +10,15 @@ PATTERNS = [
     (r'(?<![\w.])\d{4,5}[- ]\d{4}(?![\w.])', '[TELEFONE REDIGIDO]'),
 ]
 
-# These are prose/evidence fields, including model-written quotations. All other
-# fields (IDs, names, coordinates, counts, timestamps) retain their source value.
-TEXT_FIELDS = {'text', 'message', 'quote', 'why_quote', 'content', 'evidence',
-               'reason', 'reason_pt', 'text_pt', 'brief_pt', 'question', 'questions',
-               'decision_reason', 'warnings', 'warning', 'warning_pt', 'note', 'note_pt'}
-ID_TOKEN = re.compile(r'\b(?:osm:)?(?:node|way|relation):\d+\b|'
-                      r'\b(?:[\w.-]+_ids?|id|ids)\s*[:=]\s*[\"\']?[\w:./+\-]+', re.I)
+TRUSTED_ID_FIELDS = {'osm_id', 'candidate_id', 'candidate_ids', 'result_id', 'result_ids',
+                     'source_id', 'source_ids', 'fact_id', 'fact_ids', 'rule_ids'}
+OSM_TOKEN = re.compile(r'\b(?:osm:)?(?:node|way|relation):\d+\b')
 
 
-def _prose(text):
-    # Preserve explicit ID syntax even when embedded in a prose prompt/trace.
+def _source_display(text):
+    # Only a code-built candidate display can contain typed embedded OSM refs.
     parts, start = [], 0
-    for match in ID_TOKEN.finditer(text):
+    for match in OSM_TOKEN.finditer(text):
         parts.extend((_personal(text[start:match.start()]), match.group()))
         start = match.end()
     parts.append(_personal(text[start:]))
@@ -33,16 +30,42 @@ def _personal(text):
                   r'(?:\+?55\s*)?\d{10,11}\b', r'\1[TELEFONE REDIGIDO]', text, flags=re.I)
     for pattern, replacement in PATTERNS:
         text = re.sub(pattern, replacement, text, flags=re.I)
+    text = re.sub(r'(?<![\w.])(?:\+?55)?\d{10,11}(?![\w.])', '[TELEFONE REDIGIDO]', text)
     return text
 
 
+def external_id(value):
+    """Stable opaque identity for contact-like caller IDs, without persisting PII."""
+    if _personal(value) == value and not re.search(r'\d{10,}', value): return value
+    # Letter-only digest remains opaque and idempotent through repeated redaction.
+    digest = hashlib.sha256(value.encode()).hexdigest()[:24].translate(str.maketrans('0123456789', 'ghijklmnop'))
+    return 'external-'+digest
+
+
 def redact_data(value, field=None):
-    """Traverse structured payloads; redact only their free-text leaves."""
+    """Typed internal serialization. Callers must never pass raw citizen JSON here."""
     if isinstance(value, dict):
         return {k: redact_data(v, k) for k, v in value.items()}
     if isinstance(value, list):
         return [redact_data(v, field) for v in value]
-    return _prose(value) if isinstance(value, str) and field in TEXT_FIELDS else value
+    if not isinstance(value, str): return value
+    if field in TRUSTED_ID_FIELDS: return value
+    if field == 'message_id': return external_id(value)
+    if field == 'candidates': return _source_display(value)
+    return _personal(value)
+
+
+def redact_json(text):
+    """Serialize a code-built JSON payload with typed source identifiers intact."""
+    try: return json.dumps(redact_data(json.loads(text)), ensure_ascii=False)
+    except (ValueError, TypeError): return redact(text)
+
+
+def _raw_data(value):
+    if isinstance(value, dict): return {_personal(k): _raw_data(v) for k,v in value.items()}
+    if isinstance(value, list): return [_raw_data(v) for v in value]
+    if type(value) is int and 10 <= len(str(abs(value))) <= 13: return _personal(str(value))
+    return _personal(value) if isinstance(value, str) else value
 
 
 def redact(text):
@@ -52,5 +75,5 @@ def redact(text):
     except (ValueError, TypeError):
         structured = None
     if isinstance(structured, (dict, list)):
-        return json.dumps(redact_data(structured), ensure_ascii=False)
-    return _prose(text)
+        return json.dumps(_raw_data(structured), ensure_ascii=False)
+    return _personal(text)

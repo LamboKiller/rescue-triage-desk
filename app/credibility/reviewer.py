@@ -123,8 +123,14 @@ def review(client, signals, deadline=None):
             return {'verdict': verdict, 'source': 'agent', 'reasons': reasons, 'agent_verdict': agent_verdict, 'fallback_reason': None,
                     'note': note, 'attempts': attempt + 1, 'meta': meta}
         except ValueError as exc:
+            recorder = getattr(client, 'agent_error', None)
+            if callable(recorder):
+                recorder('credibility_reviewer', exc)
             fallback = 'agent_invalid_output: ValueError'
         except Exception as exc:    # provider/timeouts: visible fallback, never silent success
+            recorder = getattr(client, 'agent_error', None)
+            if callable(recorder):
+                recorder('credibility_reviewer', exc)
             fallback = 'agent_unavailable: %s' % type(exc).__name__
             break
     verdict = rule_verdict(signals)

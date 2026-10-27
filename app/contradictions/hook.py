@@ -20,6 +20,8 @@ def shelters():
 def after_decision(pipeline, results, previous=None, client=None):
     """Deterministic detectors on every finished case; model phrasing is scheduled on a background thread after ingest.
     Advisory: a failure leaves the case exactly as decided and marks `contradiction_check.error`."""
+    if not any(case.get('complete') for case in results):
+        return []  # No advisory work for deadline failures; do not cold-load a catalogue.
     existing = pipeline.registry.read()
     shelter = shelters()
     jobs = []

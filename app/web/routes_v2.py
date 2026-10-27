@@ -70,15 +70,32 @@ def _gzip_allowed(handler):
     return enc.get('gzip', enc.get('*', 0)) > 0
 
 
-def _send(handler, body, mime, *, compressed=False, status=200):
+_GZ_CACHE = {}
+_TEXT = ('text/javascript', 'text/css', 'text/html', 'application/json', 'text/plain')
+
+
+def _send(handler, body, mime, *, compressed=False, status=200, etag=None, max_age=None):
+    """UX2 speed: ETag/304, long cache for static offline map assets, memoized gzip for text assets."""
+    if etag and handler.headers.get('If-None-Match') == etag:
+        handler.send_response(304)
+        handler.send_header('ETag', etag)
+        handler.send_header('Cache-Control', 'no-cache' if max_age is None else f'public, max-age={max_age}')
+        handler.end_headers()
+        return True
     if compressed and not _gzip_allowed(handler):
         body = gzip.decompress(body)
         compressed = False
+    elif not compressed and etag and len(body) > 1024 and mime.startswith(_TEXT) and _gzip_allowed(handler):
+        key = (etag, len(body))
+        body = _GZ_CACHE.get(key) or _GZ_CACHE.setdefault(key, gzip.compress(body, 6, mtime=0))
+        compressed = True
     handler.send_response(status)
     handler.send_header('Content-Type', mime)
     handler.send_header('Content-Length', str(len(body)))
     handler.send_header('X-Content-Type-Options', 'nosniff')
-    handler.send_header('Cache-Control', 'no-cache')
+    handler.send_header('Cache-Control', 'no-cache' if max_age is None else f'public, max-age={max_age}')
+    if etag:
+        handler.send_header('ETag', etag)
     handler.send_header('Vary', 'Accept-Encoding')
     if compressed:
         handler.send_header('Content-Encoding', 'gzip')
@@ -91,17 +108,22 @@ def _missing(handler):
     return _send(handler, b'{"error":"Recurso offline indisponivel."}', 'application/json', status=404)
 
 
-def _file(handler, root, name):
+def _file(handler, root, name, max_age=None):
     path = (root / name).resolve()
     if not path.is_relative_to(root.resolve()) or not path.is_file():
         return _missing(handler)
     mime = {'.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
             '.md': 'text/plain; charset=utf-8', '.woff2': 'font/woff2', '.pbf': 'application/x-protobuf'}.get(path.suffix)
-    return _send(handler, path.read_bytes(), mime or mimetypes.guess_type(path)[0] or 'application/octet-stream')
+    st = path.stat()
+    etag = f'W/"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    return _send(handler, path.read_bytes(), mime or mimetypes.guess_type(path)[0] or 'application/octet-stream',
+                 etag=etag, max_age=max_age)
 
 
 def handle_get(handler, path, query):
     """Return False for routes owned by the original server; True when served."""
+    if path == '/v2/telemetry.js':
+        return _file(handler, UI, 'telemetry.js')
     if path == '/v2/coverage.js':
         return _file(handler, UI, 'coverage.js')
     if path == '/v2/chain.js':
@@ -179,7 +201,7 @@ def handle_get(handler, path, query):
                              (z, x, (1 << z) - 1 - y)).fetchone()
         if not row:
             return _missing(handler)
-        return _send(handler, row[0], 'application/vnd.mapbox-vector-tile', compressed=row[0][:2] == b'\x1f\x8b')
+        return _send(handler, row[0], 'application/vnd.mapbox-vector-tile', compressed=row[0][:2] == b'\x1f\x8b', max_age=86400)
     match = re.fullmatch(r'/v2/map/buildings/(recommended_[a-z_0-9]+)\.geojson', name)
     if match:
         asset = MAP / 'buildings' / (match[1] + '.geojson.gz')
@@ -189,9 +211,9 @@ def handle_get(handler, path, query):
     for prefix, folder in [('/v2/map/water/', 'water'), ('/v2/map/terrain-rgb/', 'terrain-rgb'), ('/v2/map/fonts/', 'fonts'),
                            ('/v2/map/sprites/', 'sprites')]:
         if name.startswith(prefix):
-            return _file(handler, MAP / folder, name[len(prefix):])
+            return _file(handler, MAP / folder, name[len(prefix):], max_age=86400)
     if name == '/v2/map/MANIFEST.md':
         return _file(handler, MAP, 'MANIFEST.md')
-    if name in ('/v2/app.js', '/v2/map.js', '/v2/missions.js', '/v2/feedback.js', '/v2/callback.js', '/v2/supervisor.js', '/v2/redteam.js', '/v2/timeline.js', '/v2/flow.js', '/v2/shelters.js', '/v2/landing.js', '/v2/route.js', '/v2/contradictions.js', '/v2/evals.js', '/v2/handover.js', '/v2/styles.css') or name.startswith('/v2/vendor/'):
-        return _file(handler, UI, name[len('/v2/'):])
+    if name in ('/v2/app.js', '/v2/map.js', '/v2/missions.js', '/v2/feedback.js', '/v2/callback.js', '/v2/supervisor.js', '/v2/redteam.js', '/v2/timeline.js', '/v2/flow.js', '/v2/live.js', '/v2/i18n.js', '/v2/i18n_en.js', '/v2/shelters.js', '/v2/landing.js', '/v2/route.js', '/v2/contradictions.js', '/v2/evals.js', '/v2/handover.js', '/v2/styles.css') or name.startswith('/v2/vendor/') or re.fullmatch(r'/v2/[a-z0-9_]+[.]js', name):
+        return _file(handler, UI, name[len('/v2/'):], max_age=86400 if name.startswith('/v2/vendor/') else None)
     return _missing(handler)

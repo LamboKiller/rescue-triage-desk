@@ -11,15 +11,99 @@ with edge_reasons, not just trusted from the search).
 """
 import argparse
 import json
+import math
+import struct
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.config import ROOT
-from app.geo import roads
+from app.geo import roads, depth
 from app.geo.routing import Router, edge_reasons, default_router
 
 SET_PATH = ROOT / 'eval/routing_set.jsonl'
+
+
+def water_scenario(item):
+    """Author-written synthetic channel/island maps, never used by production."""
+    from app.geo.water_routing import WaterRouter
+    spec=item['water_grid'];day=max(d for d in spec['layers'] if d<=item['date'])
+    rows=spec['layers'][day];legend=spec.get('legend',{'~':2.,'#':0.,'s':.45,'?':None})
+    h=dict(width=len(rows[0]),height=len(rows),pixel_m=20.,origin_x=500000.,origin_y=6680000.,date_observed=day)
+    values=[65535 if legend[c] is None else round(legend[c]*100) for row in rows for c in row]
+    g=depth.DepthGrid(h,struct.pack('<'+'H'*len(values),*values))
+    mask=bytearray(len(values))
+    for col,row in spec.get('buildings',[]): mask[row*h['width']+col]=1
+    def point(cell):
+        lon,lat=depth.utm22s_to_lonlat(h['origin_x']+(cell[0]+.5)*20,h['origin_y']-(cell[1]+.5)*20)
+        return dict(lon=lon,lat=lat)
+    a,b=point(item['origin_cell']),point(item['target_cell'])
+    r=WaterRouter(g,mask).route(a,b,draft_m=item['vehicle'].get('draft_m'),
+        speed=item['vehicle'].get('boat_speed_kph',12),allow_unknown=item.get('allow_unknown',True))
+    return dict(r,water=r,reachable=not r['fallback'] and r['km'] is not None),g,mask
+
+
+def crossed_cells(polyline,g):
+    """Independent segment/grid intersection via sorted boundary crossing times.
+
+    Does not call the router's A*, state map, supercover or smoothing helpers.
+    Includes both sides of exact boundary/corner contacts.
+    """
+    h=g.h;w=h['width'];seen=set()
+    for p,q in zip(polyline,polyline[1:]):
+        ax,ay=depth.lonlat_to_utm22s(*p);bx,by=depth.lonlat_to_utm22s(*q)
+        ax=(ax-h['origin_x'])/h['pixel_m'];bx=(bx-h['origin_x'])/h['pixel_m']
+        ay=(h['origin_y']-ay)/h['pixel_m'];by=(h['origin_y']-by)/h['pixel_m']
+        ts={0.,1.}
+        for a,b in ((ax,bx),(ay,by)):
+            if a==b: continue
+            for boundary in range(math.ceil(min(a,b)),math.floor(max(a,b))+1):
+                t=(boundary-a)/(b-a)
+                if 0<=t<=1: ts.add(t)
+        times=sorted(ts)
+        for t in times+[(lo+hi)/2 for lo,hi in zip(times,times[1:])]:
+            x=ax+(bx-ax)*t;y=ay+(by-ay)*t
+            for col in {math.floor(x-1e-8),math.floor(x+1e-8)}:
+                for row in {math.floor(y-1e-8),math.floor(y+1e-8)}:
+                    seen.add((col,row))
+    return seen
+
+
+def water_violations(water,day,g=None,buildings=None):
+    if not water: return []
+    bad=[]
+    if water.get('fallback'):
+        if water.get('basis')!='straight_line_water' or not water.get('review_pt') or not water.get('reason_codes') or 'linha reta' not in water.get('label_pt',''):
+            bad.append('unlabelled_water_fallback')
+        return bad
+    if water.get('basis')=='water_search_incomplete':
+        if water.get('water_km') is not None or water.get('polyline'): bad.append('incomplete_claims_route')
+        return bad
+    observed=max((d for d in depth.DATES if d<=day),default=None)
+    if water.get('observation_date')!=observed: bad.append('water_future_or_wrong_observation')
+    if g is None:
+        if observed is None: return bad+['water_without_observation']
+        g=depth.grid(observed)
+        from app.geo.water_routing import default_water_router
+        buildings=default_water_router(observed).buildings
+    cells=crossed_cells(water['polyline'],g);unknown=0;known=[]
+    for col,row in cells:
+        if not (0<=col<g.h['width'] and 0<=row<g.h['height']): bad.append('water_outside_grid');continue
+        idx=row*g.h['width']+col
+        if buildings is not None and buildings[idx]: bad.append('water_building_collision')
+        cm=struct.unpack_from('<H',g.data,idx*2)[0]
+        if cm==65535: unknown+=1
+        else:
+            known.append(cm/100)
+            if cm==0: bad.append('water_dry_cell')
+            if cm/100+1e-8<water['draft_m']+water['clearance_m']: bad.append('water_shallower_than_draft_margin')
+    if unknown and ('UNKNOWN_WATER' not in water.get('reason_codes',[]) or not any('trecho sem dado' in n for n in water.get('review_pt',[])) or water.get('grid_verified')):
+        bad.append('unflagged_unknown_water')
+    # Router extrema include conservative corner-side cells before lon/lat
+    # rounding. They may widen, never narrow, the independently crossed envelope.
+    if known and (water['min_depth_m']>min(known) or water['max_depth_m']<max(known)): bad.append('water_depth_envelope_unsafe')
+    if not cells or len(water['polyline'])>128: bad.append('water_polyline_missing_or_uncapped')
+    return sorted(set(bad))
 
 
 def load_items(path=None):
@@ -27,6 +111,16 @@ def load_items(path=None):
 
 
 def run(item, edge_by_id):
+    if item['action']=='water':
+        out,g,mask=water_scenario(item);t=item['truth'];fails=[]
+        if out['reachable']!=t['reachable']: fails.append('reachable:'+str(out['reachable']))
+        for key in ('basis','observation_date'):
+            if key in t and out.get(key)!=t[key]: fails.append(key+':'+str(out.get(key)))
+        if out.get('water_km') is not None and out['water_km']<t.get('min_water_km',0): fails.append('water_path_too_short')
+        if 'max_end_gap_m' in t and out.get('end_gap_m',math.inf)>t['max_end_gap_m']: fails.append('water_end_gap')
+        for text in t.get('review_has',[]):
+            if not any(text in note for note in out['review_pt']): fails.append('review_text:'+text)
+        return fails,water_violations(out['water'],item['date'],g,mask),out
     router = Router(allow_unknown=item['allow_unknown']) if 'allow_unknown' in item else default_router()
     if item['action'] == 'route':
         out = router.route(item['origin'], item['target'], item['vehicle'], item['date'])
@@ -35,7 +129,9 @@ def run(item, edge_by_id):
         out = router.plan(item['origin'], item['target'], item['vehicle'], item['date'])
         land = out.get('land') or out
     fails = []
-    violations = []
+    violations = water_violations(out.get('water'),item['date'])
+    for alternative in out.get('alternatives', []):
+        violations.extend('alternative:'+v for v in water_violations(alternative.get('water'),item['date']))
     t = item['truth']
     reachable = bool(out['reachable'])
     if reachable != t['reachable']:
@@ -115,12 +211,21 @@ def evaluate(path=None):
         fails, violations, out = run(item, edge_by_id)
         ok += not fails and not violations
         violations_total += len(violations)
-        results.append({'id': item['id'], 'reachable': out['reachable'], 'failures': fails, 'safety_violations': violations})
+        row={'id': item['id'], 'reachable': out['reachable'], 'failures': fails, 'safety_violations': violations}
+        if out.get('water'):
+            water=out['water']
+            row['water']={k:water.get(k) for k in ('basis','water_km','water_eta_min','min_depth_m','max_depth_m',
+                'unknown_samples','start_gap_m','end_gap_m','reason_codes')}
+            if out.get('launch_point'):
+                a,b=out['launch_point'],item['target']
+                row['water']['straight_km']=round(roads._distance(a['lon'],a['lat'],b['lon'],b['lat'])/1000,4)
+        results.append(row)
     return {'cases': len(items), 'passed': ok, 'safety_violations': violations_total, 'results': results,
             'limits': 'Real OSM road graph for the 6 metro cities; only 2024-05-06/08 carry HAND depth '
                       'observations; later replay dates use the latest observation, never a future layer. '
                       'Unknown access stays warned/penalized; derived launches require dry-road/wet-road adjacency. '
-                      'Straight-line water legs are estimates (no navigability/obstacle check).'}
+                      'Water uses exact HAND cells plus conservative building footprints; unknown last resort is warned. '
+                      'Straight line only on explained no-path fallback; retrospective model is not navigability certification.'}
 
 
 if __name__ == '__main__':

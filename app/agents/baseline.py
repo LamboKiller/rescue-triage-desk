@@ -3,7 +3,27 @@
 This is deliberately limited; it is never presented as an available LLM agent.
 """
 import re
+from functools import lru_cache
+import unicodedata
 from app.geo.streets import normalize
+
+
+def _fold(text):
+    """Lower-case, accent-free copy of identical length (ACC1: 'cristovao' must find 'Cristóvão')."""
+    out = ''.join((unicodedata.normalize('NFD', c.lower()) or c)[0] for c in text)
+    return out if len(out) == len(text) else text.lower()
+
+
+@lru_cache(maxsize=16)
+def _street_patterns(names):
+    patterns = []
+    for display in names:
+        name = re.escape(_fold(display))
+        name = re.sub(r'^rua\\ ', r'ru+a+\\ ', name)
+        name = re.sub(r'^avenida\\ ', r'av(?:enida)?\\.?\\s*', name)
+        pattern = r'\b' + name.replace(r'\ ', r'\s+(?:(?:de|da|das|do|dos)\s+)?') + r'\b'
+        patterns.append(re.compile(pattern))
+    return patterns
 
 
 def extract(text, rows, municipality=None):
@@ -25,18 +45,20 @@ def extract(text, rows, municipality=None):
     if len(set(counts)) > 1:
         fields['conflicting_counts'] = {'value': True, 'quote': text}
     # Match actual substrings, preserving quotes even with case and accents.
+    folded = _fold(text)
     cities = sorted({r['municipality'] for r in rows}, key=len, reverse=True)
     for city in cities + ['Curitiba', 'São Paulo']:
-        m = re.search(re.escape(city), text, re.I)
+        m = re.search(re.escape(_fold(city)), folded)
         if m:
-            fields['municipality'] = {'value': city, 'quote': m[0]}
+            fields['municipality'] = {'value': city, 'quote': text[m.start():m.end()]}
             break
     city = fields.get('municipality', {}).get('value') or municipality
-    for row in sorted((r for r in rows if r['municipality'] == city),
-                      key=lambda r: len(r['display_name']), reverse=True):
-        pattern = r'\b' + re.escape(row['display_name']).replace(r'\ ', r'\s+(?:(?:de|da|das|do|dos)\s+)?') + r'\b'
-        m = re.search(pattern, text, re.I)
+    names = tuple(r['display_name'] for r in sorted((r for r in rows if r['municipality'] == city),
+                                                   key=lambda r: len(r['display_name']), reverse=True))
+    for pattern in _street_patterns(names):
+        m = pattern.search(folded)
         if m:
-            fields['street'] = {'value': m[0], 'quote': m[0]}
+            quote = text[m.start():m.end()]
+            fields['street'] = {'value': quote, 'quote': quote}
             break
     return {'fields': fields}

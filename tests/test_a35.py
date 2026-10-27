@@ -94,10 +94,11 @@ class CallbackExtendedTests(unittest.TestCase):
         critic_calls=[c for c in client.call.call_args_list if c.args[0]=='critic']
         self.assertEqual(len(critic_calls),0)
         self.assertFalse(case['latency_budget']['eligibility']['critic'])
-        self.assertTrue(any(c.args[0]=='hazard_critic' for c in client.call.call_args_list))
+        self.assertFalse(any(c.args[0]=='hazard_critic' for c in client.call.call_args_list))
+        self.assertEqual(case['hazard_check'], 'deterministic_only')
         self.case=case
         client.call.side_effect=TimeoutError('failed critic')
-        with patch('app.agents.intake.run',return_value=({'fields':{}},{'role':'intake','model':'fake','receipt':'test'})):
+        with patch('app.agents.intake.run',side_effect=RuntimeError('synthetic intake failure')):
             failed=self.reply('hello')
         self.assertEqual(failed['fields'],case['fields'])
         self.assertEqual(failed['result']['decision'],'REVIEW_REQUIRED')

@@ -328,11 +328,11 @@ class MissionServiceTests(unittest.TestCase):
         self.patch=patch('app.missions.service.replay_cases',side_effect=lambda cases,day:cases)
         self.patch.start();self.addCleanup(self.patch.stop)
 
-    def test_needs_and_brief_cached_and_restart_preserves_detail(self):
+    def test_preview_is_deterministic_and_restart_preserves_detail(self):
         from app.missions.service import MissionService
         p=self.service.proposals(DAY)['proposals'][0]
         self.service.proposals(DAY)
-        self.assertEqual([c[0] for c in self.client.calls],['needs_extractor','mission_brief'])
+        self.assertEqual(self.client.calls,[])
         request={'actor':'test','proposal_id':p['proposal_id'],'expected_versions':{self.case['case_id']:1},'caution_acknowledged':True}
         mission=self.service.approve(request)
         self.assertEqual(MissionService(self.registry,inventory()).detail(mission['mission_id'])['status'],'assigned')

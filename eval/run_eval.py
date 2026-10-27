@@ -16,6 +16,7 @@ from app.engines.world_model.registry import Registry
 from app.geo.streets import normalize
 from app.pipeline import Pipeline
 from tools.generate_messages import generate
+from eval.failures import failure_counts
 
 FIELDS = ('people', 'children', 'elderly', 'disabled', 'pets', 'street', 'number',
           'municipality', 'landmark', 'cross_street', 'risk_words', 'already_rescued', 'conflicting_counts')
@@ -111,6 +112,7 @@ def score(cases, truth, seconds):
             'landmark_decision_proxy_messages': n-landmark_n,
             'landmark_definition': 'Identity/status on labelled landmarks; expected-decision proxy otherwise',
             'critic': critic, 'failures': failure_messages, 'failure_events': failure_events,
+            'failure_categories': failure_counts(cases),
             'mean_calls_per_message': round(calls/n, 4) if n and all(c.get('call_count_complete', True) for c in cases) else None,
             'families': families}
 
@@ -136,12 +138,13 @@ def datasets(seeds, n, rows):
 
 
 def main():
-    load_env()
     parser = argparse.ArgumentParser()
     parser.add_argument('--offline', action='store_true')
     parser.add_argument('--seeds', default='101,202')
     parser.add_argument('--n', type=int, default=15)
     args = parser.parse_args()
+    if not args.offline:
+        load_env()
     if not 1 <= args.n <= 15:
         parser.error('--n must be 1..15')
     seeds = [int(s) for s in args.seeds.split(',')]

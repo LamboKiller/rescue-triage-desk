@@ -92,22 +92,31 @@ class RoutingTests(unittest.TestCase):
         self.assertTrue(out['unknown_edge_ids'])
 
     def test_boat_reaches_flooded_case_via_dry_launch(self):
+        from tests.test_water_route import grid
+        from app.geo import depth, water_routing
+        g=grid(['~'*32]*32,{'~':1.4})
+        x,y=depth.lonlat_to_utm22s(-51,-30);g.h.update(origin_x=x-100,origin_y=y+300)
         r=Router(self.net)
-        with patch('app.geo.routing.depth.lookup',return_value={'depth_m':1.4,'depth_retrospective':True}):
+        with patch('app.geo.water_routing.default_water_router',return_value=water_routing.WaterRouter(g)):
             out=r.plan('a',{'lat':-30,'lon':-50.997},{'type':'barco_aluminio'},DAY)
         self.assertTrue(out['reachable'])
         self.assertEqual(out['launch_point']['node_id'],'d')
         self.assertEqual(out['water']['max_depth_m'],1.4)
-        self.assertEqual(out['water']['label_pt'],'trecho na água em linha reta — estimativa')
+        self.assertIn('estimativa (HAND retrospectivo)',out['water']['label_pt'])
         self.assertEqual(len(out['alternatives']),1)
         self.assertTrue(out['human_approval_required'])
 
     def test_water_unknown_samples_are_visible(self):
-        with patch('app.geo.routing.depth.lookup',return_value={'depth_m':None}):
+        from tests.test_water_route import grid
+        from app.geo import depth, water_routing
+        g=grid(['?'*32]*32)
+        x,y=depth.lonlat_to_utm22s(-51,-30);g.h.update(origin_x=x-100,origin_y=y+300)
+        with patch('app.geo.water_routing.default_water_router',return_value=water_routing.WaterRouter(g)):
             out=water_leg({'lat':-30,'lon':-51},{'lat':-30,'lon':-50.999},DAY)
         self.assertIsNone(out['max_depth_m'])
         self.assertTrue(out['unknown_samples'])
-        self.assertEqual(out['polyline'],[[-51,-30],[-50.999,-30]])
+        self.assertIn('trecho sem dado',' '.join(out['review_pt']))
+        self.assertFalse(out['grid_verified'])
 
     def test_invalid_date_limit_and_routing_ineligible(self):
         r=Router(self.net)
@@ -203,9 +212,10 @@ class ObservedExtentPolicyTests(unittest.TestCase):
         self.assertEqual(out['unknown_edge_ids'],out['edge_ids'])
         self.assertEqual(out['dry_estimate_edge_ids'],[])
         self.assertIn('trecho sem dado',' '.join(out['review_pt']))
-        # 20x penalty: ETA is far above the dry-estimate route over the same streets
+        # 20x penalty is RISK COST; physical ETA stays the same as the dry-estimate route over the same streets
         dry=self.route({e['id']:'outside' for e in self.net.edges})
-        self.assertGreater(out['land_eta_min'],10*dry['land_eta_min'])
+        self.assertGreater(out['land_risk_cost_min'],10*dry['land_risk_cost_min'])
+        self.assertAlmostEqual(out['land_eta_min'],dry['land_eta_min'],places=3)
         self.assertFalse(self.route(table,allow_unknown=False)['reachable'])
 
     def test_unknown_layer_prefers_detour_over_penalised_street(self):

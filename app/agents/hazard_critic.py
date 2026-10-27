@@ -122,7 +122,10 @@ def attach(case,client,deadline):
         case['hazard_unsupported']=unsupported
         case.setdefault('agents',{})['hazard_critic']=review
         case.setdefault('calls',[]).append(meta)
-    except Exception:
+    except Exception as exc:
+        recorder = getattr(client, 'agent_error', None)
+        if callable(recorder):
+            recorder('hazard_critic', exc)
         # fleet.screen has already applied deterministic rules. Preserve their
         # verdicts and triage; explicitly expose the missing model review.
         case['hazard_check']='deterministic_only'

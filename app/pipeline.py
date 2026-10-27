@@ -5,12 +5,16 @@ saved example answers are never read by this module.
 """
 import copy
 import concurrent.futures
+import contextvars
 import hashlib
 import json
 import threading
 import time
 import uuid
 import re
+import math
+import os
+from pathlib import Path
 from app.agents import baseline, intake, critic, hazard_critic, arbiter, location as location_agent
 from app.fleet import screen
 from app.agents.spans import validate
@@ -23,9 +27,73 @@ from app.geo.streets import lookup
 from app.geo.landmarks import match as match_landmark
 from app.geo.incident import IncidentIndex
 from app.rescue_state import guard_fields, state
-from app.llm.nightshift import Nightshift, TRACE_LOCK
+from app.llm.nightshift import Nightshift, TRACE_LOCK, diagnostic_message
 from app.redact import redact, redact_data
 from app.routing import apply_route, finish_route, animal_rescue
+
+
+class LatencyHistory:
+    """Last 20 measured calls per role, shared by messages and persisted locally."""
+    lock = threading.RLock()
+
+    def __init__(self, path=None):
+        self.path = Path(path) if path else ROOT/'runtime'/'agent_latency.json'
+
+    def read(self):
+        try:
+            data = json.loads(self.path.read_text(encoding='utf-8'))
+            return {k: [float(v) for v in values if type(v) in (int, float) and math.isfinite(v) and v >= 0][-20:]
+                    for k, values in data.items() if isinstance(values, list)}
+        except (OSError, ValueError, AttributeError, TypeError):
+            return {}
+
+    def observe(self, role, seconds):
+        with self.lock:
+            data = self.read()
+            data[role] = (data.get(role, [])+[round(seconds, 4)])[-20:]
+            try:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                pending = self.path.with_suffix('.tmp')
+                pending.write_text(json.dumps(data), encoding='utf-8')
+                os.replace(pending, self.path)
+            except OSError:
+                pass  # Telemetry storage cannot interrupt a rescue decision.
+
+    def thresholds(self):
+        medians, ceilings = dict(StageBudget.MEDIANS), dict(StageBudget.CEILINGS)
+        with self.lock:
+            for role, values in self.read().items():
+                if role not in medians or not values:
+                    continue
+                values = sorted(values)
+                n = len(values)
+                p50 = (values[(n-1)//2]+values[n//2])/2
+                medians[role] = max(medians[role], p50)
+                if role != 'intake':  # The approved hard intake ceiling stays 48 s.
+                    ceilings[role] = max(ceilings[role], values[math.ceil(n*.9)-1])
+        return medians, ceilings
+
+
+def case_counters(case, budget):
+    """Public, receipt-based counters; retries count, boundary diagnostics do not."""
+    calls = list(budget.receipts)
+    real = [r for r in calls if r.get('source') != 'stage_boundary' and r.get('status') != 'skipped']
+    for row in calls:
+        if row.get('source') == 'stage_boundary' and row.get('invoked') and not any(
+                r.get('role') == row['role'] and r.get('source') != 'stage_boundary' for r in calls):
+            real.append(row)
+    seconds = round(sum(max(0, r.get('seconds', 0) or 0) for r in real), 3)
+    skipped = [dict(stage=r['stage'], reason=r.get('reason', 'unavailable')) for r in budget.records
+               if r['status'] in ('skipped', 'code_fallback')]
+    case['calls'] = calls
+    case['nemotron'] = dict(calls=len(real), seconds=seconds, skipped_stages=skipped,
+                            label_pt=f'{len(real)} chamadas Nemotron · {seconds:g} s')
+    case['agent_evidence'] = dict(calls=len(real), seconds=seconds,
+        skipped=[dict(role=r['stage'], reason=r['reason']) for r in skipped])
+    case['result'].setdefault('warnings', [])
+    for warning in case.get('agent_warnings', []):
+        if warning not in case['result']['warnings']:
+            case['result']['warnings'].append(warning)
 
 
 class StageBudget:
@@ -46,26 +114,51 @@ class StageBudget:
     """
     remaining_budget_allocator = True
     RESERVE_SECONDS = 2.
-    MEDIANS = dict(intake=7.4, critic=17., revision=8.2, location=8.1,
+    LONG_INTAKE_SECONDS = 20.
+    HAZARD_BUDGET_FRACTION = .6
+    # LIVEFIX6: the three retained LF5 location calls have p50=15.25s
+    # (4.521 / 15.250 / 25.522). Protect that allowance before optional work.
+    MEDIANS = dict(intake=7.4, critic=17., revision=8.2, location=15.25,
                    location_critic=17., hazard=5.1, credibility=17., arbiter=17.,
                    duplicate_reviewer=17.)
-    CEILINGS = dict(intake=29., critic=24.3, revision=28.1, location=32.,
+    # Orbit 26/10 16:08 live A/B (30-sample, RAM ok): 60 s/intake 29 s 17/30; 90 s/29 s 17/30; 90 s/intake 48 s 22/30,
+    # 0 unsafe, mean 33.7 s, p95 61 s. Intake is required and its live tail exceeds its p90, so it gets a wider ceiling.
+    CEILINGS = dict(intake=48., critic=24.3, revision=28.1, location=32.,
                     location_critic=24.3, hazard=13.5, credibility=24.3, arbiter=24.3,
                     duplicate_reviewer=24.3)
 
-    def __init__(self, client, deadline, seconds, emit=None, *, trace=None, message_id=None):
+    def __init__(self, client, deadline, seconds, emit=None, *, trace=None, message_id=None, history=None):
         self.client, self.deadline, self.seconds, self.emit = client, deadline, seconds, emit
         self.deadline = min(deadline, time.monotonic()+seconds)
         self.reserve = min(self.RESERVE_SECONDS, seconds*.25)
         self.trace, self.message_id, self.receipts = trace, message_id, []
         self.ends, self.records, self.eligibility = {}, [], {}
         self.attempts = {}
+        self.surge = False  # intake backlog policy: advisory stages are skipped (visible 'modo surto')
+        self.pressured = False
+        self.pressure_kind = None
+        self.failure_kinds = []
+        self.location_complete = False
+        self.intake_seconds = 0.
+        self.journal_lock = threading.RLock()
+        # Custom trace roots (tests/replays) keep observations in that sandbox.
+        history_path = None
+        if isinstance(client, Nightshift) and isinstance(getattr(client, 'trace_path', None), Path) and isinstance(ROOT, Path):
+            history_path = (ROOT/'runtime'/'agent_latency.json' if client.trace_path.parent == ROOT/'logs' else
+                            client.trace_path.parent/'runtime'/'agent_latency.json')
+        self.history = history or (LatencyHistory(history_path) if history_path else None)
+        if self.history and self.history.read():
+            self.MEDIANS, self.CEILINGS = self.history.thresholds()
 
     def __getattr__(self, key):
         return getattr(self.client, key)
 
     def record(self, stage, status, **data):
-        row = dict(stage=stage, status=status, **data)
+        role = dict(location='location_agent', location_critic='critic', hazard='hazard_critic',
+                    credibility='credibility_reviewer').get(stage, stage)
+        row = dict(stage=stage, status=status, role=role, seconds=0., queue_seconds=0.,
+                   error_class=None, message=data.get('reason', 'Stage '+status))
+        row.update(data)
         self.records.append(row)
         if self.emit:
             self.emit('stage_budget', **{k:v for k,v in row.items() if k != 'stage'}, budget_stage=stage)
@@ -75,6 +168,33 @@ class StageBudget:
                 with self.trace.open('a', encoding='utf-8') as out:
                     out.write(json.dumps(redact_data(dict(kind='stage_budget', message_id=self.message_id, **row)), ensure_ascii=False)+'\n')
 
+    def unavailable(self, stage, role, reason, remaining):
+        self.record(stage, 'skipped', role=role, reason=reason, availability='stage_unavailable',
+                    failure_kind=self.pressure_kind if reason == 'provider_pressure' else None,
+                    note_pt='etapa pulada: modo surto (fila grande; prioridade ao atendimento)' if reason == 'surge_mode' else
+                            'etapa pulada: provedor sob pressão' if reason == 'provider_pressure' else
+                            'etapa pulada: orçamento protegido para localização' if reason == 'long_intake' else
+                            'etapa pulada: orçamento restante insuficiente',
+                    remaining_seconds=round(max(0, remaining), 4))
+
+    def location_available(self, deadline):
+        remaining = min(deadline, self.deadline-self.reserve)-time.monotonic()
+        reason = 'provider_pressure' if self.pressured else 'insufficient_budget' if remaining < self.MEDIANS['location'] else None
+        if reason:
+            self.unavailable('location', 'location_agent', reason, remaining)
+        return reason is None
+
+    def agent_error(self, role, exc):
+        """Errors in conversion/validation happen after a successful transport call."""
+        if not isinstance(exc, TimeoutError):
+            self.failure_kinds.append('agent_failure')
+        stage = dict(credibility_reviewer='credibility', hazard_critic='hazard',
+                     location_agent='location').get(role, role)
+        self.record(stage, 'skipped' if isinstance(exc, TimeoutError) else 'error', role=role,
+                    error_class=type(exc).__name__, message=diagnostic_message(exc),
+                    **(dict(availability='stage_unavailable') if isinstance(exc, TimeoutError) else
+                       dict(failure_kind='agent_failure')))
+
     def call(self, role, system, payload, deadline):
         stage = ('location' if role.startswith('location') else 'credibility' if role == 'credibility_reviewer'
                  else 'hazard' if role == 'hazard_critic' else role)
@@ -82,66 +202,140 @@ class StageBudget:
             stage = 'location_critic'
         now = time.monotonic()
         remaining = min(deadline, self.deadline-self.reserve)-now
+        protected = self.MEDIANS['location'] if not self.location_complete and stage not in ('intake', 'location', 'location_critic') else 0.
+        remaining -= protected
         if stage != 'location' and stage in self.ends:
             remaining = min(remaining, self.ends[stage]-now)
         optional = stage not in ('intake', 'location') or self.attempts.get(stage, 0) > 0
+        if self.surge and stage not in ('intake', 'location'):
+            self.unavailable(stage, role, 'surge_mode', remaining)
+            raise TimeoutError('stage_unavailable: surge_mode: '+stage)
+        if self.pressured and (stage != 'intake' or self.attempts.get(stage, 0) > 0):
+            self.unavailable(stage, role, 'provider_pressure', remaining)
+            raise TimeoutError('stage_unavailable: provider_pressure: '+stage)
+        if stage in ('critic', 'revision') and self.intake_seconds >= self.LONG_INTAKE_SECONDS:
+            self.unavailable(stage, role, 'long_intake', remaining)
+            raise TimeoutError('stage_unavailable: long_intake: '+stage)
         if optional and remaining < self.MEDIANS.get(stage, self.MEDIANS['critic']):
-            self.record(stage, 'skipped', reason='insufficient_budget', availability='stage_unavailable',
-                        remaining_seconds=round(max(0, remaining), 4))
+            self.unavailable(stage, role, 'insufficient_budget', remaining)
             raise TimeoutError('stage_unavailable: '+stage)
         ceiling = self.CEILINGS.get(stage, self.CEILINGS['critic'])
         if stage == 'location' or stage not in self.ends:
             self.ends[stage] = now+ceiling
-        end = min(self.ends[stage], deadline, self.deadline-self.reserve)
+        end = min(self.ends[stage], deadline, self.deadline-self.reserve-protected)
         self.attempts[stage] = self.attempts.get(stage, 0)+1
-        queue = {'seconds': 0.}
+        queue = {'seconds': 0., 'invoked': False}
+        journal = []
+        closed = False
+        def receive(receipt):
+            # Publish each retry immediately, independently of future.result().
+            with self.journal_lock:
+                if not closed:
+                    journal.append(receipt)
+                    self.receipts.append(receipt)
+        def observe(stage_status, **data):
+            with self.journal_lock:
+                if not closed:
+                    self.record(stage, stage_status, role=role, **data)
         pool = None
+        from app.llm.nightshift import CancelToken, SLOT_CLASS, REQUIRED_ROLES
+        token = CancelToken()  # set in finally: abandoned provider work must stop and free its slot
         try:
             if now >= end:
                 raise TimeoutError('Stage budget exhausted: '+stage)
             pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
             def invoke():
+                SLOT_CLASS.set('required' if role in REQUIRED_ROLES else 'advisory')
                 # Nightshift receipts are thread-local. Carry each call's journal
                 # back to the message worker, including unsuccessful attempts.
-                if isinstance(self.client, Nightshift):
-                    self.client.start_message(self.message_id or 'stage')
-                    self.client.local.minimum_seconds = self.MEDIANS.get(stage, self.MEDIANS['critic'])
-                    def queued(seconds, admitted):
-                        queue['seconds'] = seconds
-                        self.record(stage, 'provider_queue', queue_seconds=round(seconds, 4),
-                                    admitted=admitted,
-                                    **({} if admitted else dict(availability='stage_unavailable')))
-                    self.client.local.queue_observer = queued
                 try:
+                    if isinstance(self.client, Nightshift):
+                        self.client.start_message(self.message_id or 'stage')
+                        self.client.local.minimum_seconds = self.MEDIANS.get(stage, self.MEDIANS['critic'])
+                        self.client.local.receipt_observer = receive
+                        self.client.local.cancel = token
+                        def queued(seconds, admitted):
+                            queue['seconds'] = seconds
+                            observe('provider_queue', queue_seconds=round(seconds, 4), admitted=admitted,
+                                    **({} if admitted else dict(availability='stage_unavailable')))
+                        self.client.local.queue_observer = queued
+                        def pressure(kind, status):
+                            with self.journal_lock:
+                                if not closed:
+                                    self.pressured = True
+                                    self.pressure_kind = kind
+                                    observe('provider_error', failure_kind=kind, http_status=status,
+                                            message='Provider call failed')
+                        self.client.local.pressure_observer = pressure
+                    queue['invoked'] = True
                     value, error = self.client.call(role, system, payload, end), None
                 except Exception as exc:
                     value, error = None, exc
-                receipts = self.client.message_calls() if isinstance(self.client, Nightshift) else []
-                return value, error, receipts
-            future = pool.submit(invoke)
-            value, error, receipts = future.result(timeout=max(0, end-time.monotonic()))
-            self.receipts.extend(receipts)
+                return value, error
+            future = pool.submit(contextvars.copy_context().run, invoke)
+            value, error = future.result(timeout=max(0, end-time.monotonic()))
+            backoff = sum(r.get('backoff_seconds', 0) for r in journal)
+            if backoff:
+                self.record(stage, 'provider_backoff', backoff_seconds=round(backoff, 4),
+                            queue_seconds=round(queue['seconds'], 4))
             if error:
                 raise error
             output, meta = value
+            if not isinstance(meta, dict):
+                raise ValueError('Provider metadata schema invalid')
             if time.monotonic() >= end:
                 raise TimeoutError('Late stage response: '+stage)
             self.record(stage, 'ran', seconds=round(time.monotonic()-now, 4),
+                        role=role,
                         queue_seconds=round(queue['seconds'], 4),
+                        backoff_seconds=round(backoff, 4),
                         allowance_seconds=round(max(0, end-now), 4))
+            if not journal:
+                receive(dict(meta, role=role, status='ok', seconds=round(time.monotonic()-now, 4),
+                             queue_seconds=round(queue['seconds'], 4), error_class=None,
+                             message='Stage call completed'))
             return output, meta
-        except TimeoutError:
-            self.record(stage, 'code_fallback', reason='stage_over_budget', availability='stage_unavailable',
+        except Exception as exc:
+            kind = getattr(exc, 'failure_kind', 'TIMEOUT' if isinstance(exc, TimeoutError) else 'agent_failure')
+            if isinstance(exc, TimeoutError) and self.pressure_kind == 'provider_refused':
+                kind = 'provider_refused'
+            self.failure_kinds.append(kind)
+            self.pressured = self.pressured or kind in ('provider_refused', 'provider_timeout', 'TIMEOUT',
+                                                        'connection_reset', 'provider_connection')
+            if self.pressured:
+                self.pressure_kind = kind
+            self.record(stage, 'code_fallback', reason='stage_over_budget' if isinstance(exc, TimeoutError) else kind,
+                        role=role, error_class=type(exc).__name__, message=diagnostic_message(exc),
+                        failure_kind=kind, http_status=getattr(exc, 'http_status', None),
+                        note_pt='etapa pulada: provedor sob pressão' if self.pressured else 'etapa indisponível',
+                        availability='stage_unavailable',
                         queue_seconds=round(queue['seconds'], 4),
                         seconds=round(time.monotonic()-now, 4))
+            # A worker may still be blocked before its first receipt, or between
+            # retries. Persist the observed boundary failure without waiting.
+            if not journal or isinstance(exc, TimeoutError) or not any(r.get('error_class') for r in journal):
+                receive(dict(role=role, status='timeout' if isinstance(exc, TimeoutError) else 'failed',
+                             seconds=round(time.monotonic()-now, 4), queue_seconds=round(queue['seconds'], 4),
+                             error_class=type(exc).__name__, message=diagnostic_message(exc),
+                             failure_kind=kind, source='stage_boundary', invoked=queue['invoked']))
             raise
         finally:
+            with self.journal_lock:
+                closed = True
+            token.cancel()
+            if stage == 'intake':
+                self.intake_seconds += time.monotonic()-now
             if pool:
                 pool.shutdown(wait=False, cancel_futures=True)
+                if self.history:
+                    self.history.observe(stage, time.monotonic()-now)
 
     def snapshot(self):
         return dict(message_seconds=self.seconds, allocator='remaining_budget',
+                    provider_pressure=self.pressured,
                     reserve_seconds=self.reserve, stage_seconds=dict(self.CEILINGS),
+                    median_seconds=dict(self.MEDIANS), latency_window=20,
+                    protected_location_seconds=self.MEDIANS['location'],
                     eligibility=dict(self.eligibility), stages=list(self.records))
 
 
@@ -165,6 +359,8 @@ def validate_request(request):
             mid = 'synthetic-'+hashlib.sha256(text.encode()).hexdigest()[:20]
         if not isinstance(mid, str) or not mid.strip() or len(mid) > 200:
             raise ValueError('message_id inválido.')
+        from app.redact import external_id
+        mid = external_id(mid)
         if mid in ids:
             raise ValueError('message_id repetido na mesma execução.')
         ids.add(mid)
@@ -183,7 +379,7 @@ def validate_request(request):
 
 
 class Pipeline:
-    def __init__(self, registry, sample=False, source=None, client=None, budget_seconds=60, max_workers=2):
+    def __init__(self, registry, sample=False, source=None, client=None, budget_seconds=90, max_workers=2):
         self.registry, self.sample = registry, sample
         self.source = source or (LocalSource() if sample else ZetarisSource())
         self.client = client
@@ -221,7 +417,7 @@ class Pipeline:
         finally:
             self.run_lock.release()
 
-    def _run(self, replay, messages, ablation, previous=None, event_sink=None, run_id=None, case_sink=None):
+    def _run(self, replay, messages, ablation, previous=None, event_sink=None, run_id=None, case_sink=None, surge=False):
         started = time.monotonic()
         deadline = started+self.budget_seconds
         run_id = run_id or uuid.uuid4().hex
@@ -246,7 +442,8 @@ class Pipeline:
             rows, source_error = [], safe_error(exc)
         finally:
             source_pool.shutdown(wait=False, cancel_futures=True)
-        incident_index = IncidentIndex(rows, landmark_rows)
+        from app.geo.incident import prepared_index
+        incident_index = prepared_index(rows, landmark_rows)
         credibility_history = []
         for stored in self.registry.read():
             for fact in stored.get('facts', []):
@@ -273,6 +470,7 @@ class Pipeline:
             message_started = time.monotonic()
             deadline = message_started + self.budget_seconds
             budget = StageBudget(client, deadline, self.budget_seconds, emit, trace=trace, message_id=message['message_id'])
+            budget.surge = bool(surge)
             agent_client = EventClient(budget, emit)
             with deadline_lock:
                 message_deadlines[message['message_id']] = (deadline, message_started)
@@ -280,10 +478,9 @@ class Pipeline:
             emit('message_started', budget_seconds=self.budget_seconds)
             fields, unsupported, calls, errors = {}, [], [], []
             review_degraded = False
+            intake_degraded = False
             agent_warnings = []
             initial_fields = {}
-            if isinstance(client, Nightshift):
-                client.start_message(message['message_id'])
             stages = {'intake': None, 'critic': None, 'revision': None, 'location': None}
             complete = source_error is None
             if source_error:
@@ -300,9 +497,17 @@ class Pipeline:
                 budget.record('critic', 'skipped', reason='offline' if reasons else 'certain_intake', uncertainty=reasons)
                 emit('intake_done',role='intake')
             else:
+                extraction_role = 'intake'
                 try:
-                    output, meta = intake.run(agent_client, message['text'], deadline)
-                    calls.append(meta)
+                    output, meta, intake_degraded = intake.hedged_run(
+                        agent_client, message['text'], deadline,
+                        lambda: baseline.extract(message['text'], rows))
+                    if meta is not None:
+                        calls.append(meta)
+                    if intake_degraded:
+                        agent_warnings.append('leitura inicial degradada; extração determinística preservada.')
+                        if previous is not None and not output.get('fields'):
+                            raise TimeoutError('Intake reply unavailable; preserve previous evidence')
                     stages['intake'] = output
                     fields, rejected = validate(output, message['text'])
                     unsupported.extend(rejected)
@@ -317,29 +522,35 @@ class Pipeline:
                         try:
                             review, meta = critic.run(agent_client, message['text'], fields, deadline)
                         except Exception as exc:
+                            budget.agent_error('critic', exc)
                             stages['critic'] = 'failed'
-                            review_degraded = True
-                            if state(message['text'])['not_a_rescue']:
-                                agent_warnings.append('critic indisponível; classificação determinística preservada.')
-                            elif not isinstance(exc, TimeoutError):
-                                errors.append('critic_failed:'+safe_error(exc))
-                            else:
-                                agent_warnings.append('stage_unavailable: critic; revisão humana obrigatória.')
+                            agent_warnings.append('crítico indisponível; leitura inicial validada preservada.')
                             review, meta = {'objections': []}, None
                         if meta is not None:
                             calls.append(meta)
                             stages['critic'] = review
                         objections = review['objections']
                         if objections and not review_degraded:
-                            revised, meta = intake.run(agent_client, message['text'], deadline, objections)
-                            calls.append(meta)
-                            stages['revision'] = revised
-                            fields, rejected = validate(revised, message['text'])
-                            unsupported.extend(rejected)
-                            if not isinstance(revised, dict) or not isinstance(revised.get('fields'), dict):
-                                raise ValueError('Revision schema invalid')
+                            try:
+                                revised, meta = intake.run(agent_client, message['text'], deadline, objections)
+                                if not isinstance(revised, dict) or not isinstance(revised.get('fields'), dict):
+                                    raise ValueError('Revision schema invalid')
+                                revised_fields, rejected = validate(revised, message['text'])
+                                calls.append(meta)
+                                stages['revision'] = revised
+                                fields = revised_fields
+                                unsupported.extend(rejected)
+                            except Exception as exc:
+                                budget.agent_error('revision', exc)
+                                stages['revision'] = 'failed'
+                                agent_warnings.append('revisão indisponível; leitura inicial validada preservada.')
                 except Exception as exc:
+                    budget.agent_error(extraction_role, exc)
+                    stages[extraction_role] = 'failed'
                     complete = False
+                    # Failed required extraction must finish deterministically;
+                    # more advisory calls cannot repair its missing evidence.
+                    budget.pressured = True
                     errors.append('agent_step_failed:'+safe_error(exc))
                     # Code extraction remains reviewable when an agent's stage expires.
                     if not fields:
@@ -368,8 +579,8 @@ class Pipeline:
                         fields, history, conflicts, changes, review, metas = merge(
                             previous, reply_fields, message, agent_client, deadline, False)
                     except Exception as exc:
-                        review_degraded, review = True, 'failed'
-                        agent_warnings.append('critic indisponível; histórico determinístico preservado: '+type(exc).__name__)
+                        review = 'failed'
+                        agent_warnings.append('crítico indisponível; histórico determinístico preservado: '+type(exc).__name__)
                 else:
                     budget.record('critic', 'skipped', reason='offline' if self.sample else 'certain_dialogue', uncertainty=reply_reasons)
                 calls.extend(metas)
@@ -423,20 +634,25 @@ class Pipeline:
                 code_found = location['found'] or bool(landmark and landmark.get('status') == 'resolved')
                 budget.eligibility['location'] = not code_found
                 budget.eligibility['location_newly_skipped'] = bool(code_found and location_stage.get('location_path') == 'agent')
-                if not code_found and not self.sample and ablation == 'full':
+                if not code_found and not self.sample and ablation == 'full' and budget.location_available(deadline):
                     location, cross, landmark, location_stage, location_calls = location_agent.locate(
                         rows, landmark_rows, fields, message['text'], replay, agent_client, deadline,
                         memory=__import__('app.memory.service', fromlist=['PlaceMemory']).PlaceMemory(self.registry, landmark_rows),
                         index=incident_index, trace=trace, emit=emit)
-                else:
+                elif code_found or self.sample or ablation != 'full':
                     budget.record('location', 'skipped', reason='code_lookup_resolved' if code_found else 'offline_or_ablation')
                     if code_found and location_stage.get('location_path') == 'agent':
                         location_stage.update(location_path='deterministic_lookup', offline=self.sample,
                                               agent_skipped=True)
+                else:
+                    location_stage.update(location_path='deterministic_fallback', offline=False,
+                                          agent_skipped=True, fallback=True,
+                                          fallback_reason='Location model unavailable; deterministic evidence checks retained.')
             if rescue_state['not_a_rescue']:
                 budget.eligibility['location'] = False
                 budget.record('location', 'skipped', reason='not_a_rescue')
             stages['location'] = location_stage
+            budget.location_complete = True
             calls.extend(location_calls)
             if landmark and landmark.get('status') == 'resolved' and not get('municipality'):
                 fields['municipality'] = {'value': landmark['matched']['municipality'],
@@ -456,9 +672,12 @@ class Pipeline:
                     result.update(decision='REVIEW_REQUIRED', decision_reason='Local ou fatos contraditórios entre mensagens; confirmar com o contato.')
                 dialogue_data['change_summary_pt'] += '; Contradições em aberto: '+', '.join(
                     f"{c['field']}: {c.get('previous', {}).get('value', '?')} → {c.get('reply', {}).get('value', c.get('quote', '?'))} (mensagem {c['message_index']})" for c in dialogue_data['contradictions'])
-            if review_degraded:
-                result.update(decision='REVIEW_REQUIRED', questions=[],
-                              decision_reason='A crítica falhou; leitura inicial preservada para revisão humana.')
+            if intake_degraded and result['decision'] == 'SEND_CANDIDATE' and not (
+                    rescue_state['life_safety'] and (location['found'] or
+                    landmark and landmark.get('status') == 'resolved' and not landmark.get('context_only'))):
+                result.update(decision='CALLBACK',
+                              decision_reason='Leitura inicial degradada; confirmar risco à vida e local validado.',
+                              questions=result['questions']+['Pode confirmar o risco à vida e o local do resgate?'])
             if isinstance(client, Nightshift):
                 calls = list(budget.receipts)
             proposed = sum(len(stage.get('fields', {})) for key, stage in stages.items()
@@ -471,10 +690,12 @@ class Pipeline:
                     'location_path': location_stage['location_path'], 'location_precision': location_stage['precision'],
                     'result': result, 'errors': errors, 'review_degraded': review_degraded,
                     'agent_warnings': agent_warnings,
+                    'intake_degraded': intake_degraded,
                     'initial_fields': initial_fields, 'seconds': round(time.monotonic()-message_started, 4),
                     'complete': complete, 'proposed_field_count': proposed,
                     'call_count_complete': 'message_deadline' not in errors,
-                    'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else 'nightshift'}
+                    'extraction_method': 'regex_baseline' if self.sample or ablation == 'baseline' else
+                                         'regex_baseline_degraded' if intake_degraded else 'nightshift'}
             case['incident_outside_text'] = outside_text
             case.update(dialogue_data)
             apply_route(case, rows)
@@ -493,6 +714,8 @@ class Pipeline:
                 hydro_conflict=conflict, client=agent_client if not self.sample and ablation == 'full' else None,
                 deadline=deadline)
             case['credibility'] = credibility
+            if credibility.get('fallback_reason'):
+                agent_warnings.append('revisor de credibilidade indisponível; regras determinísticas preservadas.')
             case['hydro_conflict'] = conflict
             if conflict:
                 case.setdefault('open_items', []).append(dict(reason='hydro_conflict',
@@ -510,8 +733,17 @@ class Pipeline:
             case['hazard_review']='indisponível'
             case['hazard_critic']='indisponível'
             case['hazard_unsupported']=0
-            if not rescue_state['not_a_rescue'] and not self.sample and ablation == 'full' and (previous is not None or result['decision'] in ('SEND_CANDIDATE','REVIEW_REQUIRED')):
+            case['hazard_check']='deterministic_only'
+            hazard_eligible = bool(conflict) and not rescue_state['not_a_rescue'] and not self.sample and ablation == 'full'
+            budget.eligibility['hazard'] = hazard_eligible
+            hazard_late = time.monotonic()-message_started > self.budget_seconds*budget.HAZARD_BUDGET_FRACTION
+            if hazard_eligible and not hazard_late:
                 hazard_critic.attach(case,agent_client,deadline)
+            else:
+                budget.record('hazard', 'skipped', reason='message_budget_60_percent' if hazard_late else
+                              'offline_or_ablation' if self.sample or ablation != 'full' else 'no_hydro_conflict')
+            if not self.sample and ablation == 'full' and not isinstance(case['hazard_review'], dict):
+                agent_warnings.append('perigo não revisado; verificações determinísticas preservadas.')
             if isinstance(client,Nightshift):
                 case['calls']=list(budget.receipts)
             if previous is not None and 'hazard_critic' in case['agents'] and not isinstance(case['hazard_review'], dict):
@@ -521,8 +753,21 @@ class Pipeline:
             case['latency_budget'] = budget.snapshot()
             case['stage_unavailable'] = sorted({r['stage'] for r in budget.records
                                                 if r.get('availability') == 'stage_unavailable'})
-            if isinstance(client, Nightshift):
-                case['calls'] = list(budget.receipts)
+            case['minimal_path'] = budget.pressured or bool(case['stage_unavailable'])
+            unavailable_kinds = budget.failure_kinds + [budget.pressure_kind] + [r.get('failure_kind') for r in budget.records
+                if r.get('availability') == 'stage_unavailable']
+            case['failure_kind'] = ('provider_refused' if 'provider_refused' in unavailable_kinds else
+                'TIMEOUT' if any(k in ('TIMEOUT', 'provider_timeout') for k in budget.failure_kinds) else
+                'agent_failure' if budget.failure_kinds or errors else None)
+            for row in budget.records:
+                if row.get('availability') == 'stage_unavailable':
+                    warning = row['stage']+': '+row.get('note_pt', 'etapa pulada: orçamento restante insuficiente')
+                    if warning not in agent_warnings:
+                        agent_warnings.append(warning)
+            case['calls'] = list(budget.receipts)
+            case['deterministic_fallback_decision'] = bool(not complete and 'message_deadline' in errors and
+                                                          case['result']['decision'] == 'REVIEW_REQUIRED')
+            case_counters(case, budget)
             if any(r['status'] == 'code_fallback' and r.get('reason') == 'stage_over_budget' for r in budget.records):
                 case['call_count_complete'] = False
             emit('decision', decision=case['result']['decision'], seconds=round(time.monotonic()-message_started,4))
@@ -531,7 +776,7 @@ class Pipeline:
             case['seconds'] = round(time.monotonic()-message_started, 4)
             return redact_data(case)
         pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
-        futures = {pool.submit(process, m): m for m in messages}
+        futures = {pool.submit(contextvars.copy_context().run, process, m): m for m in messages}
         results = []
         try:
             pending = set(futures)
@@ -543,7 +788,13 @@ class Pipeline:
                         results.append(future.result())
                     except Exception as exc:
                         if event_sink: event_sink('error',case_id=hashlib.sha256(futures[future]['message_id'].encode()).hexdigest()[:24])
-                        results.append(self.failed_case(futures[future], replay, run_id, safe_error(exc)))
+                        failure = self.failed_case(futures[future], replay, run_id, safe_error(exc), rows)
+                        budget = message_budgets.get(futures[future]['message_id'])
+                        if budget:
+                            budget.agent_error('message_worker', exc)
+                            failure['latency_budget'] = budget.snapshot()
+                            failure['calls'] = list(budget.receipts)
+                        results.append(failure)
                     if case_sink:
                         case_sink(copy.deepcopy(results[-1]))
                 # Queued messages have no deadline until a worker starts them.
@@ -554,10 +805,11 @@ class Pipeline:
                         pending.remove(future)
                         future.cancel()
                         if event_sink: event_sink('error',case_id=hashlib.sha256(futures[future]['message_id'].encode()).hexdigest()[:24])
-                        failure = self.failed_case(futures[future], replay, run_id, 'message_deadline')
+                        failure = self.failed_case(futures[future], replay, run_id, 'message_deadline', rows)
                         budget = message_budgets.get(futures[future]['message_id'])
                         if budget:
                             failure['latency_budget'] = budget.snapshot()
+                            failure['calls'] = list(budget.receipts)
                         failure['seconds'] = round(time.monotonic()-timing[1], 4)
                         results.append(failure)
                         if case_sink:
@@ -585,27 +837,40 @@ class Pipeline:
                             from app.runs import EventClient
                             def review_emit(stage, **data):
                                 if event_sink: event_sink(stage,case_id=cid,**data)
-                            if isinstance(client,Nightshift): client.start_message(case['message_id'])
                             try:
                                 review,meta = duplicate_reviewer.run(EventClient(message_budgets[case['message_id']],review_emit),case,other,deadline)
                                 reviewed[pair] = (cid,review)
                                 if not isinstance(client,Nightshift): case['calls'].append(meta)
-                            except ValueError:
+                            except ValueError as exc:
+                                message_budgets[case['message_id']].agent_error('duplicate_reviewer', exc)
                                 case['duplicate_unsupported'] = case.get('duplicate_unsupported',0)+1
                                 reviewed[pair] = (cid,'indisponível')
-                            except Exception:
+                            except Exception as exc:
+                                message_budgets[case['message_id']].agent_error('duplicate_reviewer', exc)
                                 reviewed[pair] = (cid,'indisponível')
                             budget = message_budgets[case['message_id']]
                             case['latency_budget'] = budget.snapshot()
                             if any(r['status'] == 'code_fallback' for r in budget.records):
                                 case['call_count_complete'] = False
-                            if isinstance(client,Nightshift): case['calls'] = list(budget.receipts)
+                            case['calls'] = list(budget.receipts)
                         first,review=reviewed[pair]
                         entry['review']=copy.deepcopy(review)
                         if first!=cid and isinstance(entry['review'],dict):
                             for evidence in entry['review']['evidence']:
                                 evidence['case']='B' if evidence['case']=='A' else 'A'
                     case['duplicates'].append(entry)
+        for case in results:
+            if surge:
+                case['surge_mode'] = True
+                note = 'modo surto: etapas consultivas puladas para atender a fila; revisão humana segue obrigatória.'
+                if note not in case.setdefault('agent_warnings', []):
+                    case['agent_warnings'].append(note)
+            budget = message_budgets.get(case['message_id'])
+            if budget:
+                case['latency_budget'] = budget.snapshot()
+                if any(d.get('review') == 'indisponível' for d in case.get('duplicates', [])):
+                    case.setdefault('agent_warnings', []).append('revisor de duplicidade indisponível; sugestão determinística preservada.')
+                case_counters(case, budget)
         try:  # N2A3: advisory cross-source check AFTER every decision; deterministic here, model phrasing on a background thread
             from app.contradictions.hook import after_decision
             after_decision(self, results, previous, None if self.sample or ablation != 'full' else client)
@@ -619,6 +884,10 @@ class Pipeline:
                     failure.pop(key, None)
                 failure.update(messages=reply_messages(previous, messages[0]), received_at=messages[0]['received_at'],
                     replay_time=replay, parent_version=previous['version'], complete=False,
+                    failure_kind=case.get('failure_kind'), minimal_path=case.get('minimal_path'),
+                    calls=case.get('calls', []), nemotron=case.get('nemotron'),
+                    agent_evidence=case.get('agent_evidence'), intake_degraded=case.get('intake_degraded', False),
+                    agent_warnings=case.get('agent_warnings', []),
                     latency_budget=case.get('latency_budget'), stage_unavailable=case.get('stage_unavailable', []),
                     errors=case['errors'], changes=[], route=case['route'],
                     reply_attempt={k:case.get(k) for k in ('agents','calls','errors','run_id','complete','latency_budget','arbitration')},
@@ -644,14 +913,23 @@ class Pipeline:
             print(json.dumps(event, ensure_ascii=False), flush=True)
         return summary
 
-    def failed_case(self, message, replay, run_id, error):
-        location = lookup([], '', '', replay)
+    def failed_case(self, message, replay, run_id, error, rows=None):
+        # An outer deadline still returns reviewable, validated code evidence.
+        try:
+            fields, unsupported = validate(baseline.extract(message['text'], rows or []), message['text'])
+        except Exception:
+            fields, unsupported = {}, []  # Last-resort review must itself be total.
+        location = lookup(rows or [], fields.get('street', {}).get('value', ''),
+                          fields.get('municipality', {}).get('value', ''), replay)
         case = screen({**message, 'replay_time': replay, 'run_id': run_id, 'mode': 'sample_offline' if self.sample else 'full',
-                'fields': {}, 'unsupported': [], 'agents': {r: 'unavailable (failed)' for r in ('intake', 'critic', 'revision')},
+                'fields': fields, 'unsupported': unsupported, 'agents': {r: 'unavailable (failed)' for r in ('intake', 'critic', 'revision')},
                 'calls': [], 'checks': location, 'cross_street_check': None,
                 'position': None, 'hazards': None, 'hazards_reason': 'Location unavailable after failed analysis.',
                 'hazard_review': 'indisponível', 'hazard_critic': 'indisponível', 'hazard_unsupported': 0,
-                'result': decide({}, location, replay, message['received_at'], complete=False),
+                'result': decide(fields, location, replay, message['received_at'], complete=False),
+                'intake_degraded': True,
+                'deterministic_fallback_decision': error == 'message_deadline',
+                'agent_warnings': ['leitura inicial indisponível; extração determinística para revisão humana.'],
                 'errors': [error], 'complete': False, 'proposed_field_count': 0,
                 'call_count_complete': False, 'extraction_method': 'unavailable'})
 

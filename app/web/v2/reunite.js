@@ -13,11 +13,11 @@ globalThis.DeskReunite = (() => {
   document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.showModal();
   async function decide(c,action){
    if(!actor.value.trim()){notice('Informe o operador.',true);return;}
-   try{await api('/api/reunite',{pair_id:c.id,action,actor:actor.value.trim(),at:document.getElementById('date').value+'T23:59:59-03:00'});notice(action==='confirm'?'Reencontro confirmado; nota registrada nos dois casos.':'Par rejeitado.');await load();await refresh?.();}
+   try{await api('/api/reunite',{pair_id:c.id,action,actor:actor.value.trim(),at:(window.DeskReplay?window.DeskReplay.iso():document.getElementById('date').value+'T23:59:59-03:00')});notice(action==='confirm'?'Reencontro confirmado; nota registrada nos dois casos.':'Par rejeitado.');await load();await refresh?.();}
    catch(error){notice(error.message,true);}
   }
   async function load(){
-   const data=await api('/api/reunite?at='+encodeURIComponent(document.getElementById('date').value+'T23:59:59-03:00'));content.replaceChildren(el('small',`Buscas: ${data.counts.missing} · Registros de resgate/abrigo: ${data.counts.found}`));
+   const data=await api('/api/reunite?at='+encodeURIComponent((window.DeskReplay?window.DeskReplay.iso():document.getElementById('date').value+'T23:59:59-03:00')));content.replaceChildren(el('small',`Buscas: ${data.counts.missing} · Registros de resgate/abrigo: ${data.counts.found}`));
    if(!data.candidates.length)content.append(el('p','Nenhum par candidato.'));
    for(const c of data.candidates){
     const card=el('article',undefined,'memory-entry');

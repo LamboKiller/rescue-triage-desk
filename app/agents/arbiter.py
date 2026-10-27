@@ -278,9 +278,15 @@ def resolve(conflict, client=None, deadline=None):
                 raise ValueError('Arbiter must choose one cited claim')
             return {**event, 'method':'model', 'verdict':output['choice'], 'receipt':meta.get('receipt'),
                     'model':meta.get('model'), 'attempts':attempt+1, 'call':meta}
-        except ValueError:
+        except ValueError as exc:
+            recorder = getattr(client, 'agent_error', None)
+            if callable(recorder):
+                recorder('arbiter', exc)
             reason = 'invalid_arbiter_output'
         except Exception as exc:
+            recorder = getattr(client, 'agent_error', None)
+            if callable(recorder):
+                recorder('arbiter', exc)
             reason = type(exc).__name__
             break
     return {**event, 'method':'fallback', 'fallback_reason':reason}

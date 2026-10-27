@@ -57,7 +57,7 @@ class PipelineTests(unittest.TestCase):
         llm = FakeLLM()
         result = Pipeline(self.registry, source=FakeSource(), client=llm).run(self.request())
         c = result['cases'][0]
-        self.assertEqual(llm.roles, ['intake', 'critic', 'revision', 'hazard_critic'])
+        self.assertEqual(llm.roles, ['intake', 'critic', 'revision'])
         self.assertNotIn('elderly', c['fields'])
         self.assertEqual(c['unsupported'][0]['reason'], 'unsupported_quote')
         self.assertEqual(c['result']['decision'], 'SEND_CANDIDATE')
@@ -78,23 +78,25 @@ class PipelineTests(unittest.TestCase):
                 return {'objections':[{'fact_ids':[fact],'text_pt':'Verifique as cautelas locais.',
                                        'severity':'warn'}],'brief_pt':'Requer revisão humana.'},{'role':role}
         llm=HazardLLM()
-        c=Pipeline(self.registry,source=FakeSource(),client=llm).run(self.request())['cases'][0]
+        with patch('app.geo.hydro.hydro_conflict', return_value={'reason':'synthetic conflict'}):
+            c=Pipeline(self.registry,source=FakeSource(),client=llm).run(self.request())['cases'][0]
         self.assertEqual(llm.roles[-1],'hazard_critic')
         self.assertEqual(c['hazard_critic'],c['hazard_review'])
         self.assertEqual(c['hazard_review']['objections'][0]['severity'],'warn')
         self.assertEqual(c['hazard_unsupported'],0)
         self.assertEqual(c['result']['decision'],'SEND_CANDIDATE')
 
-    def test_failed_critic_cannot_send(self):
+    def test_failed_advisory_critic_preserves_validated_decision(self):
         result = Pipeline(self.registry, source=FakeSource(), client=FakeLLM('critic')).run(self.request())
         self.assertFalse(result['partial'])
         c = result['cases'][0]
         self.assertTrue(c['complete'])
-        self.assertTrue(c['review_degraded'])
+        self.assertFalse(c['review_degraded'])
+        self.assertTrue(any('indisponível' in w for w in c['agent_warnings']))
         self.assertEqual(c['agents']['critic'], 'failed')
         self.assertEqual(c['fields']['people']['value'], 3)
-        self.assertEqual(c['result']['decision'], 'REVIEW_REQUIRED')
-        self.assertEqual(c['result']['questions'], [])
+        self.assertEqual(c['result']['decision'], 'SEND_CANDIDATE')
+        self.assertFalse(c['errors'])
 
     def test_offline_no_network_and_not_precomputed(self):
         with patch('urllib.request.urlopen', side_effect=AssertionError('network')):

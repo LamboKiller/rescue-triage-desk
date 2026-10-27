@@ -1,13 +1,31 @@
 import csv
+from functools import lru_cache
+import threading
 from typing import Protocol
 from app.config import ROOT, setting
 from app.data.zetaris import Zetaris
 
+_CSV_LOCK = threading.RLock()
+
+
+@lru_cache(maxsize=24)
+def _csv_snapshot(path, stamp):
+    with open(path, encoding='utf-8-sig', newline='') as file:
+        return tuple(tuple(row.items()) for row in csv.DictReader(file))
+
+
+def local_csv(path):
+    """Reuse parsed local files; metadata changes invalidate, callers own their rows."""
+    stat = path.stat()
+    stamp = (stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino)
+    with _CSV_LOCK:
+        rows = _csv_snapshot(str(path.absolute()), stamp)
+    return [dict(row) for row in rows]
+
 
 def with_aliases(rows):
     """Both sources use the small, reviewed local alias CSV."""
-    with (ROOT/'data/landmark_aliases.csv').open(encoding='utf-8', newline='') as file:
-        aliases = list(csv.DictReader(file))
+    aliases = local_csv(ROOT/'data/landmark_aliases.csv')
     by_id = {}
     for alias in aliases:
         by_id.setdefault((alias['osm_type'], alias['osm_id']), []).append(alias)
@@ -55,12 +73,10 @@ class LocalSource:
         path = ROOT/'data/landmarks.csv'
         if not path.exists():
             return []
-        with path.open(encoding='utf-8', newline='') as file:
-            return with_aliases(list(csv.DictReader(file)))
+        return with_aliases(local_csv(path))
 
     def streets(self, timeout=120):
-        with (ROOT/'data/streets_flood.csv').open(encoding='utf-8', newline='') as file:
-            return list(csv.DictReader(file))
+        return local_csv(ROOT/'data/streets_flood.csv')
 
 
 def as_csv_strings(rows):

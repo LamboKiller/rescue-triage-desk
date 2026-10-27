@@ -21,8 +21,14 @@ GENERIC_VEHICLE = r'\b(?:barco|barcos|bote|lancha|barca|barquinho|canoa|caiaque|
 VEHICLE = re.compile(GENERIC_VEHICLE+'|'+'|'.join(p for _, p in TYPE_PATTERNS))
 OFFER_CUE = re.compile(r'\b(?:tenho|temos|possuo|possuimos|disponibilizo|disponibilizamos|ofereco|oferecemos|empresto|emprestamos|'
                        r'cedo|cedemos|coloco|colocamos|posso|podemos|dou|doo)\b|a disposicao|\bquem precisar\b|\bse precisarem\b|'
-                       r'\bse (?:alguem )?precisar\b|\bdisponivel\b|\bdisponiveis\b')
-HELP_CUE = re.compile(r'\bposso ajudar\b|\bpodemos ajudar\b|\bquero ajudar\b|\bvoluntari[oa]\b')
+                       r'\bse (?:alguem )?precisar\b|\bdisponivel\b|\bdisponiveis\b|'
+                       r'\bquem\s+precisa\s+de\s+(?:uma\s+)?(?:carona|transporte|lugar|vaga)\b')
+# ACC1: offers of shelter / space (no vehicle): "posso hospedar uma familia", "tenho um quarto sobrando".
+HOSTING = re.compile(r'\b(?:posso|podemos|quero|queremos|ofere[c]o|oferecemos|disponibilizo|disponibilizamos|dou|damos)\s+(?:\w+\s+){0,2}'
+                     r'(?:hospedar|abrigar|acolher|alojar|receber|dar abrigo|dar pouso)\b|'
+                     r'\b(?:tenho|temos)\s+(?:\w+\s+){0,2}(?:casa|quarto|quartos|vaga|vagas|espaco|salao|galpao|terreno|sitio|comodo|colchoes|cama|camas)\s+'
+                     r'(?:\w+\s+){0,2}(?:sobrando|livres?|disponiv\w+|vazi\w+|para (?:receber|abrigar|hospedar|acolher)|pra (?:receber|abrigar|hospedar|acolher))\b')
+HELP_CUE = re.compile(r'\bposso ajudar\b|\bpodemos ajudar\b|\bquero ajudar\b|\bvoluntari[oa]\b|\bqueremos ajudar\b|\bestou disponivel\b|\bestamos disponiveis\b|\bdisponivel para\b|\bonde (?:nos |me )?apresent\w+')
 # First-person need / danger. Intentionally excludes "resgatar pessoas" (an offer) but includes "me resgatem".
 RESCUE_CUE = re.compile(r'\b(?:preciso|precisamos|necessito|necessitamos|socorro|urgente)\b|\bnos\s+(?:resgat|ajud|tir|busqu)\w*|'
                         r'\bme\s+(?:resgat|ajud|tir|busqu)\w*|\b(?:estou|estamos|ficamos|estao|esta)\s+(?:preso|presa|presos|presas|ilhad\w+|'
@@ -77,9 +83,18 @@ def classify(text):
         return {**base, 'kind': 'rescue', 'reason': 'pedido de socorro ou pessoas em risco no texto'}
     if v and (OFFER_CUE.search(f) or OWNERSHIP.search(f) and OWNERSHIP_DETAIL.search(f)) and not NEGATED_OFFER.search(f):
         return {**base, 'kind': 'offer', 'reason': 'veículo oferecido na primeira pessoa'}
+    if HOSTING.search(f) and not NEGATED_OFFER.search(f):
+        return {**base, 'kind': 'offer', 'reason': 'oferta de abrigo ou espaço na primeira pessoa'}
     if HELP_CUE.search(f):
         return {**base, 'kind': 'info', 'reason': 'oferta de ajuda sem veículo'}
     return {**base, 'kind': 'other', 'reason': 'sem oferta de veículo'}
+
+
+def help_offer(text):
+    """ACC1: an offer of vehicle, space or labour; never a rescue request."""
+    verdict = classify(text)
+    return verdict['kind'] == 'offer' or (verdict['kind'] == 'info' and bool(re.search(
+        r'\b(?:posso|podemos|quero|queremos) ajudar\b|\bestou disponivel\b|\bestamos disponiveis\b|\bdisponivel para\b|\bonde (?:nos |me )?apresent|\b(?:sou|somos|me coloco como) voluntari', fold(text))))
 
 
 def is_offer(text):

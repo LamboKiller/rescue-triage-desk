@@ -35,7 +35,7 @@ window.DeskTimeline=(()=>{
    const since=events.length?events[events.length-1].seq:0;
    const next=await ctx.api(`/api/replay/state?since=${since}`);
    if(next.event_count<events.length)events=[];
-   state={...next,events:undefined};events=events.concat(next.events||[]);
+   state={...next,events:undefined};events=events.concat(next.events||[]);window.DeskLive?.feedReplay?.(next.events);
    draw();
    const now=Date.now();
    if((next.events||[]).some(e=>e.lane!=='agent'&&e.kind!=='supervisor_tick')&&now-lastRefresh>2500){lastRefresh=now;ctx.refresh().catch(()=>{});}

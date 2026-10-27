@@ -61,7 +61,7 @@ window.DeskFleet=(()=>{
     const close=button('Fechar',()=>d.close());d.append(el('h2','Recursos · unidades e capacidades'),close);
     d.addEventListener('close',()=>d.remove());document.body.append(d);d.showModal();
     try{
-      const data=await api('/api/resources'),progress=await api('/api/units/status?replay_time='+encodeURIComponent(ctx.day+'T23:59:59-03:00'));if(!d.isConnected)return;
+      const data=await api('/api/resources'),progress=await api('/api/units/status?replay_time='+encodeURIComponent((window.DeskReplay?window.DeskReplay.iso():ctx.day+'T23:59:59-03:00')));if(!d.isConnected)return;
       ctx={...ctx,refresh:async()=>{d.close();await resources(ctx);}};
       if(!data.typed_resources?.length)d.append(el('p','Nenhuma unidade com atributos tipados. Registre as capacidades documentadas.'));
       const attrs=[['Capacidade','capacity_people'],['Calado (m)','draft_m'],['Transposição (m)','max_wading_depth_m'],
@@ -71,6 +71,7 @@ window.DeskFleet=(()=>{
           el('p',`${u.source} · ${u.base||'Base a confirmar'} · último relato: ${u.last_report_at||'a confirmar'}`));
         const state=progress.units.find(r=>r.unit_id===u.id);
         if(state)section.append(status(el,state),reportForm(ctx,u.id));
+        window.DeskTelemetry?.resources(section,u,ctx);
         const dl=el('dl');for(const [name,key] of attrs)dl.append(el('dt',name),el('dd',['stretcher','medical_crew','night_ok','pets_ok'].includes(key)?yes(u[key]):String(u[key]??'A confirmar')));
         if(u.type==='helicoptero')section.append(el('p','Somente solicitação; não integra unidades disponíveis.'));
         section.append(dl);d.append(section);

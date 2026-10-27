@@ -20,6 +20,20 @@ from support import Scratch
 ROOT = Path(__file__).resolve().parents[1]
 
 
+BROKEN = None
+
+
+def broken_glyphs(text, strings_only=False):
+    """UXB: '?' / U+FFFD / mojibake standing in for accents, dots or arrows. A '?' between letters or with spaces on both sides
+    is never legitimate Portuguese text; code (ternaries, URLs with a query string) is excluded by looking only at string literals."""
+    import re
+    found = [m.group(0) for m in re.finditer('\ufffd|Ã[§£¡©³ª]|â€', text)]
+    if strings_only:
+        literals = re.findall(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"|`(?:[^`\\]|\\.)*`", text)
+        text = '\n'.join(re.sub(r'\$\{[^}]*\}', 'X', x) for x in literals if not re.match(r"^.[/#.]|^.https?:|[=(){};]", x))
+    return found + re.findall(r'[A-Za-zÀ-ÿ]\?[A-Za-zÀ-ÿ]|(?<= )\?(?= )', text)
+
+
 class UITests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -126,9 +140,18 @@ class UITests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('sources', json.loads(body)['hazards'])
         self.assertIn('ODbL', json.loads(body)['map3d'])
-        ui = sum(p.stat().st_size for p in routes_v2.UI.rglob('*') if p.suffix in ('.html', '.css', '.js') and 'vendor' not in p.relative_to(routes_v2.UI).parts)
-        self.assertLessEqual(ui, 260000)  # raised 26/10 (Orbit): fleet, landing, volunteers, route, chaining, cross-source panels; own unminified UI only, vendored libs excluded
+        own = [p for p in routes_v2.UI.rglob('*') if p.suffix in ('.html', '.css', '.js') and 'vendor' not in p.relative_to(routes_v2.UI).parts]
+        # I18N (26/10): the PT->EN phrase dictionary and its small engine are counted apart from the 260 KB UI cap; together they may use 90 KB (dictionary ~65 KB: ~650 phrases + ~100 templates).
+        i18n = sum(p.stat().st_size for p in own if p.name in ('i18n.js', 'i18n_en.js'))
+        self.assertLessEqual(i18n, 90000)
+        ui = sum(p.stat().st_size for p in own if p.name not in ('i18n.js', 'i18n_en.js'))
+        self.assertLessEqual(ui, 300000)  # raised 26/10 to 300 KB (UX2: Meios decision screen, route view, replay clock, intake dialog; old Meios table and route.js removed); earlier: 270000 (raised 26/10 (UXP: mode chip, agent line, detail hydration; Orbit): fleet, landing, volunteers, route, chaining, cross-source panels; own unminified UI only, vendored libs excluded
         self.assertLessEqual(sum(p.stat().st_size for p in routes_v2.MAP.rglob('*') if p.is_file()), 60000000)
+
+    def test_no_broken_glyphs_in_served_assets(self):
+        for p in sorted(routes_v2.UI.glob('*')):
+            if p.suffix in ('.html', '.css', '.js'):
+                self.assertEqual(broken_glyphs(p.read_text(encoding='utf-8'), p.suffix == '.js'), [], p.name)
 
     def test_javascript_syntax_and_safety_gates(self):
         node = shutil.which('node.exe') or shutil.which('node')
@@ -145,10 +168,9 @@ class UITests(unittest.TestCase):
 global.window={}; // Browser global for optional integrations in the real UI.
 const assert=require('assert');
 const c={case_id:'x',version:2,status:'proposed',location_confirmed:true,result:{decision:'SEND_CANDIDATE',questions:[]},fields:{},fleet:[{asset:'boat',label_pt:'Barco',verdict:'caution',reasons_pt:['Equipe treinada']}]};
-assert.equal(primary(c).reason,'Escolha um meio');
-S.assets.set('x','boat');assert.ok(primary(c).reason.includes('cautelas'));
-S.acks.add('x:boat:2');assert.equal(primary(c).action,'approve_dispatch');
-c.version=3;assert.ok(primary(c).reason.includes('cautelas'));
+// UX2: the header no longer approves by itself; dispatch lives on the Meios screen (real checks gate it, server re-validates)
+assert.equal(primary(c).action,'open_meios');assert.ok(!primary(c).reason);
+c.status='ASSIGNED:m1';assert.ok(primary(c).reason.includes('Missões'));c.status='proposed';
 c.fleet[0].verdict='unsafe';assert.equal(group(c),1);
 assert.ok(primary(c).action!=='approve_dispatch');
 c.fleet=[];c.result.decision='CALLBACK';assert.equal(group(c),2);
@@ -175,7 +197,9 @@ class Element{
 const nodes=new Map();global.document={getElementById:id=>{if(!nodes.has(id))nodes.set(id,new Element('div'));return nodes.get(id);},createElement:tag=>new Element(tag),createTextNode:t=>({textContent:t})};
 $('date').value='2024-05-08';$('search').value='';
 S.cases=[{case_id:'render',version:1,status:'proposed',received_at:'2024-05-08T12:00:00-03:00',replay_time:'2024-05-08T18:00:00-03:00',text:'Bebê no telhado',location_confirmed:true,fields:{people:{value:3}},result:{priority:18,decision:'SEND_CANDIDATE',questions:[]},fleet:[{asset:'boat',label_pt:'Barco',verdict:'caution',reasons_pt:['Equipe treinada']}],calls:[{role:'intake',model:'local',seconds:1,receipt:'r'}]}];S.selected='render';
-for(const name of ['Resumo','Meios','Mensagens','Agentes','Histórico']){S.tab=name;drawCase();assert.ok($('case').children.length>=5,name);}
+let meiosCalls=0;window.DeskMeios={render(){meiosCalls++;}};
+for(const name of ['Resumo','Meios','Retorno','Registro','Mensagens','Agentes','Histórico']){S.tab=name;drawCase();assert.ok($('case').children.length>=5,name);}
+assert.equal(meiosCalls,1);// Meios tab is the new decision screen (meios.js)
 
 const trace={version:4,agents:{intake:{fields:{people:{value:4},street:{value:'A'}}},critic:{objections:[{field:'people',reason:'citação diz três'}]},revision:{fields:{people:{value:3},street:{value:'A'}}}},calls:[{role:'intake',model:'winner',receipt:'r',status:'ok',seconds:.2}],hazard_check:'deterministic_only',hazard_review:'indisponível',errors:['hazard_critic_failed']};
 assert.deepEqual(revisionChanges(trace).map(x=>x.field),['people']);
@@ -276,13 +300,34 @@ vm.runInNewContext(source,context);const desk=context.window.DeskMap,t=desk.test
 const sources=new Map(),layers=[],layout={};let terrain;
 const m={getLayer:id=>layers.find(l=>l.id===id),removeLayer:id=>layers.splice(layers.findIndex(l=>l.id===id),1),removeSource:id=>sources.delete(id),addSource:(id,s)=>sources.set(id,s),addLayer:l=>layers.push(l),getBounds:()=>({getWest:()=>-51.22,getSouth:()=>-30.02,getEast:()=>-51.20,getNorth:()=>-30}),getZoom:()=>14,getStyle:()=>({layers}),getSource:n=>sources.get(n)||{setData(){}},setLayoutProperty:(id,k,v)=>layout[id]=v,setTerrain:v=>terrain=v};
 t.install(m,{layers:{},cases:[]});
-(async()=>{await t.loadWater();assert.equal(requests.length,1);await t.loadWater();assert.equal(requests.length,1);assert.equal(sources.get('water').type,'image');assert.equal(layers[0].paint['raster-opacity'],.5);assert.equal(layers[0].paint['raster-resampling'],'linear');assert.equal(terrain,null);
+(async()=>{await t.loadWater();assert.equal(requests.length,1);await t.loadWater();assert.equal(requests.length,1);assert.equal(sources.get('water').type,'image');assert.equal(layers[0].paint['raster-opacity'],.32);assert.equal(layers[0].paint['raster-resampling'],'linear');assert.equal(terrain,null);
 for(let i=0;i<30;i++)t.onMoveEnd();await new Promise(r=>setTimeout(r,380));assert.equal(requests.length,1,'pan must not request water, depth, or buildings in 2D');assert.ok(!requests.some(u=>u.includes('/api/depth')));assert.equal(t.terrain(),false);
 const inside={geometry:{type:'Polygon',coordinates:[[[-51.215,-30.015],[-51.205,-30.015],[-51.205,-30.005],[-51.215,-30.015]]]}};assert.ok(t.featureInView(inside,[-51.22,-30.02,-51.20,-30]));assert.ok(!t.featureInView(inside,[0,0,1,1]));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """
         p = subprocess.run([node, '-e', script, str(routes_v2.UI/'map.js')],capture_output=True,text=True,timeout=20)
         self.assertEqual(p.returncode,0,p.stderr)
+
+    def test_mission_server_payloads_have_no_broken_glyphs(self):
+        from app.web.server import create_server
+        with contextlib.ExitStack() as cleanup:
+            temporary = Scratch()
+            cleanup.callback(temporary.cleanup)
+            server = create_server('127.0.0.1', 0, sample=True, registry_path=temporary.path / 'events.jsonl')
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            connection = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=30)
+            try:
+                for path in ('/api/coverage?date=2024-05-08', '/api/flow', '/api/map?date=2024-05-08'):
+                    connection.request('GET', path)
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 200, path)
+                    self.assertEqual(broken_glyphs(response.read().decode('utf-8')), [], path)
+            finally:
+                connection.close()
+                server.shutdown()
+                server.server_close()
+                thread.join(5)
 
     def test_real_server_hook_and_offline_run(self):
         from run import create_server
@@ -314,6 +359,11 @@ const inside={geometry:{type:'Polygon',coordinates:[[[-51.215,-30.015],[-51.205,
                 response = connection.getresponse()
                 self.assertEqual(response.status, 200)
                 self.assertEqual(json.loads(response.read())['cases'][0]['case_id'], cases[0]['case_id'])
+                for path in ('/api/cases', '/api/map?date=2024-05-08'):  # UXB: payload strings too
+                    connection.request('GET', path)
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 200, path)
+                    self.assertEqual(broken_glyphs(response.read().decode('utf-8')), [], path)
             finally:
                 connection.close()
                 server.shutdown()

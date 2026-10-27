@@ -28,7 +28,7 @@ class LocationFixTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 first_json(text, location_shape=True)
 
-    def test_provider_trace_head_only_for_failed_parse_and_short_retry(self):
+    def test_provider_trace_omits_failed_parse_prefix_and_short_retry(self):
         with contextlib.ExitStack() as stack:
             scratch = Scratch()
             stack.callback(scratch.cleanup)
@@ -44,7 +44,11 @@ class LocationFixTests(unittest.TestCase):
                     contextlib.redirect_stdout(io.StringIO()):
                 Nightshift(path).call('location_agent', location.SYSTEM, '{}', time.monotonic()+20)
             events = [json.loads(line) for line in path.read_text().splitlines()]
-            self.assertIn('invalid_head', events[0])
+            # LIVEFIX6 deliberately excludes even redacted response prefixes.
+            self.assertNotIn('invalid_head', events[0])
+            self.assertEqual(events[0]['detail'], 'empty_or_invalid_json')
+            self.assertEqual(events[0]['failure_kind'], 'agent_failure')
+            self.assertNotIn('bad ', path.read_text())
             self.assertNotIn('invalid_head', events[1])
             self.assertNotIn('123456789', path.read_text())
             self.assertNotIn('private-key-value', path.read_text())

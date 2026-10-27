@@ -2,13 +2,15 @@
 import re
 from app.derive_count import INJECTION, _plain, completed_rescue_quote, REMAINING
 from app.geo.incident import incident_text, rs_municipalities, municipality_mentions
-from app.rescue_state import ANIMALS, state
-from app.volunteers.detect import is_offer as volunteer_offer
+from app.rescue_state import ANIMALS, PHYSICAL_DANGER, state
+from app.volunteers.detect import help_offer as volunteer_offer
 
 COVERED = {'porto alegre', 'canoas', 'sao leopoldo', 'eldorado do sul', 'guaiba', 'novo hamburgo'}
 OUTSIDE = re.compile(r'\b(?:'+'|'.join(map(re.escape, sorted(set(rs_municipalities()) - COVERED, key=len, reverse=True)))+
     r'|recife|curitiba|sao paulo|rio de janeiro|belo horizonte|florianopolis|pernambuco|parana|santa catarina|bahia|ceara|maranhao|piaui|estado do para|amazonas|acre|amapa|roraima|rondonia|tocantins|goias|mato grosso(?: do sul)?|espirito santo|sergipe|alagoas|paraiba|rio grande do norte|distrito federal)\b|(?:/|\bestado (?:de|do) )\s*(?:sp|pr|pe|sc|rj|mg|ba|ce|ma|pi|pa|am|ac|ap|rr|ro|to|go|mt|ms|es|se|al|pb|rn|df)\b')
 REQUEST = re.compile(r'precisamos|preciso|socorro|nos resgat|nos ajudar|estamos (?:presos|ilhados)|agua (?:entrou|subindo)|need (?:rescue|help)|necesitamos|evacuar|resgat(?:e|ar) (?:meu|nosso|a gente)')
+# ACC1: the writer says the address is unknown (staying at a relative's, stranger area).
+UNKNOWN_ADDRESS = re.compile(r'\b(?:ninguem|nao)\s+(?:sabe|sei|sabemos|conheco|conhecemos)\s+(?:o |a )?(?:endereco|numero|nome da rua|rua)\b')
 LABELS = {'street':'Rua identificada', 'landmark':'Ponto de referência', 'ambiguous_place':'Local ambíguo',
           'not_a_rescue':'Sem pessoas para resgatar — revisão humana',
           'volunteer_offer':'Voluntários — oferta de ajuda',
@@ -33,8 +35,11 @@ def apply_route(case, rows):
     outside_match = OUTSIDE.search(outside_text)
     # Outside text must assert an incident location, not just mention a city.
     outside_cue = bool(outside_match and re.search(
-        r'\b(?:em|no|na|municipio|cidade|estado|pedido|resgate|socorro)\b[^.;!\n]{0,70}$|/\s*$',
+        r'\b(?:em|no|na|municipio|cidade|estado)(?:\s+(?:de|do|da))?\s*$|[,/]\s*$',
         outside_text[:outside_match.start()]))
+    if outside_match and outside_match[0] == 'portao':
+        outside_cue = bool(re.search(r'\b(?:em|cidade|municipio)(?:\s+de)?\s*$',
+                                     outside_text[:outside_match.start()]))
     outside = bool((city and city not in COVERED) or outside_cue or
                    any(_plain(h[2]) not in COVERED for h in municipality_mentions(outside_text)))
     # A direct assertion about the incident's state contradicts a city match;
@@ -43,6 +48,9 @@ def apply_route(case, rows):
                                    outside_text[:outside_match.start()]):
         outside = True
     rescue = state(case['text'])
+    street_quote = fields.get('street', {}).get('quote', '')
+    street_number = bool(street_quote and re.search(re.escape(_plain(street_quote)) +
+        r'\s*[,\-]?\s*(?:(?:numero|nro|n[º°o.]?)\s*[:=]?\s*)?\d+\b', text))
     rescue_quote = completed_rescue_quote(case['text'])
     remaining = rescue['partial'] or bool(REMAINING.search(text))
     if rescue_quote and not remaining and result.get('age_hours', 0) >= 0:
@@ -97,10 +105,23 @@ def apply_route(case, rows):
                       questions=['Qual é o município, bairro ou referência da rua?'])
     elif ((len(re.findall(r'\b(?:rua|avenida|travessa|estrada)\b', text)) > 1 or
            sum(bool(re.search(r'\b'+re.escape(c)+r'\b', text)) for c in COVERED) > 1)
-          and (re.search(r'\bou\b|pedido (?:um|dois)|nao sei qual|(?:dois|ambos (?:os )?)\s*(?:lugares|locais|enderecos)|duas casas', text))):
+          and (re.search(r'\bou\b|pedido (?:um|dois|1|2)|(?:outro|segundo) pedido|dois pedidos|nao sei qual|(?:dois|ambos (?:os )?)\s*(?:lugares|locais|enderecos)|duas casas', text))):
         route = 'ambiguous_place'
         result.update(decision='CALLBACK', decision_reason='Há mais de um local ou pedido; confirmar cada local separadamente.',
                       questions=['Qual local corresponde a cada grupo de pessoas?'])
+    elif (re.search(r'\b(?:pedido|chamado|solicitacao)\s+(?:de\s+)?(?:socorro|resgate|ajuda)\b', text) and not street_number
+          and not re.search(r'\b(?:preciso|precisamos|nos resgatem|venham nos buscar)\b', text)
+          and not PHYSICAL_DANGER.search(text) and not remaining):
+        route = 'incomplete'
+        result.update(decision='CALLBACK', decision_reason='Pedido genérico sem ponto exato ou risco físico descrito; confirmar o socorro.',
+                      questions=['Qual é o ponto exato e quem está em risco agora?'])
+    elif (UNKNOWN_ADDRESS.search(text) and not case.get('checks', {}).get('found')
+          and not (lm.get('status') == 'resolved' and lm.get('precision') == 'area'
+                   and fields.get('landmark', {}).get('source') == 'rule:bairro_area' and rescue['life_safety'])
+          and result['decision'] in ('SEND_CANDIDATE', 'CALLBACK')):
+        route = 'ambiguous_place'  # ACC1: the writer admits nobody knows the exact address; a nearby landmark is not a point
+        result.update(decision='CALLBACK', decision_reason='O remetente não sabe o endereço exato; confirmar o local antes de despachar.',
+                      questions=['Qual é o endereço exato ou o ponto de referência mais próximo?'])
     elif lm.get('status') == 'ambiguous':
         route = 'ambiguous_place'
         result.update(decision='CALLBACK')

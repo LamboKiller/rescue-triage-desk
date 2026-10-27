@@ -180,8 +180,7 @@ def allocate(case,inventory,day,distance_fn=None):
         if reliable and land and u['max_wading_depth_m'] is not None: margin=round(u['max_wading_depth_m']-depth,3)
         elif reliable and water and u['draft_m'] is not None: margin=round(depth-u['draft_m'],3)
         cautions=sum(x['severity'] for x in checklist)
-        metric=eta if eta is not None else dist
-        score=[0 if not checklist else 1,cautions,-(margin or 0),metric if metric is not None else 1e15,u['current_load']]
+        score=[0 if not checklist else 1,cautions,-(margin or 0),1e15,u['current_load']]  # metric slot filled once the common policy is known
         row={k:copy.deepcopy(u.get(k)) for k in ('id','type','asset','label_pt','source','synthetic','capacity_people','status')}
         row.update(eligible=not blockers,verdict='unsafe' if blockers else 'caution' if checklist else 'suitable',eligibility_margin_m=margin,
             score=score,trips=trips,distance_m=dist,eta_seconds=eta,distance_basis_pt=basis,current_load=u['current_load'],reasons=reasons,
@@ -189,6 +188,12 @@ def allocate(case,inventory,day,distance_fn=None):
             blocking_reasons=blockers,source_ids=checked['source_ids'],
             confirmation_checklist=checklist,approval_holds=['Caso exige revisao humana.'] if hold else [])
         (blocked if blockers else eligible).append(row)
+    # One physical metric for the whole ranking: seconds only when every eligible unit has a proven ETA,
+    # otherwise metres for all (never seconds against metres). Unknown stays unknown and sorts last.
+    metric_key='eta_seconds' if eligible and all(r['eta_seconds'] is not None for r in eligible) else 'distance_m'
+    for r in eligible:
+        r['score'][3]=r[metric_key] if r[metric_key] is not None else 1e15
+        r['ranking_metric']=metric_key
     eligible.sort(key=lambda r:(r['score'],r['id']))
     for rank,row in enumerate(eligible,1): row['rank']=rank
     requests=[]
@@ -253,12 +258,16 @@ def prepare_mission_case(case,unit,day):
     return c
 
 
+import contextvars
+APPROVAL_DISTANCE=contextvars.ContextVar('approval_distance',default=None)
+
+
 def selected_inventory(plan,cases,inventory):
     """Called inside the existing atomic mission check, using current registry state."""
     selection=plan['allocation_selection']
     if len(cases)!=1 or selection.get('case_id')!=cases[0]['case_id']: raise ValueError('Seleção de caso inválida.')
     supported=[u for u in inventory if u.get('type') in RULE_TYPES or u.get('asset') in RULE_TYPES.values()]
-    result=allocate(cases[0],supported,plan['date'])
+    result=allocate(cases[0],supported,plan['date'],distance_fn=APPROVAL_DISTANCE.get())  # same routing as the assets screen, else the checklist differs
     row=next((r for r in result['top3'] if r['id']==selection.get('unit_id')),None)
     if row is None or row['rank']!=selection.get('rank') or row['approval_holds']:
         raise ValueError('Alocação alterada ou exige confirmação de profundidade.')

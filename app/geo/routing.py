@@ -32,7 +32,7 @@ SPEED_KPH = {'motorway':60, 'motorway_link':30, 'trunk':50, 'trunk_link':25,
     'tertiary':30, 'tertiary_link':20, 'residential':20, 'unclassified':20,
     'living_street':10, 'service':10, 'track':8, 'road':10}
 BOATS = {'barco_aluminio','bote_inflavel','jet_ski','aluminium_outboard','irb','pwc_sled'}
-WATER_LABEL = 'trecho na água em linha reta — estimativa'
+WATER_LABEL = 'rota na água — estimativa (HAND retrospectivo)'
 LAND_LABEL = 'rota OSM; velocidade por classe viária — estimativa'
 REVIEW = 'REVISAR: HAND/OSM retrospectivos, confiança baixa; confirmar acesso, transporte e estacionamento no local.'
 
@@ -302,8 +302,9 @@ class Router:
         steps=[];cursor=target
         while cursor!=start:
             u,e,reverse,state=prev[cursor];steps.append((cursor,e,reverse,state));cursor=u
-        steps.reverse();out['node_ids']=[start];metres=0
+        steps.reverse();out['node_ids']=[start];metres=0;physical_s=0.0
         for v,e,reverse,state in steps:
+            physical_s+=e['length_m']/(SPEED_KPH[e['highway']]/3.6)  # travel time only; the data-gap multiplier is risk cost
             out['edge_ids'].append(e['id']);out['node_ids'].append(v);metres+=e['length_m']
             coords=list(reversed(e['polyline'])) if reverse else e['polyline']
             out['polyline'].extend(coords if not out['polyline'] else coords[1:])
@@ -315,7 +316,7 @@ class Router:
         edge_lookup={e['id']:e for nid in route_nodes for e in self.incident[nid]}
         # Include incoming blocked edges too, without scanning the entire city.
         out['blocked_edges']=[b for b in blocked if b['edge_id'] in edge_lookup][:50]
-        out.update(land_km=round(metres/1000,4),land_eta_min=round(best[target]/60,3),
+        out.update(land_km=round(metres/1000,4),land_eta_min=round(physical_s/60,3),land_risk_cost_min=round(best[target]/60,3),
                    decision='REVIEW_REQUIRED' if out['unknown_edge_ids'] else 'HUMAN_PICK_REQUIRED')
         if any(x for x in snaps): out['review_pt'].append('Confirmar ligação entre posição e nó OSM; deslocamento fora da malha não modelado.')
         if out['unknown_edge_ids']: out['review_pt'].append('REVISAR: %d trecho(s) sem dado (%s); permitido pela política com custo penalizado %dx, nunca presumido seco.'%(len(out['unknown_edge_ids']),UNKNOWN_LABEL,UNKNOWN_PENALTY))
@@ -388,34 +389,51 @@ class Router:
         if not any(p['node_id'] in search[0] for p in launches):
             launches=self._frontier_launches(carrier,date)
             search=self._search(start,None,carrier,date,key='all')
-        speed=vehicle.get('boat_speed_kph',12) # author estimate when not documented
+        speed=vehicle.get('boat_speed_kph') or 12 # author estimate when not documented
         if type(speed) not in (int,float) or not math.isfinite(speed) or speed<=0: raise ValueError('Velocidade inválida.')
         options=[]
         for p in launches:
             nid=p['node_id']
             if nid not in search[0]: continue
-            water_m=_metres(p,target)
-            total=search[0][nid]+water_m/(speed/3.6)
-            options.append((total,nid,p,water_m))
+            # Admissible lower bound: either endpoint can stop at water <=150 m
+            # away. Rank the final choices by actual grid ETA, never this bound.
+            lower=search[0][nid]/UNKNOWN_PENALTY+max(0,_metres(p,target)-300)/(speed/3.6)
+            options.append((lower,nid,p))
         options.sort(key=lambda x:(x[0],x[1]))
         choices=[]
-        for seconds,nid,p,water_m in options[:2]:
+        incomplete=[]
+        # The previous planner compared two straight-line candidates. Compare up
+        # to eight now, using grid time for the final ranking, with a visible
+        # shortlist limit rather than thousands of bounded A* calls per request.
+        for lower,nid,p in options[:8]:
+            proven=[c for c in choices if not c['water']['fallback']]
+            if len(proven)>=2 and lower>max(c['eta_seconds'] for c in proven): break
             land=self._result(start,nid,carrier,date,search,(ds,0))
-            water=water_leg(p,target,date,speed)
+            water=water_leg(p,target,date,vehicle=vehicle)
+            if water['km'] is None:
+                incomplete.extend(water['review_pt']);continue
+            seconds=land['land_eta_min']*60+water['eta_min']*60
             choices.append({'launch_point':p,'land':land,'water':water,
                 'land_km':land['land_km'],'land_eta_min':land['land_eta_min'],'water_km':water['km'],
-                'eta_seconds':round(seconds,2),'reachable':True})
+                'water_eta_min':water['eta_min'],
+                'eta_seconds':round(seconds,2),'reachable':True,
+                'tracking_eligible':water.get('grid_verified') is True and water.get('fallback') is False})
+            choices.sort(key=lambda c:(c['water']['fallback'],c['eta_seconds'],c['launch_point']['node_id']))
+            choices=choices[:2]
         if not choices:
             land=self._result(start,'__no_launch__',carrier,date,search,(ds,0))
-            land['review_pt'].append('REVISAR: nenhum ponto de lançamento alcançável pelo lado seco.')
+            land['review_pt'].append('REVISAR: busca do trecho aquático inconclusiva.' if incomplete else
+                                    'REVISAR: nenhum ponto de lançamento alcançável pelo lado seco.')
+            land['review_pt'].extend(incomplete)
             return dict(land,land=land,water=None,water_km=None,launch_point=None,alternatives=[])
         pick=choices[0]
         launch_notes=[pick['launch_point']['label']] if pick['launch_point'].get('derived') else []
         return dict(pick,alternatives=choices,blocked_edges=pick['land']['blocked_edges'],
             decision='REVIEW_REQUIRED',human_approval_required=True,retrospective=True,confidence='low',
             carrier_estimated='carrier' not in vehicle,
-            review_pt=[REVIEW,'Confirmar veículo que transporta a embarcação e velocidade aquática (estimativa %s km/h).'%speed,
-                'Linha na água não verifica navegação, correnteza, obstáculos nem calado mínimo.']+launch_notes)
+            review_pt=[REVIEW,'Confirmar veículo que transporta a embarcação; ETA = terra + caminho aquático estimado.']+
+                (['Busca de lançamento limitada aos 8 candidatos com menor limite inferior de ETA; confirmar alternativas.'] if len(options)>8 else [])+
+                pick['water']['review_pt']+launch_notes)
 
 
 @lru_cache(maxsize=1)
@@ -426,29 +444,26 @@ def route(origin,target,vehicle,date): return default_router().route(origin,targ
 
 
 @lru_cache(maxsize=256)
-def _water_cached(alat,alon,blat,blon,day,speed):
-    a={'lat':alat,'lon':alon};b={'lat':blat,'lon':blon};length=_metres(a,b)
-    steps=max(1,math.ceil(length/25));known=[];unknown=0
-    for i in range(steps+1):
-        t=i/steps
-        try:
-            v=depth.lookup(alon+(blon-alon)*t,alat+(blat-alat)*t,day)['depth_m']
-        except (OSError,ValueError,KeyError): v=None
-        if v is None: unknown+=1
-        else: known.append(v)
-    return {'polyline':[[alon,alat],[blon,blat]],'km':round(length/1000,4),
-            'eta_min':round(length/(speed*1000/60),3),'speed_kph':speed,'speed_estimated':True,
-            'max_depth_m':max(known,default=None),'unknown_samples':unknown,'samples':steps+1,
-            'sampling_m':25,'label_pt':WATER_LABEL,'basis':'straight_line_water',
-            'retrospective':True,'confidence':'low','navigability_verified':False}
+def _water_cached(alat,alon,blat,blon,day,speed,draft,clearance,speed_estimated,allow_unknown):
+    from app.geo.water_routing import water_route
+    return water_route({'lat':alat,'lon':alon},{'lat':blat,'lon':blon},day,
+                       speed,draft,clearance,speed_estimated,allow_unknown)
 
 
-def water_leg(a,b,day,speed=12):
+def water_leg(a,b,day,speed=None,vehicle=None,draft_m=None):
     import copy
     day_value(day)
     roads._point(a['lat'],a['lon']);roads._point(b['lat'],b['lon'])
+    vehicle=vehicle or {}
+    speed_estimated=speed is None and vehicle.get('boat_speed_kph') is None
+    if speed is None: speed=12 if speed_estimated else vehicle['boat_speed_kph']
     if type(speed) not in (int,float) or not math.isfinite(speed) or speed<=0: raise ValueError('Velocidade inválida.')
-    return copy.deepcopy(_water_cached(a['lat'],a['lon'],b['lat'],b['lon'],day,speed))
+    draft=vehicle.get('draft_m') if draft_m is None else draft_m
+    clearance=vehicle.get('boat_clearance_m',.1)
+    result=copy.deepcopy(_water_cached(a['lat'],a['lon'],b['lat'],b['lon'],day,speed,draft,
+                                     clearance,speed_estimated,vehicle.get('allow_unknown_water',True)))
+    result['tracking_eligible']=result.get('fallback') is False and result.get('grid_verified') is True
+    return result
 
 
 _PLAN_CACHE={}
@@ -477,35 +492,44 @@ class FleetDistance:
     BUDGET_S = 0.8  # routing work allowed per adapter instance (= per request); the rest falls back, labelled
     def __init__(self,day,router=None): self.day=day;self.router=router;self.spent=0.0
     def _unproven(self,why):
-        return {'reachable':False,'distance_m':None,'eta_seconds':None,'basis_pt':'rota não comprovada',
+        return {'reachable':False,'distance_m':None,'eta_seconds':None,'basis_pt':'rota não comprovada','pending':'carregando' in why or 'preparando' in why,
                 'review_pt':['REVISAR: rota não comprovada ('+why+'); usando linha reta como estimativa.'],'route':{}}
     def for_unit(self,base,target,unit):
         import time
+        import json
         if self.router is None and not router_ready():
             warm_async(); return self._unproven('malha viária carregando em segundo plano')
-        key=(self.day,round(base['lat'],6),round(base['lon'],6),round(target['lat'],6),round(target['lon'],6),
-             unit.get('type'),unit.get('asset'),unit.get('max_wading_depth_m'),unit.get('requires_dry_roads'),id(self.router))
+        if unit.get('type',unit.get('asset')) in BOATS or unit.get('boat_speed_kph') is not None:
+            from app.geo import water_routing
+            if not water_routing.water_ready(self.day):
+                water_routing.warm_water(self.day); return self._unproven('grade aquática preparando em segundo plano')
+        key=(self.day,base['lat'],base['lon'],target['lat'],target['lon'],
+             json.dumps({k:unit.get(k) for k in ('type','asset','max_wading_depth_m','requires_dry_roads',
+                 'draft_m','boat_speed_kph','boat_clearance_m','carrier','allow_unknown_water')},sort_keys=True),id(self.router))
         r=_PLAN_CACHE.get(key)
         if r is None:
             if self.spent>=self.BUDGET_S: return self._unproven('orçamento de tempo de roteamento da requisição esgotado')
             t=time.monotonic()
             try: r=(self.router or default_router()).plan(base,target,unit,self.day)
-            finally: self.spent+=time.monotonic()-t
+            finally:
+                took=time.monotonic()-t; self.spent+=took
+                if took>self.BUDGET_S: self.overshoot_s=max(getattr(self,'overshoot_s',0),round(took-self.BUDGET_S,3))  # declared, not hidden
             if len(_PLAN_CACHE)>512: _PLAN_CACHE.clear()
             _PLAN_CACHE[key]=r
         ok=r['reachable']
         return {'reachable':ok,'distance_m':round((r['land_km']+(r.get('water_km') or 0))*1000,2) if ok else None,
                 'eta_seconds':r.get('eta_seconds',r['land_eta_min']*60 if ok else None),
-                'basis_pt':LAND_LABEL+' + '+WATER_LABEL if r.get('water') else LAND_LABEL,
+                'basis_pt':LAND_LABEL+' + '+r['water']['label_pt'] if r.get('water') else LAND_LABEL,
                 'review_pt':r.get('review_pt',[]),'route':r}
     def __call__(self,base,target):
         return self.for_unit(base,target,{'requires_dry_roads':True})
 
 
-def landing_distance(day):
+def landing_distance(day,vehicle=None):
     def distance(a,b):
-        water=water_leg(a,b,day)
-        return dict(water,m=round(water['km']*1000),basis='straight_line_water')
+        water=water_leg(a,b,day,vehicle=vehicle)
+        # Keep an inconclusive search visible to F5 without fabricating distance.
+        return dict(water,m=round(water['km']*1000) if water['km'] is not None else None)
     return distance
 
 

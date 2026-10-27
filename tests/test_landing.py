@@ -134,22 +134,22 @@ class Note(unittest.TestCase):
         n = note.write(self.v, self.opt)
         self.assertEqual(n['note_source'], 'deterministic');self.assertIn('sem IA', n['note_label_pt']);self.assertIn('«oxigênio»', n['note_pt'])
 
-    def test_model_note_accepted_only_with_cited_numbers_and_quotes(self):
+    def test_model_prose_never_replaces_the_field_bound_template(self):
         from app.landing import note
         good = 'Desembarque em L1; 4 pessoas; necessidade «oxigênio»; ambulância aguardando aprovação.'
-        self.assertEqual(note.write(self.v, self.opt, self.fake(good))['note_source'], 'model')
+        self.assertEqual(note.write(self.v, self.opt, self.fake(good))['note_source'], 'deterministic')
         bad_num = good.replace('4 pessoas', '40 pessoas')
         r = note.write(self.v, self.opt, self.fake(bad_num))
-        self.assertEqual(r['note_source'], 'deterministic');self.assertIn('number_not_in_case', r['note_label_pt'])
+        self.assertEqual(r['note_source'], 'deterministic');self.assertNotIn('40 pessoas', r['note_pt'])
         r = note.write(self.v, self.opt, self.fake('Desembarque em L1; 4 pessoas; precisa de ajuda médica.'))
-        self.assertIn('missing_quote', r['note_label_pt'])
+        self.assertIn('«oxigênio»', r['note_pt'])
 
     def test_model_failure_falls_back_visibly(self):
         from app.landing import note
         class Boom:
             def call(s, *a): raise RuntimeError('502')
         r = note.write(self.v, self.opt, Boom())
-        self.assertEqual(r['note_source'], 'deterministic');self.assertIn('fallback', r['note_label_pt'])
+        self.assertEqual(r['note_source'], 'deterministic');self.assertIn('sem IA', r['note_label_pt'])
 
 
 class Service(unittest.TestCase):
@@ -176,13 +176,13 @@ class Service(unittest.TestCase):
         with self.assertRaises(ValueError): self.svc.choose(self.it['id'], {'landing_id': 'L1', 'actor': '', 'at': NOW})
         with self.assertRaises(KeyError): self.svc.view('nope', NOW)
 
-    def test_model_called_only_after_human_choice_or_expand(self):
+    def test_preview_and_expand_never_call_model(self):
         calls = []
         class C:
             def call(s, *a): calls.append(1);return {'note_pt': 'x'}, {}
         self.svc.client = C()
         self.svc.view(self.it['id'], NOW);self.assertEqual(calls, [])
-        self.svc.view(self.it['id'], NOW, expand=True);self.assertEqual(len(calls), 1)
+        self.svc.view(self.it['id'], NOW, expand=True);self.assertEqual(len(calls), 0)
 
     def test_events_persist_in_own_jsonl(self):
         from app.landing.service import LandingService
@@ -271,8 +271,10 @@ class UiAssets(unittest.TestCase):
         root = Path(routes_v2.__file__).parent / 'v2'
         self.assertIn('/v2/landing.js', (root / 'index.html').read_text(encoding='utf-8'))
         app = (root / 'app.js').read_text(encoding='utf-8')
-        self.assertEqual(app.count('DeskLanding'), 1)
-        self.assertLess(app.index("if(S.tab==='Meios')"), app.index('DeskLanding'))
+        # UX2: the Meios tab is rendered by meios.js, which opens the existing Desembarque panel on demand (hooked once)
+        meios = (root / 'meios.js').read_text(encoding='utf-8')
+        self.assertIn("S.tab==='Meios')window.DeskMeios.render", app)
+        self.assertEqual(meios.count('DeskLanding'), 1)
         self.assertIn("el('h3','Desembarque')", (root / 'landing.js').read_text(encoding='utf-8'))
 
 

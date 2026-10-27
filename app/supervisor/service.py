@@ -69,7 +69,7 @@ class SupervisorService:
     @staticmethod
     def recheck(alert, by_id, current):
         orig = set(alert['case_ids'])
-        if alert['kind'] in ('unit_silent','unit_idle'):
+        if alert['kind'] in ('unit_silent','unit_idle','gps_no_signal','gps_off_route','gps_stopped'):
             present=alert['finding_id'] in current
             return {'alert_id':alert['alert_id'],'outcome':'still_open' if present else 'resolved',
                     'remaining_case_ids':sorted(orig) if present else [],
@@ -100,6 +100,8 @@ class SupervisorService:
             findings, seen = D.detect(cases, now, self.inventory_fn(), self.cfg, st['first_seen'], st['callback_times'])
             if hasattr(self, 'unit_status'):
                 findings = self.unit_status.findings(now) + findings
+            if hasattr(self, 'telemetry'):
+                findings = self.telemetry.findings(now) + findings
             by_id = {c['case_id']: c for c in seen}
             current = {f['id']: f for f in findings}
             rechecks = [self.recheck(a, by_id, current) for a in st['alerts'].values()

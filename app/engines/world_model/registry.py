@@ -12,7 +12,7 @@ import os
 import threading
 from pathlib import Path
 from app.decide import timestamp
-from app.redact import redact
+from app.redact import redact, redact_data
 
 _locks = {}
 _guard = threading.Lock()
@@ -20,6 +20,9 @@ _guard = threading.Lock()
 
 class Conflict(ValueError):
     pass
+
+
+_INDEX = {}  # path -> incremental projection (offset, signature, cases, seen)
 
 
 class Registry:
@@ -51,60 +54,104 @@ class Registry:
                 else:
                     fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
-    def _read(self):
-        cases, seen = {}, set()
+    def _read(self, shared=False):
+        """Incremental projection: replay only the journal tail appended since the last read of this file.
+
+        The authoritative journal is unchanged and a damaged row still fails closed. The index is rebuilt from scratch
+        when the file shrank or the bytes just before our offset changed (rewritten/reset journal). `shared=True`
+        returns the live index for read-only callers; the default returns detached copies (callers may mutate).
+        """
+        if not isinstance(self.path, Path):  # virtual read-only journals (as-of replay) are parsed whole and never cached
+            cases, seen, touched = {}, set(), set()
+            for line in (self.path.read_text(encoding='utf-8').splitlines() if self.path.exists() else []):
+                self._apply(cases, seen, json.loads(line), touched)
+            self._project_incident_state(cases)
+            return cases, seen
+        key = self.__dict__.get('_resolved') or self.__dict__.setdefault('_resolved', str(self.path.resolve()))  # resolve() costs 0.3-1.3 s per call on this host
+        with _guard:
+            idx = _INDEX.setdefault(key, {'offset': 0, 'sig': b'', 'cases': {}, 'seen': set(), 'replayed': 0})
         if self.path.exists():
-            for line in self.path.read_text(encoding='utf-8').splitlines():
-                event = json.loads(line)  # Fail closed on damaged log; never silently skip.
-                if event['kind'] in ('place_memory', 'unit_status'):
-                    continue
-                if event['kind'] in ('resource', 'supervisor', 'contradiction'):  # supervisor ticks/decisions are journal-only, never case state
-                    continue
-                if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission',
-                                     'repost_link', 'repost_unlink', 'mission_update'):
-                    for projection in event['projections']:
-                        earlier = cases.get(projection['case_id'])
-                        cases[projection['case_id']] = projection
-                        if earlier and 'people_initial_n' in earlier:  # logs written before P1S carry no initial count
-                            projection.setdefault('people_initial_n', earlier['people_initial_n'])
-                    if event.get('provenance'):  # an unlinked repost is ingested exactly once
-                        seen.add(event['provenance'])
-                    continue
-                cid = event['case_id']
-                if event['kind'] in ('ingest', 'analysis'):
-                    seen.add(event['provenance'])
-                    case = cases.setdefault(cid, {'case_id': cid, 'version': 0, 'status': 'proposed',
-                                                  'location_confirmed': False, 'facts': [], 'actions': []})
-                    case['facts'].append(event['case'])
-                    if 'people_initial_n' not in case:  # first observation, frozen: facts alias live fields after later edits
-                        first = (event['case'].get('fields') or {}).get('people')
-                        case['people_initial_n'] = {'value': first.get('value'), 'quote': first.get('quote'), 'source': first.get('source'),
-                                                    'message_id': event['case'].get('message_id')} if isinstance(first, dict) else None
-                    # Retain stale observations without rolling the current projection back.
-                    if 'received_at' not in case or timestamp(event['case']['received_at']) >= timestamp(case['received_at']):
-                        case.update(event['case'])
-                    case['version'] = event['version']
-                else:
-                    case = cases[cid]
-                    case['version'] = event['version']
-                    case['actions'].append(event)
-                    action = event['action']
-                    if action == 'confirm_location':
-                        case['location_confirmed'] = True
-                    elif action == 'approve_dispatch':
-                        case['status'] = 'human_approved'
-                        case['approved_asset'] = event.get('asset')
-                        case['caution_acknowledgement'] = event.get('caution_acknowledgement')
-                    elif action == 'dispatch':
-                        case['status'] = 'dispatched'
-                    elif action == 'field_confirm':
-                        case['status'] = 'field_confirmed'
-                    elif action == 'request_callback':
-                        case['status'] = 'callback_requested'
-                    elif action == 'report_rescued':
-                        case['status'] = 'reported_rescued_unconfirmed'
-        self._project_incident_state(cases)
-        return cases, seen
+            size = self.path.stat().st_size
+            with self.path.open('rb') as handle:
+                if idx['offset'] and (size < idx['offset'] or not self._signature_matches(handle, idx)):
+                    idx.update(offset=0, sig=b'', cases={}, seen=set(), replayed=0)
+                handle.seek(idx['offset'])
+                chunk = handle.read()
+            if chunk:
+                events = [json.loads(line) for line in chunk.decode('utf-8').splitlines() if line.strip()]  # Fail closed on damaged log; never silently skip.
+                touched = set()
+                for event in events:
+                    touched.update(p['case_id'] for p in event['projections']) if 'projections' in event else touched.add(event.get('case_id'))
+                    self._apply(idx['cases'], idx['seen'], event, touched)
+                idx['offset'] += len(chunk)
+                idx['sig'] = chunk[-32:] if len(chunk) >= 32 else (idx['sig'] + chunk)[-32:]
+                idx['replayed'] += len(events)
+                self._project_incident_state({c: idx['cases'][c] for c in touched if c in idx['cases']})
+        else:
+            idx.update(offset=0, sig=b'', cases={}, seen=set(), replayed=0)
+        if shared:
+            return idx['cases'], idx['seen']
+        return copy.deepcopy(idx['cases']), set(idx['seen'])
+
+    @staticmethod
+    def _signature_matches(handle, idx):
+        handle.seek(max(0, idx['offset']-len(idx['sig'])))
+        return handle.read(len(idx['sig'])) == idx['sig']
+
+    def _read_case(self, case_id):
+        """Detached copy of ONE case from the incremental index (cost scales with the case, not the journal)."""
+        cases, _ = self._read(shared=True)
+        return copy.deepcopy(cases[case_id])
+
+    @staticmethod
+    def _apply(cases, seen, event, touched):
+        if event['kind'] in ('place_memory', 'unit_status'):
+            return
+        if event['kind'] in ('resource', 'supervisor', 'contradiction'):  # supervisor ticks/decisions are journal-only, never case state
+            return
+        if event['kind'] in ('field_feedback', 'stale_callback', 'merge', 'unmerge', 'approve_mission', 'cancel_mission',
+                             'repost_link', 'repost_unlink', 'mission_update'):
+            for projection in event['projections']:
+                earlier = cases.get(projection['case_id'])
+                cases[projection['case_id']] = projection
+                if earlier and 'people_initial_n' in earlier:  # logs written before P1S carry no initial count
+                    projection.setdefault('people_initial_n', earlier['people_initial_n'])
+            if event.get('provenance'):  # an unlinked repost is ingested exactly once
+                seen.add(event['provenance'])
+            return
+        cid = event['case_id']
+        if event['kind'] in ('ingest', 'analysis'):
+            seen.add(event['provenance'])
+            case = cases.setdefault(cid, {'case_id': cid, 'version': 0, 'status': 'proposed',
+                                          'location_confirmed': False, 'facts': [], 'actions': []})
+            case['facts'].append(event['case'])
+            if 'people_initial_n' not in case:  # first observation, frozen: facts alias live fields after later edits
+                first = (event['case'].get('fields') or {}).get('people')
+                case['people_initial_n'] = {'value': first.get('value'), 'quote': first.get('quote'), 'source': first.get('source'),
+                                            'message_id': event['case'].get('message_id')} if isinstance(first, dict) else None
+            # Retain stale observations without rolling the current projection back.
+            if 'received_at' not in case or timestamp(event['case']['received_at']) >= timestamp(case['received_at']):
+                case.update(event['case'])
+            case['version'] = event['version']
+        else:
+            case = cases[cid]
+            case['version'] = event['version']
+            case['actions'].append(event)
+            action = event['action']
+            if action == 'confirm_location':
+                case['location_confirmed'] = True
+            elif action == 'approve_dispatch':
+                case['status'] = 'human_approved'
+                case['approved_asset'] = event.get('asset')
+                case['caution_acknowledgement'] = event.get('caution_acknowledgement')
+            elif action == 'dispatch':
+                case['status'] = 'dispatched'
+            elif action == 'field_confirm':
+                case['status'] = 'field_confirmed'
+            elif action == 'request_callback':
+                case['status'] = 'callback_requested'
+            elif action == 'report_rescued':
+                case['status'] = 'reported_rescued_unconfirmed'
 
     @staticmethod
     def _project_incident_state(cases):
@@ -136,14 +183,14 @@ class Registry:
             os.fsync(out.fileno())
 
     def ingest(self, case):
-        case = json.loads(redact(json.dumps(case, ensure_ascii=False)))
+        case = redact_data(case)
         case.pop('case_id', None)
         mid = case['message_id']
         text_hash = hashlib.sha256(case['text'].encode()).hexdigest()
         provenance = mid + ':' + text_hash
         cid = hashlib.sha256(mid.encode()).hexdigest()[:24]
         with self.locked():
-            cases, seen = self._read()
+            cases, seen = self._read(shared=True)
             previous = cases.get(cid)
             linked = self._linked_primary(cases, provenance)
             if linked is not None:  # this delivery is already attached to a case as a repost
@@ -172,7 +219,7 @@ class Registry:
                 self._append({'schema_version': 1, 'kind': 'analysis' if reanalysis else 'ingest', 'case_id': cid,
                               'provenance': provenance, 'version': cases.get(cid, {}).get('version', 0)+1,
                               'case': case})
-            return copy.deepcopy(self._read()[0][cid])
+            return self._read_case(cid)
 
     @staticmethod
     def _linked_primary(cases, provenance):
@@ -200,7 +247,7 @@ class Registry:
             'payload': self._stored(case)})
         self._append({'schema_version': 1, 'kind': 'repost_link', 'case_id': primary['case_id'], 'actor': 'system',
                       'projections': [updated]})
-        return copy.deepcopy(self._read()[0][primary['case_id']])
+        return self._read_case(primary['case_id'])
 
     def _unlink(self, cases, case, actor, message_id):
         """Human undo of an automatic repost link: the stored analysis becomes its own proposed case."""
@@ -225,10 +272,10 @@ class Registry:
                  'actions': [], **payload, 'unlinked_from': case['case_id']}
         self._append({'schema_version': 1, 'kind': 'repost_unlink', 'case_id': case['case_id'], 'actor': redact(actor.strip()),
                       'provenance': link['provenance'], 'projections': [updated, fresh]})
-        return copy.deepcopy(self._read()[0][case['case_id']])
+        return self._read_case(case['case_id'])
 
     def append_reply(self, case_id, expected_version, case):
-        case = json.loads(redact(json.dumps(case, ensure_ascii=False)))
+        case = redact_data(case)
         with self.locked():
             cases, _ = self._read()
             if case_id not in cases:
@@ -246,12 +293,19 @@ class Registry:
             self._append({'schema_version':1, 'kind':'analysis', 'case_id':case_id,
                 'provenance':case['message_id']+':reply:'+str(expected_version),
                 'version':expected_version+1, 'case':case})
-            return copy.deepcopy(self._read()[0][case_id])
+            return self._read_case(case_id)
 
     def read(self, case_id=None):
         with self.locked():
-            cases, _ = self._read()
+            cases, _ = self._read(shared=True)
             return copy.deepcopy(cases.get(case_id) if case_id else sorted(cases.values(), key=lambda c: -c['result']['priority']))
+
+    def queue_view(self):
+        """Copy only queue/scoring fields, never complete fact or agent histories."""
+        from app.case_summary import project
+        with self.locked():
+            cases, _ = self._read(shared=True)
+            return [project(c, scoring=True) for c in sorted(cases.values(), key=lambda c: -c['result']['priority'])]
 
     def action(self, case_id, action, expected_version, actor, *, human=False, asset=None, caution_acknowledged=False, target_case_id=None, target_expected_version=None, mission=None, mission_inventory=None, mission_id=None, expected_versions=None, event_at=None):
         if not human:
@@ -314,8 +368,8 @@ class Registry:
                           **({'asset':asset,'caution_acknowledgement':acknowledgement} if action=='approve_dispatch' else {})})
             if action == 'confirm_location':
                 from app.memory.service import PlaceMemory
-                PlaceMemory(self).confirmed(self._read()[0][case_id])
-            return copy.deepcopy(self._read()[0][case_id])
+                PlaceMemory(self).confirmed(self._read_case(case_id))
+            return self._read_case(case_id)
 
     def _merge(self, cases, case, action, actor, target_id, target_version):
         """Called under the registry's process/OS lock; one append changes both."""
@@ -394,7 +448,7 @@ class Registry:
             projections = [a,b]
         self._append({'schema_version':1,'kind':action,'case_id':case['case_id'],
                       'actor':redact(actor.strip()),'projections':projections})
-        return copy.deepcopy(self._read()[0][case['case_id']])
+        return self._read_case(case['case_id'])
 
     def record_feedback(self, case_id, expected_version, report, actor, received_at, source, mission_id=None):
         from app.feedback import apply
@@ -417,7 +471,7 @@ class Registry:
     def detect_stale(self, now=None, hours=None):
         from app.priority import stale_info
         with self.locked():
-            cases, _ = self._read(); changed=[]
+            cases, _ = self._read(shared=True); changed=[]
             for case in cases.values():
                 clock=now or case['replay_time']
                 info=stale_info(case,clock,hours)

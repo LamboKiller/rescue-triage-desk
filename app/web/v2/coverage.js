@@ -20,7 +20,9 @@ window.DeskCoverage=(()=>{
     if(payload.unlocated_case_ids.length)box.append(make('p','Sem ponto; revisar localização: '+payload.unlocated_case_ids.join(', ')));
     root.append(box);
   }
-  async function refresh(){
+  let recent=null;
+  function refresh(){const day=document.getElementById('date').value;if(recent&&recent.day===day&&Date.now()-recent.t<2500)return recent.p;recent={day,t:Date.now(),p:refreshNow()};return recent.p;}  // UX2: init + first desk refresh asked twice
+  async function refreshNow(){
     const mine=++token,day=document.getElementById('date').value;payload=null;window.DeskMap.showCoverage(null);
     try{const r=await fetch('/api/coverage?date='+encodeURIComponent(day));if(!r.ok)throw new Error('Cobertura indisponível');const data=await r.json();if(mine!==token)return;payload=data;window.DeskMap.showCoverage(data.geojson);}catch{if(mine!==token)return;}
     render();

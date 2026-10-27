@@ -1,5 +1,8 @@
 """Landing service: plan for a case, operator/crew queue reports, reversible human choice (all append-only events)."""
 import threading
+import copy
+import hashlib
+import json
 from app.landing import planner, queue as lq, points as lp, note
 from app.shelters.state import Store, naive
 
@@ -54,12 +57,19 @@ class LandingService:
         pick = next((o for o in out['options'] if ch and o['landing_id'] == ch['landing_id']), None)
         target = pick or (out['options'][0] if out['options'] else None)
         if target:
-            key = (case_id, case['version'], target['landing_id'], bool(ch), now, bool(expand and self.client))
+            target = copy.deepcopy(target)
+            sid = ch.get('shelter_id') if ch else None
+            if sid:
+                selected = next((s for s in target['shelters'] if s['shelter_id'] == sid), None)
+                target['shelters'] = [selected] if selected else []
+                if not selected: target['warnings_pt'].append('Abrigo escolhido indisponível; confirmar novo destino com a coordenação.')
+            key = hashlib.sha256(json.dumps({'facts': note.facts_of(out, target), 'choice': ch},
+                                           ensure_ascii=False, sort_keys=True).encode()).hexdigest()
             with self.lock:
                 if key not in self.cache:
-                    # Model only writes the note for a human-chosen landing (or on explicit expand); otherwise the template previews it.
-                    self.cache[key] = note.write(out, target, self.client if (ch or expand) else None)
-                out['handoff'] = {**self.cache[key], 'landing_id': target['landing_id'], 'for_choice': bool(ch)}
+                    self.cache[key] = note.write(out, target)
+                    if len(self.cache) > 128: self.cache.pop(next(iter(self.cache)))
+                out['handoff'] = {**copy.deepcopy(self.cache[key]), 'landing_id': target['landing_id'], 'for_choice': bool(ch)}
         return out
 
     def choose(self, case_id, request):

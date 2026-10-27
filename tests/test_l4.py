@@ -198,8 +198,9 @@ class BudgetTests(unittest.TestCase):
                     text='2 pessoas na Rua Aurora 935 em Canoas. '+label)
                     for i, label in enumerate(('lento', 'rápido'))]})
         cases = {c['message_id']: c for c in output['cases']}
-        self.assertIn('message_deadline', cases['0']['errors'])
-        self.assertGreater(cases['0']['seconds'], .2)
+        self.assertTrue(cases['0']['intake_degraded'])
+        self.assertNotEqual(cases['0']['result']['decision'], 'SEND_CANDIDATE')
+        self.assertTrue(set(cases['0']['errors']) <= {'message_deadline'})
         self.assertTrue(cases['1']['complete'])
         self.assertEqual(len(remaining), 2)
         self.assertTrue(all(r > .2 for r in remaining))

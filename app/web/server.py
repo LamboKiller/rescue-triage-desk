@@ -3,16 +3,63 @@
 python -m app.web.server --sample --port 8080 [--inventory path.json]
 """
 import argparse
+import hashlib
 import json
+import threading
+import time
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 from app.config import ROOT, load_env, sample_mode, setting
 from app.engines.world_model.registry import Registry, Conflict
 from app.missions.service import MissionService
 from app.pipeline import Pipeline
 
 
-def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeline=None,inventory=None,radius_m=600):
+FRIENDLY={
+    'Informe exatamente uma data.':'Informe a data no formato AAAA-MM-DD (ex.: ?date=2024-05-08).',
+    'Informe exatamente uma data ISO.':'Informe a data no formato AAAA-MM-DD (ex.: ?date=2024-05-08).',
+    'JSON ou parâmetros inválidos.':'Pedido inválido: confira o JSON enviado e os parâmetros (datas em AAAA-MM-DD).',
+    'Rota não encontrada.':'Endereço da API não encontrado. Recarregue a página; se persistir, a versão do servidor é outra.',
+    'Caso não encontrado.':'Caso não encontrado. Atualize a fila: ele pode ter sido removido ou ainda não foi processado.',
+    'Missão não encontrada.':'Missão não encontrada. Atualize as propostas do dia.',
+    'Recurso do supervisor não encontrado.':'Endereço do supervisor não encontrado. Use /api/supervisor/ticks?date=AAAA-MM-DD.',
+    'Informe um horario.':'Informe um horário ISO com fuso (ex.: 2024-05-08T12:00:00-03:00).',
+}
+
+
+CASE_CACHE={}
+HEAVY_CASE_KEYS=('facts','fleet','hazard_facts','hazards','fleet_summary','incident_state')
+
+
+def _summary(c):
+    """Queue-sized view: drops the bulky evidence lists; GET /api/cases/<id> returns the full record."""
+    from app.case_summary import project
+    return project(c)
+
+
+def _default_day(registry):
+    days=sorted({str(c.get('replay_time') or '')[:10] for c in registry.read() if c.get('replay_time')})
+    return days[-1] if days else '2024-05-08'
+
+
+def _mode_view(server,offline):
+    from app import provenance
+    runner=getattr(getattr(server,'replay',None),'runner',None)
+    replay=bool(runner and getattr(runner,'status','') in ('running','paused'))
+    sample=bool(getattr(getattr(server,'pipeline',None),'sample',offline))
+    mode='replay' if replay else 'sample_offline' if sample else 'live'
+    label={'replay':'REPLAY de execução gravada','sample_offline':'AMOSTRA OFFLINE (regras, sem agentes)','live':'AO VIVO · Nemotron via Nightshift'}[mode]
+    gate={}
+    try:
+        g=json.loads((ROOT/'eval/gate_last.json').read_text(encoding='utf-8'));head=provenance._head()
+        gate={'commit':g.get('commit'),'date':g.get('date'),'fast':g.get('fast'),'head':head,
+              'pass':all(c.get('pass') for c in (g.get('checks') or {}).values() if isinstance(c,dict)),
+              'stale':bool(g.get('commit') and head and g['commit']!=head)}
+    except (OSError,ValueError,AttributeError): gate={}
+    return {'mode':mode,'label_pt':label,'offline':sample,'gate':gate}
+
+
+def create_server(host='127.0.0.1',port=8080,sample=None,registry_path=None,pipeline=None,inventory=None,radius_m=600):
     from run import create_server as original_server
     offline=sample_mode() if sample is None else sample
     demo_units=None
@@ -41,6 +88,12 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     supervisor=SupervisorService(registry,lambda:resource_inventory(registry,inventory),service.proposals,
         None if offline else __import__('app.missions.client',fromlist=['MissionClient']).MissionClient(ROOT/'runtime/supervisor_trace.jsonl'))
     supervisor.unit_status=unit_status
+    from app.telemetry import Telemetry
+    from app.telemetry_routes import ApprovedRoutes, handle as telemetry_handle
+    telemetry=Telemetry(registry.path.parent/'telemetry.jsonl',lambda:[u['id'] for u in unit_status.inventory_fn()],lambda:[],sample=offline)
+    telemetry.missions_fn=ApprovedRoutes(unit_status,service,telemetry)
+    supervisor.telemetry=telemetry
+    unit_status.telemetry=telemetry
     from app.redteam.service import RedTeamService, handle as redteam_handle
     redteam=RedTeamService(offline=offline)
     from app.callback.service import CallbackService
@@ -72,6 +125,10 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
         shelters=shelters,supervisor=supervisor,missions=service,volunteers=volunteers,contradictions=contradictions,
         unit_status_fn=lambda now:[{'id':'unit:'+u['unit_id'],'text_pt':f"Unidade {u['unit_id']}: {u['label_pt']}; fonte {u['source'] or 'sem relato'}; horário {u['status_at'] or 'desconhecido'}."} for u in unit_status.view(now)['units']])
     server=original_server(host,port,sample=offline,pipeline=pipeline)
+    from app.queue_intake import IntakeQueue, handle_get as intake_get, handle_post as intake_post
+    intake=IntakeQueue(pipeline,registry.path.parent/'intake_queue.jsonl')  # accept-and-queue: persisted before the 202
+    from app.web.ux_routes import UxDesk, handle as ux_handle  # UX2: one-click dispatch + undo
+    ux=UxDesk(registry,service,unit_status,registry.path.parent/'ux_dispatch.jsonl')
     from app.replay import routes as replay_routes
     BaseHandler=server.RequestHandlerClass
 
@@ -79,8 +136,15 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     coverage=CoverageService(service)
 
     class Handler(BaseHandler):
+        def send_json(self,code,data,*args,**kwargs):
+            if code in (400,404) and isinstance(data,dict) and isinstance(data.get('error'),str):
+                data={**data,'error':FRIENDLY.get(data['error'],data['error'])}
+            return super().send_json(code,data,*args,**kwargs)
         def do_GET(self):
             path=urlsplit(self.path).path
+            if intake_get(self,intake,path): return
+            if path.startswith('/api/ux/'): return ux_handle(self,ux,'GET')
+            if path=='/api/telemetry' or path.startswith('/api/telemetry/'): return telemetry_handle(self,telemetry,'GET')
             if path.startswith('/api/units/'): return unit_status_handle(self,unit_status,'GET')
             if path == '/api/coverage':
                 try:
@@ -134,6 +198,17 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
             if path=='/api/reroutes' or (path.startswith('/api/missions/') and path.endswith('/chain')):
                 from app.missions.chain_routes import handle
                 return handle(self,service,'GET')
+            if path=='/api/mode': return self.send_json(200,_mode_view(server,offline))
+            if path=='/api/supervisor/ticks' and 'date=' not in (urlsplit(self.path).query or ''):
+                self.path=path+'?date='+_default_day(registry)
+            if path.startswith('/api/cases/') and len(path.split('/'))==4 and path.split('/')[3]:
+                from app.priority import queue
+                c=registry.read(unquote(path.split('/')[3]))
+                if c is None:
+                    waiting=intake.card_for(unquote(path.split('/')[3]))
+                    if waiting: return self.send_json(200,waiting)
+                    return self.send_json(404,{'error':'Caso não encontrado. Atualize a fila.'})
+                return self.send_json(200,queue([c],c.get('replay_time'))[0])
             if path.startswith('/api/supervisor'): return supervisor_routes.handle(self,supervisor,'GET')
             if path in ('/api/evals','/api/provenance'):
                 from app import provenance
@@ -160,7 +235,36 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
                         if len(query['replay_time'])!=1: raise ValueError('Informe um horario.')
                         clock=query['replay_time'][0];timestamp(clock)
                     registry.detect_stale(clock)
-                    self.send_json(200,{'cases':queue(registry.read(),clock)});return
+                    st=registry.path.stat() if registry.path.exists() else type('S',(),{'st_mtime_ns':0,'st_size':0})();key=(str(registry.path),st.st_mtime_ns,st.st_size,clock,'full' in query)  # empty desk: queued cards only
+                    hit=CASE_CACHE.get('v')
+                    def build():
+                        cases=queue(registry.read() if 'full' in query else registry.queue_view(),clock)
+                        if 'full' not in query: cases=[_summary(c) for c in cases]
+                        rows=[((c.get('live_priority') or {}).get('score',0),json.dumps(c,ensure_ascii=False,separators=(',',':'))) for c in cases]
+                        CASE_CACHE['v']=(key,rows,time.monotonic());return rows
+                    if hit and hit[0]==key: items=hit[1]
+                    elif hit and hit[0][0]==key[0] and hit[0][3:]==key[3:] and time.monotonic()-hit[2]<10 and intake.summary(limit=0)['backlog']>0:
+                        # Surge: serve the last list (<10 s old) and rebuild once in the background, so polls stay
+                        # fast while decisions land. Human actions are version-checked server-side, so this is display-only.
+                        items=hit[1]
+                        if not CASE_CACHE.get('refreshing'):
+                            CASE_CACHE['refreshing']=True
+                            def refresh():
+                                try: build()
+                                except Exception: pass
+                                finally: CASE_CACHE['refreshing']=False
+                            threading.Thread(target=refresh,daemon=True).start()
+                    else: items=build()
+                    # Waiting messages are never hidden: provisional 'em fila' cards merge by priority.
+                    waiting=intake.card_items('full' in query)
+                    if waiting: items=sorted(items+waiting,key=lambda row:-row[0])
+                    body=('{"cases":['+','.join(row[1] for row in items)+']}').encode()
+                    tag='"'+hashlib.sha1(body).hexdigest()[:20]+'"'
+                    if self.headers.get('If-None-Match')==tag:
+                        self.send_response(304);self.send_header('ETag',tag);self.send_header('Cache-Control','no-cache');self.end_headers();return
+                    self.send_response(200);self.send_header('Content-Type','application/json; charset=utf-8')
+                    self.send_header('ETag',tag);self.send_header('Cache-Control','no-cache')
+                    self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body);return
                 if path=='/api/missions/proposals':
                     query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
                     if len(query.get('date',[]))!=1: raise ValueError('Informe exatamente uma data.')
@@ -175,6 +279,11 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
 
         def do_POST(self):
             path=urlsplit(self.path).path
+            from app.operator_boundary import guard_operator
+            if not guard_operator(self,device=path in ('/api/telemetry/osmand','/api/telemetry/positions')): return
+            if intake_post(self,intake,path): return
+            if path.startswith('/api/ux/'): return ux_handle(self,ux,'POST')
+            if path=='/api/telemetry' or path.startswith('/api/telemetry/'): return telemetry_handle(self,telemetry,'POST')
             if path == '/api/handover': return handover_routes.handle(self,handover,'POST')
             if path.startswith('/api/units/'): return unit_status_handle(self,unit_status,'POST')
             if path.startswith('/api/reunite'):
@@ -249,19 +358,21 @@ def create_server(host='0.0.0.0',port=8080,sample=None,registry_path=None,pipeli
     server.volunteers=volunteers
     server.feedback=feedback
     server.unit_status=unit_status
+    server.telemetry=telemetry
     server.callback=callback
     server.supervisor=supervisor
     server.handover=handover
     server.redteam=redteam
     from app.replay.routes import ReplayController
     server.pipeline=pipeline
+    server.intake=intake;server.ux=ux
     server.replay=ReplayController(server)
     return server
 
 
 def main():
     load_env();p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--sample',action='store_true');p.add_argument('--host',default='0.0.0.0')
+    p.add_argument('--sample',action='store_true');p.add_argument('--host',default='127.0.0.1')
     p.add_argument('--port',type=int,default=int(setting('PORT','8080')))
     p.add_argument('--inventory',type=Path);p.add_argument('--radius-m',type=float,default=600)
     args=p.parse_args()

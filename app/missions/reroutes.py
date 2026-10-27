@@ -64,6 +64,9 @@ def reroutes(service,day):
             p['number_sources']={'mission_delay_minutes':'travel_facts; baseline adapter legs',
                 'arrival_minutes':'travel_facts; adapter ETA sum','next_free_minutes':'eligible free unit adapter ETA minimum'}
             p['free_unit_travel_facts']=free
+            if p.get('planning_estimate_only') or any(f['travel'].get('planning_estimate_only') for f in free):
+                from .chaining import UNPROVEN_WATER_PT
+                p['text_pt']+=' — '+UNPROVEN_WATER_PT
             result.append(p)
     return {'date':day,'alerts':result,'human_approval_required':True,'auto_applied':False}
 
